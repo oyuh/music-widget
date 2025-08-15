@@ -161,6 +161,12 @@ export default function EditorPage() {
     <>
       <Head>
         <title>Fast Music Widget</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(cfg.theme.font).replace(/%20/g, "+")}:wght@400;600;700&display=swap`}
+          rel="stylesheet"
+        />
       </Head>
       <main className="min-h-screen bg-neutral-950 text-white">
         <div className="max-w-3xl mx-auto p-6">

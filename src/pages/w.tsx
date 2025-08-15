@@ -98,7 +98,7 @@ export default function WidgetPage() {
       <Head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(cfg.theme.font)}:wght@400;600;700&display=swap`} rel="stylesheet" />
+  <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(cfg.theme.font).replace(/%20/g, "+")}:wght@400;600;700&display=swap`} rel="stylesheet" />
   {/* Force transparent page background for embedding in streaming overlays */}
   <style>{`html, body, #__next { background: transparent !important; }`}</style>
       </Head>
