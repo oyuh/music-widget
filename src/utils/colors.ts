@@ -65,8 +65,10 @@ export async function extractDominantColor(imgUrl: string): Promise<string | nul
           resolve(null);
         }
       };
-      img.onerror = () => resolve(null);
-      img.src = imgUrl;
+  img.onerror = () => resolve(null);
+  // Use internal proxy to bypass CORS and enable caching
+  const proxied = `/api/proxy-image?url=${encodeURIComponent(imgUrl)}`;
+  img.src = proxied;
     } catch {
       resolve(null);
     }

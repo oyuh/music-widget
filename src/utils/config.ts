@@ -8,6 +8,13 @@ export type WidgetConfig = {
   autoTargets?: { title: boolean; artist: boolean; album: boolean; meta: boolean };
     font: string; // Google font key
     text: { title: string; artist: string; album: string; meta: string };
+  textSize?: { title: number; artist: number; album: number; meta: number }; // px sizes per text
+  textStyle?: {
+    title: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+    artist: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+    album: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+    meta: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+  };
   bgEnabled?: boolean; // optional for backward compatibility; default true
   };
   layout: {
@@ -16,6 +23,13 @@ export type WidgetConfig = {
     artSize: number; // px size of album art edge
     artPosition: "left" | "right" | "top";
   scrollTriggerWidth: number; // px width at which text starts scrolling
+  textGap: number; // px gap between title/artist/album rows
+  textOffset?: {
+    title: { x: number; y: number };
+    artist: { x: number; y: number };
+    album: { x: number; y: number };
+    meta: { x: number; y: number };
+  };
   };
   fields: {
     title: boolean; artist: boolean; album: boolean;
@@ -29,12 +43,19 @@ export const defaultConfig: WidgetConfig = {
     bg: "#000000CC",
     accent: "#1db954",
     autoFromArt: false,
-  autoTargets: { title: false, artist: false, album: false, meta: false },
+  autoTargets: { title: false, artist: true, album: false, meta: false },
     font: "Inter",
   text: { title: "#ffffff", artist: "#e5e5e5", album: "#cfcfcf", meta: "#bdbdbd" },
+  textSize: { title: 16, artist: 14, album: 12, meta: 12 },
+  textStyle: {
+    title: { italic: false, underline: false, bold: true, strike: false },
+    artist: { italic: false, underline: false, bold: false, strike: false },
+    album: { italic: false, underline: false, bold: false, strike: false },
+    meta: { italic: false, underline: false, bold: false, strike: false },
+  },
   bgEnabled: true,
   },
-  layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 96, artPosition: "left", scrollTriggerWidth: 180 },
+  layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 96, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 } } },
   fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50 },
 };
 
