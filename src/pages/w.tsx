@@ -10,13 +10,14 @@ export default function WidgetPage() {
     setCfg(decodeConfig(window.location.hash));
   }, []);
 
-  if (!cfg) return null;
-
+  // Call hooks unconditionally to keep hook order stable across renders
   const { track, isLive, percent } = useNowPlaying({
-    username: cfg.lfmUser,
+    username: cfg?.lfmUser ?? "",
     pollMs: 15000,
     sessionKey: null, // keep widget public-only; preview handles private via editor
   });
+
+  if (!cfg) return null;
 
   const art = track?.image?.slice(-1)?.[0]?.["#text"] ?? "";
   const title = track?.name ?? "—";
