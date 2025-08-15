@@ -2,6 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Last.fm setup
+
+1. Create a Last.fm API application at https://www.last.fm/api/account/create
+2. Set the callback URL to your local or deployed URL:
+	- Local: `http://localhost:3000/callback`
+	- Deployed: `https://<your-domain>/callback`
+3. Copy `.env.example` to `.env.local` and fill in:
+	- `NEXT_PUBLIC_LFM_KEY` = your API Key
+	- `LFM_SHARED_SECRET` = your Shared Secret
+	- Optionally, `NEXT_PUBLIC_LFM_CALLBACK` to override the callback URL
+4. Restart the dev server after changing env vars.
+
 First, run the development server:
 
 ```bash
