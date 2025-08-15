@@ -22,12 +22,12 @@ export function useNowPlaying(options: {
   const [isLive, setIsLive] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  // Smooth ticking state to animate progress between polls
+  const [nowTs, setNowTs] = useState<number>(() => (typeof Date !== "undefined" ? Date.now() : 0));
   const lastIdRef = useRef<string>("");
 
   useEffect(() => {
     if (!username) return;
-    let timer: number;
-
     const fetchNow = async () => {
       const base = sessionKey
         ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1&sk=${encodeURIComponent(sessionKey)}`
@@ -69,15 +69,29 @@ export function useNowPlaying(options: {
     };
 
     fetchNow();
-    timer = window.setInterval(fetchNow, pollMs) as unknown as number;
-    return () => clearInterval(timer);
+  const t = window.setInterval(fetchNow, pollMs) as unknown as number;
+  return () => clearInterval(t);
   }, [username, pollMs, sessionKey]);
 
-  const progressMs = isLive && startedAt ? Date.now() - startedAt : 0;
+  // Drive a ticker while live to keep progress moving smoothly (animation frame-based)
+  useEffect(() => {
+    if (!isLive || !startedAt) return;
+    let rafId = 0;
+    const loop = () => {
+      setNowTs(Date.now());
+      rafId = window.requestAnimationFrame(loop);
+    };
+    rafId = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isLive, startedAt]);
+
+  const progressMs = isLive && startedAt ? nowTs - startedAt : 0;
   const percent = useMemo(() => {
-    if (!isLive || !durationMs || durationMs <= 0) return 0;
-    return Math.max(0, Math.min(100, (progressMs / durationMs) * 100));
-  }, [isLive, durationMs, progressMs]);
+    // If duration is unknown, assume 3 minutes to keep the bar moving
+    const effectiveDuration = durationMs && durationMs > 0 ? durationMs : 180_000;
+    if (!isLive || !startedAt) return 0;
+    return Math.max(0, Math.min(100, (progressMs / effectiveDuration) * 100));
+  }, [isLive, startedAt, durationMs, progressMs]);
 
   return { track, isLive, progressMs, durationMs, percent };
 }

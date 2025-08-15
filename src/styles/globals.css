@@ -24,3 +24,26 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Marquee scrolling text */
+.marquee {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.marquee__inner {
+  display: inline-block;
+  padding-right: 32px; /* gap between clones */
+}
+.marquee--animate .marquee__inner {
+  animation: marquee-scroll var(--marquee-duration, 12s) linear infinite;
+}
+.marquee--animate .marquee__inner.clone {
+  position: absolute;
+  left: 100%;
+  top: 0;
+}
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}

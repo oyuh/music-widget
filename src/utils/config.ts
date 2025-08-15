@@ -1,8 +1,22 @@
 // src/utils/config.ts
 export type WidgetConfig = {
   lfmUser: string;
-  theme: { bg: string; text: string; accent: string };
-  layout: { w: number; h: number; showArt: boolean; align: "left" | "right" };
+  theme: {
+    bg: string;
+    accent: string;
+  autoFromArt: boolean; // when true, apply dominant album color to selected targets
+  autoTargets?: { title: boolean; artist: boolean; album: boolean; meta: boolean };
+    font: string; // Google font key
+    text: { title: string; artist: string; album: string; meta: string };
+  bgEnabled?: boolean; // optional for backward compatibility; default true
+  };
+  layout: {
+    w: number; h: number; showArt: boolean;
+    align: "left" | "right" | "center";
+    artSize: number; // px size of album art edge
+    artPosition: "left" | "right" | "top";
+  scrollTriggerWidth: number; // px width at which text starts scrolling
+  };
   fields: {
     title: boolean; artist: boolean; album: boolean;
     progress: boolean; duration: boolean; history: number;
@@ -11,8 +25,16 @@ export type WidgetConfig = {
 
 export const defaultConfig: WidgetConfig = {
   lfmUser: "",
-  theme: { bg: "#000000CC", text: "#ffffff", accent: "#1db954" },
-  layout: { w: 420, h: 120, showArt: true, align: "left" },
+  theme: {
+    bg: "#000000CC",
+    accent: "#1db954",
+    autoFromArt: false,
+  autoTargets: { title: false, artist: false, album: false, meta: false },
+    font: "Inter",
+  text: { title: "#ffffff", artist: "#e5e5e5", album: "#cfcfcf", meta: "#bdbdbd" },
+  bgEnabled: true,
+  },
+  layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 96, artPosition: "left", scrollTriggerWidth: 180 },
   fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50 },
 };
 

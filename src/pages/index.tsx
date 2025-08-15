@@ -1,13 +1,18 @@
 // src/pages/index.tsx
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useState } from "react";
+import Head from "next/head";
 import LastfmConnect from "../components/LastfmConnect";
 import { defaultConfig, encodeConfig, decodeConfig, WidgetConfig } from "../utils/config";
 import { useNowPlaying } from "../hooks/useNowPlaying";
+import { extractDominantColor, getContrastText } from "../utils/colors";
+import ScrollText from "../components/ScrollText";
 
 export default function Editor() {
   const [cfg, setCfg] = useState<WidgetConfig>(defaultConfig);
   const [connectedName, setConnectedName] = useState<string | null>(null);
   const [sessionKey, setSessionKey] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Import existing widget link via ?import=<url>
   useEffect(() => {
@@ -30,7 +35,7 @@ export default function Editor() {
   // Autofill username from connection
   useEffect(() => {
     if (connectedName && !cfg.lfmUser) setCfg(prev => ({ ...prev, lfmUser: connectedName }));
-  }, [connectedName]);
+  }, [connectedName, cfg.lfmUser]);
 
   const [share, setShare] = useState<string>("");
   const [mounted, setMounted] = useState(false);
@@ -40,21 +45,66 @@ export default function Editor() {
       setShare(`${window.location.origin}/w#${encodeConfig(cfg)}`);
     }
   }, [cfg]);
+  const editorImportUrl = useMemo(() => {
+    if (!mounted || !share) return "";
+    return `${window.location.origin}/?import=${encodeURIComponent(share)}`;
+  }, [mounted, share]);
   const { track, isLive, percent } = useNowPlaying({
     username: cfg.lfmUser,
     pollMs: 15000,
     sessionKey, // if present, preview will work even for private profiles
   });
 
+  // Auto theme from album art
+  useEffect(() => {
+    const art = track?.image?.slice(-1)?.[0]?.["#text"];
+    if (!cfg.theme.autoFromArt || !art) return;
+    (async () => {
+      const color = await extractDominantColor(art);
+      if (!color) return;
+      const textColor = getContrastText(color); // Get contrast text color
+      setCfg(prev => ({
+        ...prev,
+        theme: {
+          ...prev.theme,
+          // Only update selected text colors, do not change background
+          text: {
+            ...prev.theme.text,
+            title: prev.theme.autoTargets?.title ? textColor : prev.theme.text.title,
+            artist: prev.theme.autoTargets?.artist ? textColor : prev.theme.text.artist,
+            album: prev.theme.autoTargets?.album ? textColor : prev.theme.text.album,
+            meta: prev.theme.autoTargets?.meta ? textColor : prev.theme.text.meta,
+          },
+        },
+      }));
+    })();
+  }, [cfg.theme.autoFromArt, track?.image]);
+
   const update = <K extends keyof WidgetConfig>(k: K, v: WidgetConfig[K]) =>
     setCfg(prev => ({ ...prev, [k]: v }));
 
   return (
-    <main className="min-h-screen bg-neutral-900 text-white">
+    <main className="min-h-screen text-white" style={{ background: "radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,0.06), transparent), radial-gradient(800px 400px at 80% 10%, rgba(255,255,255,0.04), transparent), #0a0a0a" }}>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(cfg.theme.font)}:wght@400;600;700&display=swap`} rel="stylesheet" />
+      </Head>
       <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-2">Apple Music (via Last.fm) Stream Widget</h1>
-        <p className="text-white/70 mb-6">
-          Enter your Last.fm username, customize the card, and copy your unique link to use as a Browser Source in OBS.
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Fast Music (via Last.fm) Stream Widget</h1>
+          <a
+            href="https://lawsonhart.me"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
+            title="Open lawsonhart.me"
+          >
+            made by <span className="ml-1 font-medium text-white">Lawson Hart</span> <span className="ml-1 text-white/60">(wthlaw)</span>
+          </a>
+        </div>
+        <p className="text-white/70 mb-6 leading-relaxed">
+          Enter your Last.fm username, customize the card, and copy your unique link to use as a Browser Source in OBS. <a href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noreferrer noopener" className="underline underline-offset-2 decoration-white/70 hover:decoration-white text-white">Set up scrobbles before using this app</a>.
         </p>
 
         <div className="flex items-center gap-3 mb-4">
@@ -74,27 +124,78 @@ export default function Editor() {
           placeholder="your-lastfm-username"
         />
 
-        <h3 className="font-medium mt-6 mb-2">Theme</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <h3 className="font-medium mt-8 mb-3">Theme</h3>
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-sm mb-1">Background</label>
             <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
               value={cfg.theme.bg} onChange={e => update("theme", { ...cfg.theme, bg: e.target.value })}/>
           </div>
           <div>
-            <label className="block text-sm mb-1">Text</label>
-            <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
-              value={cfg.theme.text} onChange={e => update("theme", { ...cfg.theme, text: e.target.value })}/>
-          </div>
-          <div>
             <label className="block text-sm mb-1">Accent</label>
             <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
               value={cfg.theme.accent} onChange={e => update("theme", { ...cfg.theme, accent: e.target.value })}/>
           </div>
+          <div>
+            <label className="block text-sm mb-1">Font</label>
+            <select
+              className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
+              value={cfg.theme.font}
+              onChange={(e)=> update("theme", { ...cfg.theme, font: e.target.value })}
+            >
+              {['Inter','Poppins','Roboto','Montserrat','Nunito','Oswald','Lato'].map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
         </div>
+        <label className="inline-flex items-center gap-2 mt-3 text-sm">
+          <input type="checkbox" checked={cfg.theme.bgEnabled ?? true}
+            onChange={e=> update("theme", { ...cfg.theme, bgEnabled: e.target.checked })} />
+          Show background
+        </label>
 
-        <h3 className="font-medium mt-6 mb-2">Layout</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
+          <div>
+            <label className="block text-sm mb-1">Title color</label>
+            <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.theme.text.title}
+              onChange={e=> update("theme", { ...cfg.theme, text: { ...cfg.theme.text, title: e.target.value }})} />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Artist color</label>
+            <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.theme.text.artist}
+              onChange={e=> update("theme", { ...cfg.theme, text: { ...cfg.theme.text, artist: e.target.value }})} />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Album color</label>
+            <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.theme.text.album}
+              onChange={e=> update("theme", { ...cfg.theme, text: { ...cfg.theme.text, album: e.target.value }})} />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Meta color</label>
+            <input className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.theme.text.meta}
+              onChange={e=> update("theme", { ...cfg.theme, text: { ...cfg.theme.text, meta: e.target.value }})} />
+          </div>
+        </div>
+        <label className="inline-flex items-center gap-2 mt-3 text-sm">
+          <input type="checkbox" checked={cfg.theme.autoFromArt}
+            onChange={e=> update("theme", { ...cfg.theme, autoFromArt: e.target.checked })} />
+          Auto theme from album art
+        </label>
+        {cfg.theme.autoFromArt && (
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            {(["title","artist","album","meta"] as const).map(k => (
+              <label key={k} className="flex items-center gap-2">
+                <input type="checkbox" checked={Boolean(cfg.theme.autoTargets?.[k])}
+                  onChange={(e)=> update("theme", { ...cfg.theme, autoTargets: { ...(cfg.theme.autoTargets ?? { title:false, artist:false, album:false, meta:false }), [k]: e.target.checked }})} />
+                Apply to {k}
+              </label>
+            ))}
+          </div>
+        )}
+
+        <h3 className="font-medium mt-8 mb-2">Layout</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           <div>
             <label className="block text-sm mb-1">Width</label>
             <input type="number" className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
@@ -111,20 +212,37 @@ export default function Editor() {
             Show art
           </label>
           <div>
-            <label className="block text-sm mb-1">Align</label>
+            <label className="block text-sm mb-1">Text align</label>
             <select className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
-              value={cfg.layout.align} onChange={e => update("layout", { ...cfg.layout, align: e.target.value as any })}>
-              <option value="left">Left</option><option value="right">Right</option>
+              value={cfg.layout.align} onChange={e => update("layout", { ...cfg.layout, align: e.target.value as WidgetConfig["layout"]["align"] })}>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm mb-1">Art size (px)</label>
+            <input type="number" className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
+              value={cfg.layout.artSize} onChange={e => update("layout", { ...cfg.layout, artSize: +e.target.value })}/>
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Scroll trigger width (px)</label>
+            <input
+              type="number"
+              className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
+              value={cfg.layout.scrollTriggerWidth ?? 180}
+              onChange={(e) => update("layout", { ...cfg.layout, scrollTriggerWidth: Math.max(0, +e.target.value) })}
+            />
+          </div>
+          {/* Art position now derives from text alignment (left/right) and center places art above */}
         </div>
 
         <h3 className="font-medium mt-6 mb-2">Fields</h3>
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 text-sm">
-          {(["title","artist","album","progress","duration"] as const).map(f => (
+      {(["title","artist","album","progress","duration"] as const).map(f => (
             <label key={f} className="flex items-center gap-2">
               <input type="checkbox"
-                checked={(cfg.fields as any)[f]}
+        checked={cfg.fields[f]}
                 onChange={(e) => setCfg({...cfg, fields: {...cfg.fields, [f]: e.target.checked}})} />
               {f}
             </label>
@@ -138,20 +256,65 @@ export default function Editor() {
           </div>
         </div>
 
-        <h3 className="font-medium mt-8 mb-2">Preview</h3>
-        <WidgetPreview cfg={cfg} isLive={isLive} percent={percent} trackTitle={track?.name} artist={track?.artist?.["#text"]} album={track?.album?.["#text"]} art={track?.image?.slice(-1)?.[0]?.["#text"] ?? ""} />
+        <div className="mt-8 mb-2 flex items-center justify-between">
+          <h3 className="font-medium">Preview</h3>
+          <button
+            type="button"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            className="inline-flex items-center gap-2 rounded-md bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 px-3 py-1.5 text-sm border border-white/10"
+            title="Force refresh the preview"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+        <WidgetPreview key={refreshKey} cfg={cfg} isLive={isLive} percent={percent} trackTitle={track?.name} artist={track?.artist?.["#text"]} album={track?.album?.["#text"]} art={track?.image?.slice(-1)?.[0]?.["#text"] ?? ""} />
 
         <h3 className="font-medium mt-8 mb-2">Your unique widget link</h3>
         {mounted && (
-          <>
-            <input readOnly className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
-                   value={share} onFocus={(e) => e.currentTarget.select()} />
-            <p className="text-white/60 mt-2 text-sm">
-              To edit later, paste your widget link into the editor using <code>?import=</code>:
-              <br/>
-              <code className="text-white">{`${window.location.origin}/?import=${encodeURIComponent(share)}`}</code>
-            </p>
-          </>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                readOnly
+                className="flex-1 min-w-0 rounded bg-neutral-800 border border-white/10 px-3 py-2"
+                value={share}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                type="button"
+                className="rounded bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 px-3 py-2 text-sm border border-white/10 whitespace-nowrap"
+                onClick={async () => { try { await navigator.clipboard.writeText(share); } catch { /* noop */ } }}
+              >
+                Copy link
+              </button>
+              <a
+                className="rounded bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 px-3 py-2 text-sm border border-white/10 whitespace-nowrap"
+                href={share}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Open widget
+              </a>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-sm text-white/70">
+              <span>Edit later:</span>
+              <a
+                href={editorImportUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 px-3 py-1.5 border border-white/10"
+              >
+                Open in editor
+              </a>
+              <button
+                type="button"
+                className="rounded bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-600 px-3 py-1.5 border border-white/10"
+                onClick={async () => { try { await navigator.clipboard.writeText(editorImportUrl); } catch { /* noop */ } }}
+              >
+                Copy editor import URL
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </main>
@@ -165,29 +328,63 @@ function WidgetPreview(props: {
   trackTitle?: string; artist?: string; album?: string; art?: string;
 }) {
   const { cfg, isLive, percent, trackTitle, artist, album, art } = props;
+  const grid = useMemo(() => {
+    // Place art relative to text alignment: center => art above, left => art left, right => art right
+    if (!cfg.layout.showArt) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
+    if (cfg.layout.align === "center") return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto 1fr", justifyItems: "center" } as const;
+    if (cfg.layout.align === "right") return { display: "grid", gridTemplateColumns: `1fr auto`, gridTemplateRows: "auto", alignItems: "center" } as const;
+    return { display: "grid", gridTemplateColumns: `auto 1fr`, gridTemplateRows: "auto", alignItems: "center" } as const;
+  }, [cfg.layout.showArt, cfg.layout.align]);
+
+  const textAlign = cfg.layout.align;
+  const fontFamily = cfg.theme.font ? `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system` : undefined;
+
   return (
     <div
-      className="rounded-2xl p-3 grid gap-3 items-center"
+      className="rounded-2xl p-4 gap-3 items-center shadow-lg/30"
       style={{
-        background: cfg.theme.bg, color: cfg.theme.text,
+        background: (cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent",
         width: cfg.layout.w, height: cfg.layout.h,
-        gridTemplateColumns: cfg.layout.showArt ? "auto 1fr" : "1fr"
+        ...grid,
+        fontFamily,
       }}
     >
-      {cfg.layout.showArt && (
-        <img src={art} alt="" style={{ width: cfg.layout.h - 24, height: cfg.layout.h - 24, objectFit: "cover", borderRadius: 12 }} />
-      )}
-      <div className={cfg.layout.align === "right" ? "text-right" : "text-left"}>
-        {cfg.fields.title && <div className="font-semibold text-base truncate">{trackTitle ?? "—"}</div>}
-        {cfg.fields.artist && <div className="opacity-90 truncate">{artist ?? "—"}</div>}
-        {cfg.fields.album && <div className="opacity-70 text-sm truncate">{album ?? ""}</div>}
-        {cfg.fields.progress && (
-          <div className="mt-2 h-1.5 bg-white/30 rounded overflow-hidden">
-            <div className="h-full" style={{ width: `${percent}%`, background: cfg.theme.accent }} />
+      {/* Render order based on alignment: right => text then art; left/center => art then text */}
+  {textAlign === 'right' ? (
+        <>
+          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]}>
+  {cfg.fields.title && <ScrollText className="font-semibold text-base" color={cfg.theme.text.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+  {cfg.fields.artist && <ScrollText className="opacity-95" color={cfg.theme.text.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+  {cfg.fields.album && <ScrollText className="text-sm opacity-85" color={cfg.theme.text.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+            {cfg.fields.progress && (
+              <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
+                <div className="h-full" style={{ width: `${percent}%`, background: cfg.theme.accent, transition: "width 120ms linear" }} />
+              </div>
+            )}
+            <div className="mt-1 text-xs" style={{ color: cfg.theme.text.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
-        )}
-        <div className="mt-1 text-xs opacity-70">{isLive ? "Now playing" : "Paused / Not playing"}</div>
-      </div>
+          {cfg.layout.showArt && (
+            <img src={art} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />
+          )}
+        </>
+      ) : (
+        <>
+          {cfg.layout.showArt && (
+            <img src={art} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }} />
+          )}
+          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]}>
+            {cfg.fields.title && <ScrollText className="font-semibold text-base" color={cfg.theme.text.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+            {cfg.fields.artist && <ScrollText className="opacity-95" color={cfg.theme.text.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+            {cfg.fields.album && <ScrollText className="text-sm opacity-85" color={cfg.theme.text.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+            {cfg.fields.progress && (
+              <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
+                <div className="h-full" style={{ width: `${percent}%`, background: cfg.theme.accent, transition: "width 120ms linear" }} />
+              </div>
+            )}
+            <div className="mt-1 text-xs" style={{ color: cfg.theme.text.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
