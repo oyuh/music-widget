@@ -5,7 +5,7 @@ import { decodeConfig, WidgetConfig, defaultConfig } from "../utils/config";
 import Head from "next/head";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
-import { extractDominantColor, getReadableTextOn } from "../utils/colors";
+import { extractDominantColor, getReadableTextOn, generateDropShadowCSS, generateElementDropShadowCSS } from "../utils/colors";
 
 export default function WidgetPage() {
   const [cfg, setCfg] = useState<WidgetConfig | null>(null);
@@ -33,6 +33,10 @@ export default function WidgetPage() {
               artist: { italic: p.theme?.textStyle?.artist?.italic ?? defaultConfig.theme.textStyle!.artist.italic, underline: p.theme?.textStyle?.artist?.underline ?? defaultConfig.theme.textStyle!.artist.underline, bold: p.theme?.textStyle?.artist?.bold ?? defaultConfig.theme.textStyle!.artist.bold, strike: p.theme?.textStyle?.artist?.strike ?? defaultConfig.theme.textStyle!.artist.strike },
               album: { italic: p.theme?.textStyle?.album?.italic ?? defaultConfig.theme.textStyle!.album.italic, underline: p.theme?.textStyle?.album?.underline ?? defaultConfig.theme.textStyle!.album.underline, bold: p.theme?.textStyle?.album?.bold ?? defaultConfig.theme.textStyle!.album.bold, strike: p.theme?.textStyle?.album?.strike ?? defaultConfig.theme.textStyle!.album.strike },
               meta: { italic: p.theme?.textStyle?.meta?.italic ?? defaultConfig.theme.textStyle!.meta.italic, underline: p.theme?.textStyle?.meta?.underline ?? defaultConfig.theme.textStyle!.meta.underline, bold: p.theme?.textStyle?.meta?.bold ?? defaultConfig.theme.textStyle!.meta.bold, strike: p.theme?.textStyle?.meta?.strike ?? defaultConfig.theme.textStyle!.meta.strike },
+            },
+            dropShadow: {
+              ...defaultConfig.theme.dropShadow!,
+              ...p.theme?.dropShadow,
             },
           },
           layout: { ...defaultConfig.layout, ...p.layout },
@@ -111,6 +115,31 @@ export default function WidgetPage() {
   const effectiveCfg = cfg ?? defaultConfig;
   const [computedText, setComputedText] = useState(effectiveCfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(effectiveCfg.theme.accent);
+
+  // Drop shadow computation helpers
+  const dropShadows = effectiveCfg.theme.dropShadow?.enabled ? {
+    getBackgroundShadow: () => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.background
+      ? generateDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.bg)
+      : undefined,
+    getTitleTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
+      ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.title, color)
+      : undefined,
+    getArtistTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
+      ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.artist, color)
+      : undefined,
+    getAlbumTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
+      ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.album, color)
+      : undefined,
+    getMetaTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
+      ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.meta, color)
+      : undefined,
+    getAlbumArtShadow: () => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.albumArt
+      ? generateDropShadowCSS(effectiveCfg.theme.dropShadow, '#000000')
+      : undefined,
+    getProgressBarShadow: () => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.progressBar
+      ? generateDropShadowCSS(effectiveCfg.theme.dropShadow, computedAccent)
+      : undefined,
+  } : null;
 
   // Track last successful extraction to prevent unnecessary updates
   const [lastExtractedColor, setLastExtractedColor] = useState<string | null>(null);
@@ -226,6 +255,7 @@ export default function WidgetPage() {
           fontFamily: `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system`,
           alignItems: 'center', justifyItems: cfg.layout.align === 'center' ? 'center' : undefined,
       opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
+          boxShadow: dropShadows?.getBackgroundShadow(),
         }}
       >
         {showImage && artPos === 'right' ? (
@@ -233,7 +263,7 @@ export default function WidgetPage() {
             <div style={{ textAlign: 'right', minWidth: 0 }}>
         {cfg.fields.title && (
                 <ScrollText
-          style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
+          style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, textShadow: dropShadows?.getTitleTextShadow(pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')) }}
           color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -243,7 +273,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.artist && (
                 <ScrollText
-                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
+                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, textShadow: dropShadows?.getArtistTextShadow(pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -253,7 +283,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.album && (
                 <ScrollText
-                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
+                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, textShadow: dropShadows?.getAlbumTextShadow(pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -262,14 +292,14 @@ export default function WidgetPage() {
                 />
               )}
         {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
             </div>
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
-                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end', boxShadow: dropShadows?.getAlbumArtShadow() }} />
                 {!isLive && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
@@ -292,7 +322,8 @@ export default function WidgetPage() {
                 opacity: .8,
                 color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
                 transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
-                textAlign: 'right'
+                textAlign: 'right',
+                textShadow: dropShadows?.getMetaTextShadow(pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'))
               }}>
                 {cfg.fields.pausedText || "Paused"}
               </div>
@@ -302,7 +333,7 @@ export default function WidgetPage() {
           <>
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
-                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: (cfg.layout.align === 'center' ? 'center' : 'start') }} />
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: (cfg.layout.align === 'center' ? 'center' : 'start'), boxShadow: dropShadows?.getAlbumArtShadow() }} />
                 {!isLive && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
@@ -322,7 +353,7 @@ export default function WidgetPage() {
             <div style={{ textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'), minWidth: 0 }}>
         {cfg.fields.title && (
                 <ScrollText
-                  style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
+                  style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, textShadow: dropShadows?.getTitleTextShadow(pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')) }}
           color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -332,7 +363,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.artist && (
                 <ScrollText
-                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
+                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, textShadow: dropShadows?.getArtistTextShadow(pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -342,7 +373,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.album && (
                 <ScrollText
-                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
+                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, textShadow: dropShadows?.getAlbumTextShadow(pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -351,7 +382,7 @@ export default function WidgetPage() {
                 />
               )}
               {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
                   <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
@@ -362,7 +393,8 @@ export default function WidgetPage() {
                 opacity: .8,
                 color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
                 transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
-                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left')
+                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'),
+                textShadow: dropShadows?.getMetaTextShadow(pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'))
               }}>
                 {cfg.fields.pausedText || "Paused"}
               </div>
@@ -372,7 +404,7 @@ export default function WidgetPage() {
           <>
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
-                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'start' }} />
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'start', boxShadow: dropShadows?.getAlbumArtShadow() }} />
                 {!isLive && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
@@ -392,7 +424,7 @@ export default function WidgetPage() {
             <div style={{ textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'), minWidth: 0 }}>
               {cfg.fields.title && (
                 <ScrollText
-                  style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
+                  style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, textShadow: dropShadows?.getTitleTextShadow(pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -402,7 +434,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.artist && (
                 <ScrollText
-                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
+                  style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, textShadow: dropShadows?.getArtistTextShadow(pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -412,7 +444,7 @@ export default function WidgetPage() {
               )}
               {cfg.fields.album && (
                 <ScrollText
-                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
+                  style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, textShadow: dropShadows?.getAlbumTextShadow(pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')) }}
                   color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
@@ -421,7 +453,7 @@ export default function WidgetPage() {
                 />
               )}
         {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
@@ -432,7 +464,8 @@ export default function WidgetPage() {
                 opacity: .8,
                 color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
                 transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
-                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left')
+                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'),
+                textShadow: dropShadows?.getMetaTextShadow(pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'))
               }}>
                 {cfg.fields.pausedText || "Paused"}
               </div>
