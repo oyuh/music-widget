@@ -780,7 +780,7 @@ function WidgetPreview(props: {
   // Compute runtime colors when auto-from-art is enabled (prefer the blob imgUrl when present)
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
-  
+
   // Track last successful extraction to prevent unnecessary updates
   const [lastExtractedColor, setLastExtractedColor] = useState<string | null>(null);
   const [lastImageUrl, setLastImageUrl] = useState<string>("");
@@ -833,9 +833,9 @@ function WidgetPreview(props: {
         setLastImageUrl("");
         return;
       }
-      
+
       const source = imgUrl || artSrc;
-      
+
       if (!source) {
         // No image available: use white text and fallback accent
         const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
@@ -846,17 +846,17 @@ function WidgetPreview(props: {
         setLastImageUrl("");
         return;
       }
-      
+
       // Skip extraction if the image URL hasn't changed and we have a successful extraction
       if (source === lastImageUrl && lastExtractedColor) {
         // Image is the same and we have a valid color - no need to re-extract
         return;
       }
-      
+
       // Perform extraction in the background
       const color = await extractDominantColor(source);
       if (cancelled) return;
-      
+
       if (color) {
         // Successful extraction: update colors and tracking
         const textColor = (cfg.theme.bgEnabled ?? true)
@@ -864,11 +864,11 @@ function WidgetPreview(props: {
           : "#ffffff";
         const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
         const newAccent = color;
-        
+
         // Only update if colors actually changed
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-        
+
         // Update tracking state
         setLastExtractedColor(color);
         setLastImageUrl(source);
@@ -999,7 +999,7 @@ function WidgetPreview(props: {
           )}
         </>
       )}
+      <Analytics />
     </div>
   );
 }
-<Analytics/>

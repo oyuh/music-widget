@@ -111,14 +111,14 @@ export default function WidgetPage() {
   const effectiveCfg = cfg ?? defaultConfig;
   const [computedText, setComputedText] = useState(effectiveCfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(effectiveCfg.theme.accent);
-  
+
   // Track last successful extraction to prevent unnecessary updates
   const [lastExtractedColor, setLastExtractedColor] = useState<string | null>(null);
   const [lastImageUrl, setLastImageUrl] = useState<string>("");
-  
+
   useEffect(() => {
     let cancelled = false;
-    
+
     const run = async () => {
       if (!effectiveCfg.theme.autoFromArt) {
         // Auto-from-art disabled: honor configured theme colors
@@ -132,10 +132,10 @@ export default function WidgetPage() {
         setLastImageUrl("");
         return;
       }
-      
+
       // Prefer the blob/object URL we generated for the image; fall back to original src
       const source = imgUrl || artSrc;
-      
+
       if (!source) {
         // No image available: use readable white text and fallback/default accent
         const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
@@ -146,17 +146,17 @@ export default function WidgetPage() {
         setLastImageUrl("");
         return;
       }
-      
+
       // Skip extraction if the image URL hasn't changed and we have a successful extraction
       if (source === lastImageUrl && lastExtractedColor) {
         // Image is the same and we have a valid color - no need to re-extract
         return;
       }
-      
+
       // Perform extraction in the background
       const color = await extractDominantColor(source);
       if (cancelled) return;
-      
+
       if (color) {
         // Successful extraction: update colors and tracking
         const textColor = !(effectiveCfg.theme.bgEnabled ?? true)
@@ -164,11 +164,11 @@ export default function WidgetPage() {
           : getReadableTextOn(effectiveCfg.theme.bg);
         const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
         const newAccent = color;
-        
+
         // Only update if colors actually changed to prevent flicker
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-        
+
         // Update tracking state
         setLastExtractedColor(color);
         setLastImageUrl(source);
@@ -183,7 +183,7 @@ export default function WidgetPage() {
       }
       // If extraction failed but image URL is the same, keep current colors (don't flicker to fallback)
     };
-    
+
     run();
     return () => { cancelled = true; };
   }, [effectiveCfg.theme.autoFromArt, effectiveCfg.theme.text, imgUrl, artSrc, effectiveCfg.theme.accent, effectiveCfg.theme.bg, effectiveCfg.theme.bgEnabled, effectiveCfg.fallbackAccent, refreshNonce, lastExtractedColor, lastImageUrl]);
