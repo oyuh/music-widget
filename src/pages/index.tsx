@@ -244,7 +244,7 @@ export default function EditorPage() {
             trackTitle={track?.name}
             artist={track?.artist?.["#text"]}
             album={track?.album?.["#text"]}
-            art={track?.image?.slice(-1)?.[0]?.["#text"] ?? ""}
+            art={artUrl}
           />
 
           {mounted && (
@@ -678,9 +678,9 @@ function WidgetPreview(props: {
             )}
       <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
-          {cfg.layout.showArt && (
+      {cfg.layout.showArt && (
             <img
-              src={artSrc || "/window.svg"}
+        src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
               onError={(e) => {
@@ -693,9 +693,9 @@ function WidgetPreview(props: {
         </>
       ) : (
         <>
-          {cfg.layout.showArt && (
+      {cfg.layout.showArt && (
             <img
-              src={artSrc || "/window.svg"}
+        src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
               onError={(e) => {
