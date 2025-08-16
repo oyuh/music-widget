@@ -47,6 +47,7 @@ export type WidgetConfig = {
     title: boolean; artist: boolean; album: boolean;
   progress: boolean; duration: boolean; history: number;
   pausedMode?: "label" | "transparent"; // behavior when not playing
+  pausedText?: string; // custom text to show when paused and no album art
   };
 };
 
@@ -71,7 +72,7 @@ export const defaultConfig: WidgetConfig = {
   },
   layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 96, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 } } },
   marquee: { speedPxPerSec: 24, gapPx: 32, perText: undefined },
-  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label" },
+  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label", pausedText: "Paused" },
 };
 
 export function encodeConfig(c: WidgetConfig): string {

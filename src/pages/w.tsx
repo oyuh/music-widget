@@ -236,13 +236,57 @@ export default function WidgetPage() {
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
-            {cfg.layout.showArt && imgUrl && <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />}
+            {cfg.layout.showArt && imgUrl && (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />
+                {!isLive && cfg.fields.pausedMode === "label" && (
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 24, height: 24,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                  }}>
+                    ⏸
+                  </div>
+                )}
+              </div>
+            )}
+            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+              <div style={{
+                fontSize: cfg.theme.textSize?.meta ?? 12,
+                opacity: .8,
+                color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
+                transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
+                textAlign: 'right'
+              }}>
+                {cfg.fields.pausedText || "Paused"}
+              </div>
+            )}
           </>
         ) : isTop ? (
           <>
-            {cfg.layout.showArt && imgUrl && <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: (cfg.layout.align === 'center' ? 'center' : 'start') }} />}
+            {cfg.layout.showArt && imgUrl && (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: (cfg.layout.align === 'center' ? 'center' : 'start') }} />
+                {!isLive && cfg.fields.pausedMode === "label" && (
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 24, height: 24,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                  }}>
+                    ⏸
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'), minWidth: 0 }}>
         {cfg.fields.title && (
                 <ScrollText
@@ -279,12 +323,39 @@ export default function WidgetPage() {
                   <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
+            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+              <div style={{
+                fontSize: cfg.theme.textSize?.meta ?? 12,
+                opacity: .8,
+                color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
+                transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
+                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left')
+              }}>
+                {cfg.fields.pausedText || "Paused"}
+              </div>
+            )}
           </>
         ) : (
           <>
-            {cfg.layout.showArt && imgUrl && <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'start' }} />}
+            {cfg.layout.showArt && imgUrl && (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'start' }} />
+                {!isLive && cfg.fields.pausedMode === "label" && (
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 24, height: 24,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                  }}>
+                    ⏸
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ textAlign: (cfg.layout.align === 'center' ? 'center' : 'left'), minWidth: 0 }}>
               {cfg.fields.title && (
                 <ScrollText
@@ -321,8 +392,18 @@ export default function WidgetPage() {
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
+            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+              <div style={{
+                fontSize: cfg.theme.textSize?.meta ?? 12,
+                opacity: .8,
+                color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'),
+                transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)`,
+                textAlign: (cfg.layout.align === 'center' ? 'center' : 'left')
+              }}>
+                {cfg.fields.pausedText || "Paused"}
+              </div>
+            )}
           </>
         )}
       </div>
