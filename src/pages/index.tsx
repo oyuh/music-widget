@@ -54,7 +54,7 @@ export default function EditorPage() {
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
-  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f|noimage|default/i.test(u);
+  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f/i.test(u);
   const artUrl = useMemo(() => {
     const imgs = track?.image ?? [];
     for (let i = imgs.length - 1; i >= 0; i--) {
@@ -610,13 +610,49 @@ function WidgetPreview(props: {
   useEffect(() => {
     if (art && art.trim() !== "") setArtSrc(art);
   }, [art]);
+  // Build a robust, display-ready image URL via Blob to avoid loader/CORS quirks
+  const [imgUrl, setImgUrl] = useState<string>("");
+  useEffect(() => {
+    let active = true;
+    let currentObjUrl: string | null = null;
+    async function load() {
+      if (!artSrc) {
+        setImgUrl("");
+        return;
+      }
+      const tryMakeUrl = async (url: string): Promise<string | null> => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          return URL.createObjectURL(blob);
+        } catch {
+          return null;
+        }
+      };
+      const proxied = `/api/proxy-image?url=${encodeURIComponent(artSrc)}`;
+      const viaProxy = await tryMakeUrl(proxied);
+      const viaDirect = viaProxy ? null : await tryMakeUrl(artSrc);
+      const finalUrl = viaProxy || viaDirect || "";
+      if (!active) return;
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
+      currentObjUrl = finalUrl || null;
+      setImgUrl(finalUrl);
+    }
+    load();
+    return () => {
+      active = false;
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
+    };
+  }, [artSrc]);
+  const showImage = cfg.layout.showArt && !!imgUrl;
   const grid = useMemo(() => {
     // Place art relative to text alignment: center => art above, left => art left, right => art right
-    if (!cfg.layout.showArt) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
+    if (!showImage) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
     if (cfg.layout.align === "center") return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto 1fr", justifyItems: "center" } as const;
     if (cfg.layout.align === "right") return { display: "grid", gridTemplateColumns: `1fr auto`, gridTemplateRows: "auto", alignItems: "center" } as const;
     return { display: "grid", gridTemplateColumns: `auto 1fr`, gridTemplateRows: "auto", alignItems: "center" } as const;
-  }, [cfg.layout.showArt, cfg.layout.align]);
+  }, [showImage, cfg.layout.align]);
 
   const textAlign = cfg.layout.align;
   const fontFamily = cfg.theme.font ? `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system` : undefined;
@@ -678,44 +714,21 @@ function WidgetPreview(props: {
             )}
       <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
-      {cfg.layout.showArt && (
+          {cfg.layout.showArt && imgUrl && (
             <img
-              src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
+              src={imgUrl}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                const img = e.currentTarget as HTMLImageElement;
-                // If the proxied URL failed, try direct URL; otherwise fallback placeholder
-                const proxiedPrefix = `/api/proxy-image?url=`;
-                if (artSrc && img.src.includes(proxiedPrefix)) {
-                  img.src = artSrc;
-                } else {
-                  img.onerror = null;
-                  img.src = "/window.svg";
-                }
-              }}
             />
           )}
         </>
       ) : (
         <>
-      {cfg.layout.showArt && (
+          {cfg.layout.showArt && imgUrl && (
             <img
-              src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
+              src={imgUrl}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                const img = (e.currentTarget as HTMLImageElement);
-                const proxiedPrefix = `/api/proxy-image?url=`;
-                if (artSrc && img.src.includes(proxiedPrefix)) {
-                  img.src = artSrc;
-                } else {
-                  img.onerror = null;
-                  img.src = "/window.svg";
-                }
-              }}
             />
           )}
           <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
