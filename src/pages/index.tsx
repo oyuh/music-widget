@@ -8,6 +8,7 @@ import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
 import { extractDominantColor, getReadableTextOn } from "../utils/colors";
 import { KEYWORDS_META } from "../utils/keywords";
+import { Analytics } from "@vercel/analytics/next"
 
 export default function EditorPage() {
   // Config state
@@ -870,3 +871,4 @@ function WidgetPreview(props: {
     </div>
   );
 }
+<Analytics/>
