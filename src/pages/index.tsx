@@ -780,6 +780,10 @@ function WidgetPreview(props: {
   // Compute runtime colors when auto-from-art is enabled (prefer the blob imgUrl when present)
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
+  
+  // Track last successful extraction to prevent unnecessary updates
+  const [lastExtractedColor, setLastExtractedColor] = useState<string | null>(null);
+  const [lastImageUrl, setLastImageUrl] = useState<string>("");
   // Extract dominant color directly from the displayed <img> when it loads for maximum reliability
   const extractFromImgEl = useMemo(() => {
     return () => {
@@ -815,9 +819,7 @@ function WidgetPreview(props: {
     };
   }, [cfg.theme.autoFromArt, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, cfg.theme.accent]);
   useEffect(() => {
-    let t = 0 as unknown as number;
-    let retryCount = 0;
-    const maxRetries = 3; // Stop retrying after 3 attempts to avoid infinite flickering
+    let cancelled = false;
 
     const run = async () => {
       if (!cfg.theme.autoFromArt) {
@@ -826,48 +828,65 @@ function WidgetPreview(props: {
         // Only update if actually different to prevent flicker
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-        return; // Don't schedule another retry for non-auto mode
-      } else if (imgUrl || artSrc) {
-        const color = await extractDominantColor(imgUrl || artSrc);
-        if (color) {
-          const textColor = (cfg.theme.bgEnabled ?? true)
-            ? getReadableTextOn(cfg.theme.bg)
-            : "#ffffff"; // when background is disabled, always use white for readability
-          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
-          const newAccent = color;
-          // Only update if colors actually changed
-          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
-          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-
-          // If we got a successful extraction, stop retrying
-          return;
-        } else {
-          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
-          const newAccent = cfg.fallbackAccent || cfg.theme.accent;
-          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
-          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-
-          // Retry extraction a few times in case of transient failures
-          retryCount++;
-          if (retryCount < maxRetries) {
-            t = window.setTimeout(run, 2000) as unknown as number; // Longer delay between retries
-          }
-        }
-      } else {
-        // autoFromArt on but no art; reset to white
+        // Reset tracking when auto-from-art is disabled
+        setLastExtractedColor(null);
+        setLastImageUrl("");
+        return;
+      }
+      
+      const source = imgUrl || artSrc;
+      
+      if (!source) {
+        // No image available: use white text and fallback accent
         const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
         const newAccent = cfg.fallbackAccent || cfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-        return; // Don't schedule retry for no-art case
+        setLastExtractedColor(null);
+        setLastImageUrl("");
+        return;
       }
+      
+      // Skip extraction if the image URL hasn't changed and we have a successful extraction
+      if (source === lastImageUrl && lastExtractedColor) {
+        // Image is the same and we have a valid color - no need to re-extract
+        return;
+      }
+      
+      // Perform extraction in the background
+      const color = await extractDominantColor(source);
+      if (cancelled) return;
+      
+      if (color) {
+        // Successful extraction: update colors and tracking
+        const textColor = (cfg.theme.bgEnabled ?? true)
+          ? getReadableTextOn(cfg.theme.bg)
+          : "#ffffff";
+        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+        const newAccent = color;
+        
+        // Only update if colors actually changed
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        
+        // Update tracking state
+        setLastExtractedColor(color);
+        setLastImageUrl(source);
+      } else if (source !== lastImageUrl) {
+        // Extraction failed for a NEW image: use fallback only if image URL changed
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        setLastExtractedColor(null);
+        setLastImageUrl(source);
+      }
+      // If extraction failed but image URL is the same, keep current colors (don't flicker to fallback)
     };
 
-    // Reset retry count when dependencies change (new track, etc.)
-    retryCount = 0;
     run();
-    return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.fallbackAccent, cfg.theme.bg, cfg.theme.bgEnabled]);
+    return () => { cancelled = true; };
+  }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.fallbackAccent, cfg.theme.bg, cfg.theme.bgEnabled, lastExtractedColor, lastImageUrl]);
 
   return (
     <div
@@ -912,9 +931,10 @@ function WidgetPreview(props: {
                   backgroundColor: 'rgba(0,0,0,0.7)',
                   borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontSize: 14, fontWeight: 'bold'
+                  gap: '2px'
                 }}>
-                  ⏸
+                  <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
+                  <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
                 </div>
               )}
             </div>
@@ -949,9 +969,10 @@ function WidgetPreview(props: {
                   backgroundColor: 'rgba(0,0,0,0.7)',
                   borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontSize: 14, fontWeight: 'bold'
+                  gap: '2px'
                 }}>
-                  ⏸
+                  <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
+                  <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
                 </div>
               )}
             </div>

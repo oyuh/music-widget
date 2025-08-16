@@ -111,8 +111,14 @@ export default function WidgetPage() {
   const effectiveCfg = cfg ?? defaultConfig;
   const [computedText, setComputedText] = useState(effectiveCfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(effectiveCfg.theme.accent);
+  
+  // Track last successful extraction to prevent unnecessary updates
+  const [lastExtractedColor, setLastExtractedColor] = useState<string | null>(null);
+  const [lastImageUrl, setLastImageUrl] = useState<string>("");
+  
   useEffect(() => {
     let cancelled = false;
+    
     const run = async () => {
       if (!effectiveCfg.theme.autoFromArt) {
         // Auto-from-art disabled: honor configured theme colors
@@ -121,42 +127,66 @@ export default function WidgetPage() {
         // Only update if actually different to avoid flicker
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        // Reset tracking when auto-from-art is disabled
+        setLastExtractedColor(null);
+        setLastImageUrl("");
         return;
       }
+      
       // Prefer the blob/object URL we generated for the image; fall back to original src
       const source = imgUrl || artSrc;
+      
       if (!source) {
         // No image available: use readable white text and fallback/default accent
         const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
         const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        setLastExtractedColor(null);
+        setLastImageUrl("");
         return;
       }
+      
+      // Skip extraction if the image URL hasn't changed and we have a successful extraction
+      if (source === lastImageUrl && lastExtractedColor) {
+        // Image is the same and we have a valid color - no need to re-extract
+        return;
+      }
+      
+      // Perform extraction in the background
       const color = await extractDominantColor(source);
       if (cancelled) return;
-      if (!color) {
-        // Extraction failed: safe reset using fallback/default accent
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
-        const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
-        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
-        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
-      } else {
-        // When background is disabled, always use white text for readability
-        // When background is enabled, compute readable text against the background
+      
+      if (color) {
+        // Successful extraction: update colors and tracking
         const textColor = !(effectiveCfg.theme.bgEnabled ?? true)
           ? "#ffffff"
           : getReadableTextOn(effectiveCfg.theme.bg);
         const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
         const newAccent = color;
+        
         // Only update if colors actually changed to prevent flicker
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        
+        // Update tracking state
+        setLastExtractedColor(color);
+        setLastImageUrl(source);
+      } else if (source !== lastImageUrl) {
+        // Extraction failed for a NEW image: use fallback only if image URL changed
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        setLastExtractedColor(null);
+        setLastImageUrl(source);
       }
+      // If extraction failed but image URL is the same, keep current colors (don't flicker to fallback)
     };
+    
     run();
     return () => { cancelled = true; };
-  }, [effectiveCfg.theme.autoFromArt, effectiveCfg.theme.text, imgUrl, artSrc, effectiveCfg.theme.accent, effectiveCfg.theme.bg, effectiveCfg.theme.bgEnabled, effectiveCfg.fallbackAccent, refreshNonce]);
+  }, [effectiveCfg.theme.autoFromArt, effectiveCfg.theme.text, imgUrl, artSrc, effectiveCfg.theme.accent, effectiveCfg.theme.bg, effectiveCfg.theme.bgEnabled, effectiveCfg.fallbackAccent, refreshNonce, lastExtractedColor, lastImageUrl]);
 
   if (!cfg) return null;
 
@@ -248,9 +278,10 @@ export default function WidgetPage() {
                     backgroundColor: 'rgba(0,0,0,0.7)',
                     borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                    gap: '2px'
                   }}>
-                    ⏸
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
                   </div>
                 )}
               </div>
@@ -280,9 +311,10 @@ export default function WidgetPage() {
                     backgroundColor: 'rgba(0,0,0,0.7)',
                     borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                    gap: '2px'
                   }}>
-                    ⏸
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
                   </div>
                 )}
               </div>
@@ -349,9 +381,10 @@ export default function WidgetPage() {
                     backgroundColor: 'rgba(0,0,0,0.7)',
                     borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: 14, fontWeight: 'bold'
+                    gap: '2px'
                   }}>
-                    ⏸
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
+                    <div style={{ width: '3px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }} />
                   </div>
                 )}
               </div>
