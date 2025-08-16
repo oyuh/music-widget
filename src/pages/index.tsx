@@ -54,7 +54,15 @@ export default function EditorPage() {
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
-  const artUrl = track?.image?.slice(-1)?.[0]?.["#text"] ?? "";
+  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f/i.test(u);
+  const artUrl = useMemo(() => {
+    const imgs = track?.image ?? [];
+    for (let i = imgs.length - 1; i >= 0; i--) {
+      const u = imgs[i]?.["#text"] ?? "";
+      if (u && !isLastfmPlaceholder(u)) return u;
+    }
+    return "";
+  }, [track]);
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
   useEffect(() => {
@@ -236,7 +244,7 @@ export default function EditorPage() {
             trackTitle={track?.name}
             artist={track?.artist?.["#text"]}
             album={track?.album?.["#text"]}
-            art={track?.image?.slice(-1)?.[0]?.["#text"] ?? ""}
+            art={artUrl}
           />
 
           {mounted && (
@@ -597,28 +605,69 @@ function WidgetPreview(props: {
   trackTitle?: string; artist?: string; album?: string; art?: string;
 }) {
   const { cfg, isLive, percent, trackTitle, artist, album, art } = props;
+  // Keep a stable art src (last non-empty); use a safe fallback on errors
+  const [artSrc, setArtSrc] = useState<string>(art || "");
+  useEffect(() => {
+    if (art && art.trim() !== "") setArtSrc(art);
+  }, [art]);
+  // Build a robust, display-ready image URL via Blob to avoid loader/CORS quirks
+  const [imgUrl, setImgUrl] = useState<string>("");
+  useEffect(() => {
+    let active = true;
+    let currentObjUrl: string | null = null;
+    async function load() {
+      if (!artSrc) {
+        setImgUrl("");
+        return;
+      }
+      const tryMakeUrl = async (url: string): Promise<string | null> => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          return URL.createObjectURL(blob);
+        } catch {
+          return null;
+        }
+      };
+      const proxied = `/api/proxy-image?url=${encodeURIComponent(artSrc)}`;
+      const viaProxy = await tryMakeUrl(proxied);
+      const viaDirect = viaProxy ? null : await tryMakeUrl(artSrc);
+      const finalUrl = viaProxy || viaDirect || "";
+      if (!active) return;
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
+      currentObjUrl = finalUrl || null;
+      setImgUrl(finalUrl);
+    }
+    load();
+    return () => {
+      active = false;
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
+    };
+  }, [artSrc]);
+  const showImage = cfg.layout.showArt && !!imgUrl;
   const grid = useMemo(() => {
     // Place art relative to text alignment: center => art above, left => art left, right => art right
-    if (!cfg.layout.showArt) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
+    if (!showImage) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
     if (cfg.layout.align === "center") return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto 1fr", justifyItems: "center" } as const;
     if (cfg.layout.align === "right") return { display: "grid", gridTemplateColumns: `1fr auto`, gridTemplateRows: "auto", alignItems: "center" } as const;
     return { display: "grid", gridTemplateColumns: `auto 1fr`, gridTemplateRows: "auto", alignItems: "center" } as const;
-  }, [cfg.layout.showArt, cfg.layout.align]);
+  }, [showImage, cfg.layout.align]);
 
   const textAlign = cfg.layout.align;
   const fontFamily = cfg.theme.font ? `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system` : undefined;
 
-  // Compute runtime colors when auto-from-art is enabled
+  // Compute runtime colors when auto-from-art is enabled (use stable artSrc)
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
   useEffect(() => {
     let t = 0 as unknown as number;
     const run = async () => {
-      if (!cfg.theme.autoFromArt || !art) {
+      if (!cfg.theme.autoFromArt || !artSrc) {
         setComputedText(cfg.theme.text);
         setComputedAccent(cfg.theme.accent);
       } else {
-        const color = await extractDominantColor(art);
+        const color = await extractDominantColor(artSrc);
         if (!color) {
           setComputedText(cfg.theme.text);
           setComputedAccent(cfg.theme.accent);
@@ -637,7 +686,7 @@ function WidgetPreview(props: {
     };
     run();
     return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.autoTargets, art, cfg.theme.accent]);
+  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.autoTargets, artSrc, cfg.theme.accent]);
 
   return (
     <div
@@ -665,19 +714,27 @@ function WidgetPreview(props: {
             )}
       <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
-          {cfg.layout.showArt && (
-            <img src={art} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />
+          {cfg.layout.showArt && imgUrl && (
+            <img
+              src={imgUrl}
+              alt=""
+              style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
+            />
           )}
         </>
       ) : (
         <>
-          {cfg.layout.showArt && (
-            <img src={art} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }} />
+          {cfg.layout.showArt && imgUrl && (
+            <img
+              src={imgUrl}
+              alt=""
+              style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
+            />
           )}
           <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
-  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
-  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
-  {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
