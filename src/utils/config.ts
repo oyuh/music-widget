@@ -1,6 +1,8 @@
 // src/utils/config.ts
 export type WidgetConfig = {
   lfmUser: string;
+  // Accent to use when auto-from-art has no color or extraction fails
+  fallbackAccent?: string;
   theme: {
     bg: string;
     accent: string;
@@ -50,6 +52,7 @@ export type WidgetConfig = {
 
 export const defaultConfig: WidgetConfig = {
   lfmUser: "",
+  fallbackAccent: "#1db954", // default to current theme accent color
   theme: {
     bg: "#000000CC",
     accent: "#1db954",
