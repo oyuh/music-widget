@@ -1,52 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+Fast Music Stream Widget (Last.fm)
 
-## Getting Started
+Simple, customizable stream overlay that shows your current (or recent) track from Last.fm. Includes an in-browser editor to configure the widget and a shareable widget URL for OBS.
 
-### Last.fm setup
+Features
+- Live now playing from Last.fm (5s polling, resilient to transient errors)
+- Album art with auto theme (extract dominant color + contrast text)
+- Typography: Google font, per-text colors/sizes/styles (title/artist/album/meta)
+- Layout: alignment, album art position/size, negative text gap, per-text X/Y offsets
+- Scrolling text (marquee): adjustable speed and gap, with per-text overrides
+- Paused/not playing behavior: show label or fully transparent
+- Share/copy settings, editor import, and deep-merge paste
 
-1. Create a Last.fm API application at https://www.last.fm/api/account/create
-2. Set the callback URL to your local or deployed URL:
-	- Local: `http://localhost:3000/callback`
-	- Deployed: `https://<your-domain>/callback`
-3. Copy `.env.example` to `.env.local` and fill in:
-	- `NEXT_PUBLIC_LFM_KEY` = your API Key
-	- `LFM_SHARED_SECRET` = your Shared Secret
-	- Optionally, `NEXT_PUBLIC_LFM_CALLBACK` to override the callback URL
-4. Restart the dev server after changing env vars.
+How it works
+- Editor: `/` (index)
+	- Build your design, see a live preview, and copy the widget link.
+	- If you connect Last.fm (optional), private profiles will preview correctly.
+	- The editor stores your config as JSON and also encodes it for sharing.
 
-First, run the development server:
+- Widget: `/w#<base64-config>`
+	- The widget page is read-only and uses the config in the URL hash.
+	- Designed for OBS Browser Source (transparent background supported).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Local setup
+1) Create a Last.fm API app: https://www.last.fm/api/account/create
+2) Add `.env.local` with:
+	 - `NEXT_PUBLIC_LFM_KEY` — your API key
+	 - `LFM_SHARED_SECRET` — your shared secret
+	 - Optional: `NEXT_PUBLIC_LFM_CALLBACK` (defaults to `/callback`)
+3) Start dev server:
+	 - `npm run dev` (or `pnpm dev`, `yarn dev`)
+4) Open http://localhost:3000
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Usage in OBS
+1) In the editor, copy the “Your unique widget link” (looks like `/w#...`).
+2) In OBS, add a Browser Source with that URL.
+3) Set the width/height in OBS to match your widget config.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
-
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
-
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
-
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+Troubleshooting
+- Long titles: The marquee uses a measured distance and gap—tweak speed/gap in the Marquee section.
+- Fonts not applying: Ensure the selected Google font downloads in your environment.
+- Transparent when paused: Set Fields → “When paused / not playing” to “Hide card (transparent)”.

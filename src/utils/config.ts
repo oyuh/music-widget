@@ -31,9 +31,20 @@ export type WidgetConfig = {
     meta: { x: number; y: number };
   };
   };
+  marquee?: {
+    speedPxPerSec: number; // scrolling speed in px/s
+    gapPx: number; // gap between repeats in px
+    perText?: {
+      title?: { speedPxPerSec?: number; gapPx?: number };
+      artist?: { speedPxPerSec?: number; gapPx?: number };
+      album?: { speedPxPerSec?: number; gapPx?: number };
+      meta?: { speedPxPerSec?: number; gapPx?: number };
+    };
+  };
   fields: {
     title: boolean; artist: boolean; album: boolean;
-    progress: boolean; duration: boolean; history: number;
+  progress: boolean; duration: boolean; history: number;
+  pausedMode?: "label" | "transparent"; // behavior when not playing
   };
 };
 
@@ -56,7 +67,8 @@ export const defaultConfig: WidgetConfig = {
   bgEnabled: true,
   },
   layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 96, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 } } },
-  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50 },
+  marquee: { speedPxPerSec: 24, gapPx: 32, perText: undefined },
+  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label" },
 };
 
 export function encodeConfig(c: WidgetConfig): string {

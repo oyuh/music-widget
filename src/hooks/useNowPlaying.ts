@@ -17,7 +17,7 @@ export function useNowPlaying(options: {
   pollMs?: number;
   sessionKey?: string | null; // if present, we hit the proxy with sk=
 }) {
-  const { username, pollMs = 15000, sessionKey } = options;
+  const { username, pollMs = 5000, sessionKey } = options;
   const [track, setTrack] = useState<LfmTrack | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -29,46 +29,51 @@ export function useNowPlaying(options: {
   useEffect(() => {
     if (!username) return;
     const fetchNow = async () => {
-      const base = sessionKey
-        ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1&sk=${encodeURIComponent(sessionKey)}`
-        : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1`;
+      try {
+        const base = sessionKey
+          ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1&sk=${encodeURIComponent(sessionKey)}`
+          : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1`;
 
-      const res = await fetch(base, { cache: "no-store" });
-      const data = await res.json();
-      const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
-      if (!tr) return;
+        const res = await fetch(base, { cache: "no-store" });
+        if (!res.ok) throw new Error(`nowPlaying ${res.status}`);
+        const data = await res.json();
+        const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
+        if (!tr) return;
 
-      const id = `${tr.name}—${tr.artist?.["#text"] ?? ""}`;
-      const live = tr?.["@attr"]?.nowplaying === "true";
+        const id = `${tr.name}—${tr.artist?.["#text"] ?? ""}`;
+        const live = tr?.["@attr"]?.nowplaying === "true";
 
-      setTrack(tr);
-      setIsLive(live);
+        setTrack(tr);
+        setIsLive(live);
 
-      if (live) {
-        if (id !== lastIdRef.current) {
-          lastIdRef.current = id;
-          setStartedAt(Date.now());
+        if (live) {
+          if (id !== lastIdRef.current) {
+            lastIdRef.current = id;
+            setStartedAt(Date.now());
+            setDurationMs(null);
+
+            // Try to fetch duration once
+            try {
+              const infoUrl = sessionKey
+                ? `/api/lastfm/trackInfo?artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&sk=${encodeURIComponent(sessionKey)}`
+                : `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`;
+              const infoRes = await fetch(infoUrl);
+              const info = await infoRes.json();
+              const dur = Number(info?.track?.duration ?? 0);
+              setDurationMs(dur > 0 ? dur : null);
+            } catch { /* ignore */ }
+          }
+        } else {
+          setStartedAt(null);
           setDurationMs(null);
-
-          // Try to fetch duration once
-          try {
-            const infoUrl = sessionKey
-              ? `/api/lastfm/trackInfo?artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&sk=${encodeURIComponent(sessionKey)}`
-              : `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`;
-            const infoRes = await fetch(infoUrl);
-            const info = await infoRes.json();
-            const dur = Number(info?.track?.duration ?? 0);
-            setDurationMs(dur > 0 ? dur : null);
-          } catch { /* ignore */ }
+          lastIdRef.current = "";
         }
-      } else {
-        setStartedAt(null);
-        setDurationMs(null);
-        lastIdRef.current = "";
+      } catch {
+        // swallow errors; keep last known good state
       }
     };
 
-    fetchNow();
+  fetchNow();
   const t = window.setInterval(fetchNow, pollMs) as unknown as number;
   return () => clearInterval(t);
   }, [username, pollMs, sessionKey]);

@@ -26,24 +26,7 @@ body {
 }
 
 /* Marquee scrolling text */
-.marquee {
-  position: relative;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.marquee__inner {
-  display: inline-block;
-  padding-right: 32px; /* gap between clones */
-}
-.marquee--animate .marquee__inner {
-  animation: marquee-scroll var(--marquee-duration, 12s) linear infinite;
-}
-.marquee--animate .marquee__inner.clone {
-  position: absolute;
-  left: 100%;
-  top: 0;
-}
-@keyframes marquee-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
+.marquee { position: relative; overflow: hidden; white-space: nowrap; }
+.marquee__track { display: inline-flex; align-items: center; }
+.marquee--animate .marquee__track { animation: marquee-translate var(--marquee-duration, 20s) linear infinite; }
+@keyframes marquee-translate { from { transform: translateX(0); } to { transform: translateX(calc(var(--marquee-distance, 0px) * -1)); } }

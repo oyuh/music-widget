@@ -49,7 +49,7 @@ export default function EditorPage() {
   // Live data for preview (uses connection if present)
   const { track, isLive, percent } = useNowPlaying({
     username: cfg.lfmUser,
-    pollMs: 15000,
+  pollMs: 5000,
     sessionKey,
   });
 
@@ -178,7 +178,15 @@ export default function EditorPage() {
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
             >
-              made by <span className="ml-1 font-medium text-white">Lawson Hart</span> <span className="ml-1 text-white/60">(wthlaw)</span>
+              Creator
+            </a>
+            <a
+              href="https://github.com/oyuh/applem-util"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
+            >
+              Source
             </a>
           </div>
           <p className="text-white/70 mb-6 leading-relaxed">
@@ -510,6 +518,50 @@ export default function EditorPage() {
             </div>
           </details>
 
+          <details className="mb-4 bg-neutral-900/40 border border-white/10 rounded-lg">
+            <summary className="cursor-pointer select-none px-3 py-2 text-sm text-white/80">Marquee</summary>
+            <div className="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <label className="block">Speed (px/s)
+                <input
+                  type="range"
+                  min={4}
+                  max={120}
+                  value={cfg.marquee?.speedPxPerSec ?? 24}
+                  onChange={(e) => setCfg({ ...cfg, marquee: { ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }), speedPxPerSec: +e.target.value } })}
+                  className="w-full"
+                />
+              </label>
+              <label className="block">Gap (px)
+                <input
+                  type="range"
+                  min={8}
+                  max={128}
+                  value={cfg.marquee?.gapPx ?? 32}
+                  onChange={(e) => setCfg({ ...cfg, marquee: { ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }), gapPx: +e.target.value } })}
+                  className="w-full"
+                />
+              </label>
+              <div className="sm:col-span-2">
+                <details className="bg-neutral-900/30 border border-white/10 rounded-lg">
+                  <summary className="cursor-pointer select-none px-3 py-2 text-sm text-white/80">Per-text overrides</summary>
+                  <div className="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {(["title","artist","album"] as const).map((k) => (
+                      <div key={k} className="bg-neutral-900/40 border border-white/10 rounded-lg p-3">
+                        <div className="mb-2 capitalize text-white/80">{k}</div>
+                        <label className="block mb-2">Speed (px/s)
+                          <input type="range" min={4} max={120} className="w-full" value={cfg.marquee?.perText?.[k]?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} onChange={(e)=> setCfg({ ...cfg, marquee: { ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }), perText: { ...(cfg.marquee?.perText ?? {}), [k]: { ...(cfg.marquee?.perText?.[k] ?? {}), speedPxPerSec: +e.target.value } } } })} />
+                        </label>
+                        <label className="block">Gap (px)
+                          <input type="range" min={8} max={128} className="w-full" value={cfg.marquee?.perText?.[k]?.gapPx ?? cfg.marquee?.gapPx ?? 32} onChange={(e)=> setCfg({ ...cfg, marquee: { ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }), perText: { ...(cfg.marquee?.perText ?? {}), [k]: { ...(cfg.marquee?.perText?.[k] ?? {}), gapPx: +e.target.value } } } })} />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            </div>
+          </details>
+
           <details className="mb-8 bg-neutral-900/40 border border-white/10 rounded-lg">
             <summary className="cursor-pointer select-none px-3 py-2 text-sm text-white/80">Fields</summary>
             <div className="px-3 pb-3 pt-1 grid grid-cols-2 sm:grid-cols-6 gap-3 text-sm">
@@ -522,6 +574,13 @@ export default function EditorPage() {
               <div>
                 <label className="block text-sm mb-1">History count</label>
                 <input type="number" min={1} max={50} className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.fields.history} onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, history: +e.target.value } })} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1">When paused / not playing</label>
+                <select className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2" value={cfg.fields.pausedMode ?? "label"} onChange={(e)=> setCfg({ ...cfg, fields: { ...cfg.fields, pausedMode: (e.target.value as "label" | "transparent") } })}>
+                  <option value="label">Show card with label</option>
+                  <option value="transparent">Hide card (transparent)</option>
+                </select>
               </div>
             </div>
           </details>
@@ -584,20 +643,21 @@ function WidgetPreview(props: {
     <div
       className="rounded-2xl p-4 gap-3 items-center"
       style={{
-  background: (cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent",
+  background: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
         width: cfg.layout.w, height: cfg.layout.h,
         ...grid,
         fontFamily,
   // No drop shadow when background is disabled
+        opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
       }}
     >
       {/* Render order based on alignment: right => text then art; left/center => art then text */}
       {textAlign === 'right' ? (
         <>
-          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]}>
-  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
-  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
-  {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
+          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
+          {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
@@ -614,7 +674,7 @@ function WidgetPreview(props: {
           {cfg.layout.showArt && (
             <img src={art} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }} />
           )}
-          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]}>
+          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
   {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
   {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
   {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} />}
