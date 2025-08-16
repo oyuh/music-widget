@@ -24,7 +24,7 @@ export default function LastfmConnect() {
     <a
       href={url || undefined}
       aria-disabled={!url}
-      className="inline-flex items-center rounded-lg px-4 py-2 font-medium border border-white/20 hover:border-white/40 transition"
+      className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium border border-white/10 bg-neutral-700 hover:bg-neutral-600 text-white transition-colors disabled:opacity-50"
     >
       Connect Last.fm
     </a>

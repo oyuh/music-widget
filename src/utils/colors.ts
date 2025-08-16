@@ -41,6 +41,86 @@ export function getReadableTextOn(bgHex: string): string {
   return contrastBlack >= contrastWhite ? '#000000' : '#ffffff';
 }
 
+// Get the opposite/inverted color of a given color
+export function getOppositeColor(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return '#000000';
+  const oppositeR = 255 - rgb.r;
+  const oppositeG = 255 - rgb.g;
+  const oppositeB = 255 - rgb.b;
+  return rgbToHex(oppositeR, oppositeG, oppositeB);
+}
+
+// Generate drop shadow CSS based on configuration
+export function generateDropShadowCSS(
+  config: {
+    enabled: boolean;
+    blur: number;
+    intensity: number;
+    offsetX: number;
+    offsetY: number;
+    useOppositeColor: boolean;
+    customColor?: string;
+  },
+  baseColor: string
+): string {
+  if (!config.enabled) return '';
+
+  const shadowColor = config.useOppositeColor
+    ? getOppositeColor(baseColor)
+    : (config.customColor || '#000000');
+
+  const opacity = Math.max(0, Math.min(100, config.intensity)) / 100;
+  const rgb = hexToRgb(shadowColor);
+
+  if (!rgb) return '';
+
+  return `${config.offsetX}px ${config.offsetY}px ${config.blur}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+}
+
+// Generate per-element drop shadow CSS with individual settings
+export function generateElementDropShadowCSS(
+  globalConfig: {
+    enabled: boolean;
+    blur: number;
+    intensity: number;
+    offsetX: number;
+    offsetY: number;
+    useOppositeColor: boolean;
+    customColor?: string;
+  },
+  elementConfig: {
+    enabled?: boolean;
+    blur?: number;
+    intensity?: number;
+    offsetX?: number;
+    offsetY?: number;
+    useOppositeColor?: boolean;
+    customColor?: string;
+  } | undefined,
+  baseColor: string
+): string {
+  // Check global enabled state first
+  if (!globalConfig.enabled) return '';
+
+  // Check individual element enabled state - default to true if not specified
+  const elementEnabled = elementConfig?.enabled ?? true;
+  if (!elementEnabled) return '';
+
+  // Merge global and element-specific settings
+  const effectiveConfig = {
+    enabled: true, // We already checked enabled states above
+    blur: elementConfig?.blur ?? globalConfig.blur,
+    intensity: elementConfig?.intensity ?? globalConfig.intensity,
+    offsetX: elementConfig?.offsetX ?? globalConfig.offsetX,
+    offsetY: elementConfig?.offsetY ?? globalConfig.offsetY,
+    useOppositeColor: elementConfig?.useOppositeColor ?? globalConfig.useOppositeColor,
+    customColor: elementConfig?.customColor ?? globalConfig.customColor,
+  };
+
+  return generateDropShadowCSS(effectiveConfig, baseColor);
+}
+
 export async function extractDominantColor(imgUrl: string): Promise<string | null> {
   return new Promise((resolve) => {
     try {
