@@ -78,20 +78,30 @@ export default function WidgetPage() {
   // Build a robust, display-ready image URL via Blob (proxy first, then direct)
   const [imgUrl, setImgUrl] = useState<string>("");
   // Heartbeat to retry image/color work every ~5s without a full page reload
+  // Only run the heartbeat when auto-from-art is enabled to reduce unnecessary work
   const [refreshNonce, setRefreshNonce] = useState(0);
   useEffect(() => {
+    if (!cfg?.theme.autoFromArt) return; // Don't run refresh timer when auto-from-art is off
     const id = window.setInterval(() => setRefreshNonce((n) => n + 1), 5000) as unknown as number;
     return () => clearInterval(id);
-  }, []);
+  }, [cfg?.theme.autoFromArt]);
   useEffect(() => {
     let active = true; let currentObjUrl: string | null = null;
     async function load() {
-      if (!artSrc) { setImgUrl(""); return; }
+      if (!artSrc) { 
+        // Only clear imgUrl if it's not already empty to avoid unnecessary updates
+        setImgUrl(prev => prev ? "" : prev); 
+        return; 
+      }
       const mk = async (u: string) => { try { const r = await fetch(u); if (!r.ok) return null; const b = await r.blob(); return URL.createObjectURL(b); } catch { return null; } };
       const viaProxy = await mk(`/api/proxy-image?url=${encodeURIComponent(artSrc)}`);
       const viaDirect = viaProxy ? null : await mk(artSrc);
       const finalUrl = viaProxy || viaDirect || "";
-      if (!active) return; if (currentObjUrl) URL.revokeObjectURL(currentObjUrl); currentObjUrl = finalUrl || null; setImgUrl(finalUrl);
+      if (!active) return; 
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl); 
+      currentObjUrl = finalUrl || null; 
+      // Only update imgUrl if it actually changed
+      setImgUrl(prev => prev !== finalUrl ? finalUrl : prev);
     }
     load();
     return ()=>{ active=false; if (currentObjUrl) URL.revokeObjectURL(currentObjUrl); };
@@ -106,32 +116,42 @@ export default function WidgetPage() {
     const run = async () => {
       if (!effectiveCfg.theme.autoFromArt) {
         // Auto-from-art disabled: honor configured theme colors
-        setComputedText(effectiveCfg.theme.text);
-        setComputedAccent(effectiveCfg.theme.accent);
+        const newText = effectiveCfg.theme.text;
+        const newAccent = effectiveCfg.theme.accent;
+        // Only update if actually different to avoid flicker
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
         return;
       }
       // Prefer the blob/object URL we generated for the image; fall back to original src
       const source = imgUrl || artSrc;
       if (!source) {
         // No image available: use readable white text and fallback/default accent
-        setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-        setComputedAccent(effectiveCfg.fallbackAccent || effectiveCfg.theme.accent);
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
         return;
       }
       const color = await extractDominantColor(source);
       if (cancelled) return;
       if (!color) {
         // Extraction failed: safe reset using fallback/default accent
-        setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-        setComputedAccent(effectiveCfg.fallbackAccent || effectiveCfg.theme.accent);
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
       } else {
         // When background is disabled, always use white text for readability
         // When background is enabled, compute readable text against the background
         const textColor = !(effectiveCfg.theme.bgEnabled ?? true)
           ? "#ffffff"
           : getReadableTextOn(effectiveCfg.theme.bg);
-        setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
-        setComputedAccent(color);
+        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+        const newAccent = color;
+        // Only update if colors actually changed to prevent flicker
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
       }
     };
     run();
