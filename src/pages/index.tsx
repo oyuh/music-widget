@@ -79,11 +79,18 @@ export default function EditorPage() {
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
   useEffect(() => {
     let t = 0 as unknown as number;
+    let retryCount = 0;
+    const maxRetries = 3; // Stop retrying after 3 attempts to avoid infinite flickering
+
     const tick = async () => {
       if (!cfg.theme.autoFromArt) {
         // Auto-from-art disabled: reflect configured colors
-        setComputedText(cfg.theme.text);
-        setComputedAccent(cfg.theme.accent);
+        const newText = cfg.theme.text;
+        const newAccent = cfg.theme.accent;
+        // Only update if actually different to prevent flicker
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule another retry for non-auto mode
       } else if (artUrl) {
         // Auto-from-art enabled with an image: try to extract via proxy; keep last-good on failure
         const color = await extractDominantColor(artUrl);
@@ -91,20 +98,39 @@ export default function EditorPage() {
           const textColor = (cfg.theme.bgEnabled ?? true)
             ? getReadableTextOn(cfg.theme.bg)
             : "#ffffff"; // with transparent background, default to white for readability
-          setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
-          setComputedAccent(color);
+          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+          const newAccent = color;
+          // Only update if colors actually changed - use functional updates to access current values
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // If we got a successful extraction, stop retrying
+          return;
         } else {
           // Extraction failed: reset to a safe white text and default accent
-          setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-          setComputedAccent(cfg.fallbackAccent || cfg.theme.accent);
+          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+          const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // Retry extraction a few times in case of transient failures
+          retryCount++;
+          if (retryCount < maxRetries) {
+            t = window.setTimeout(tick, 2000) as unknown as number; // Longer delay between retries
+          }
         }
-  } else {
+      } else {
         // Auto-from-art enabled but no art: reset to white text and default accent
-  setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-  setComputedAccent(cfg.fallbackAccent || cfg.theme.accent);
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule retry for no-art case
       }
-      t = window.setTimeout(tick, 1500) as unknown as number;
     };
+
+    // Reset retry count when dependencies change (new track, etc.)
+    retryCount = 0;
     tick();
     return () => { if (t) clearTimeout(t); };
   }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, artUrl]);
@@ -780,32 +806,58 @@ function WidgetPreview(props: {
   }, [cfg.theme.autoFromArt, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, cfg.theme.accent]);
   useEffect(() => {
     let t = 0 as unknown as number;
+    let retryCount = 0;
+    const maxRetries = 3; // Stop retrying after 3 attempts to avoid infinite flickering
+
     const run = async () => {
       if (!cfg.theme.autoFromArt) {
-        setComputedText(cfg.theme.text);
-        setComputedAccent(cfg.theme.accent);
+        const newText = cfg.theme.text;
+        const newAccent = cfg.theme.accent;
+        // Only update if actually different to prevent flicker
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule another retry for non-auto mode
       } else if (imgUrl || artSrc) {
         const color = await extractDominantColor(imgUrl || artSrc);
         if (color) {
           const textColor = (cfg.theme.bgEnabled ?? true)
             ? getReadableTextOn(cfg.theme.bg)
             : "#ffffff"; // when background is disabled, always use white for readability
-          setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
-          setComputedAccent(color);
+          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+          const newAccent = color;
+          // Only update if colors actually changed
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // If we got a successful extraction, stop retrying
+          return;
         } else {
-          setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-          setComputedAccent(cfg.theme.accent);
+          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+          const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // Retry extraction a few times in case of transient failures
+          retryCount++;
+          if (retryCount < maxRetries) {
+            t = window.setTimeout(run, 2000) as unknown as number; // Longer delay between retries
+          }
         }
       } else {
         // autoFromArt on but no art; reset to white
-        setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
-        setComputedAccent(cfg.theme.accent);
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule retry for no-art case
       }
-      t = window.setTimeout(run, 1500) as unknown as number;
     };
+
+    // Reset retry count when dependencies change (new track, etc.)
+    retryCount = 0;
     run();
     return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled]);
+  }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.fallbackAccent, cfg.theme.bg, cfg.theme.bgEnabled]);
 
   return (
     <div
