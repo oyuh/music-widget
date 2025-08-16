@@ -88,18 +88,18 @@ export default function WidgetPage() {
   useEffect(() => {
     let active = true; let currentObjUrl: string | null = null;
     async function load() {
-      if (!artSrc) { 
+      if (!artSrc) {
         // Only clear imgUrl if it's not already empty to avoid unnecessary updates
-        setImgUrl(prev => prev ? "" : prev); 
-        return; 
+        setImgUrl(prev => prev ? "" : prev);
+        return;
       }
       const mk = async (u: string) => { try { const r = await fetch(u); if (!r.ok) return null; const b = await r.blob(); return URL.createObjectURL(b); } catch { return null; } };
       const viaProxy = await mk(`/api/proxy-image?url=${encodeURIComponent(artSrc)}`);
       const viaDirect = viaProxy ? null : await mk(artSrc);
       const finalUrl = viaProxy || viaDirect || "";
-      if (!active) return; 
-      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl); 
-      currentObjUrl = finalUrl || null; 
+      if (!active) return;
+      if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
+      currentObjUrl = finalUrl || null;
       // Only update imgUrl if it actually changed
       setImgUrl(prev => prev !== finalUrl ? finalUrl : prev);
     }
