@@ -7,6 +7,7 @@ import { WidgetConfig, defaultConfig, encodeConfig } from "../utils/config";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
 import { extractDominantColor, getReadableTextOn } from "../utils/colors";
+import { KEYWORDS_META } from "../utils/keywords";
 
 export default function EditorPage() {
   // Config state
@@ -30,6 +31,16 @@ export default function EditorPage() {
       if (nm) setConnectedName(nm);
     } catch {}
   }, []);
+
+  // Basic SEO constants
+  const seo = useMemo(() => {
+    const title = "Fast Music Stream Widget (Last.fm)";
+    const description = "A fast, customizable music overlay for streamers powered by Last.fm. Pick fonts, colors, marquee scrolling, and auto-theme from album art. Works great in OBS as a Browser Source.";
+    const keywords = KEYWORDS_META;
+    return { title, description, keywords };
+  }, []);
+  const siteOrigin = useMemo(() => (typeof window !== "undefined" ? window.location.origin : ""), []);
+  const socialImage = `${siteOrigin || ""}/window.svg`;
 
   // Build share and editor-import URLs when config changes on client
   const editorImportUrl = useMemo(() => {
@@ -173,7 +184,46 @@ export default function EditorPage() {
   return (
     <>
       <Head>
-        <title>Fast Music Widget</title>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <meta name="keywords" content={seo.keywords} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Fast Music Stream Widget" />
+        <meta name="theme-color" content={cfg.theme.bg} />
+        {siteOrigin && <link rel="canonical" href={siteOrigin} />}
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Fast Music Stream Widget" />
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.description} />
+        {siteOrigin && <meta property="og:url" content={siteOrigin} />}
+        {siteOrigin && <meta property="og:image" content={socialImage} />}
+        <meta property="og:image:alt" content="Fast Music Stream Widget preview" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:description" content={seo.description} />
+        {siteOrigin && <meta name="twitter:image" content={socialImage} />}
+
+        {/* JSON-LD structured data */}
+        <script
+          type="application/ld+json"
+          // Using a string to avoid hydration warnings
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Fast Music Stream Widget",
+              applicationCategory: "MultimediaApplication",
+              operatingSystem: "Windows, macOS, Linux",
+              description: seo.description,
+              url: siteOrigin || undefined,
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            }),
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
