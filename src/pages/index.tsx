@@ -786,7 +786,9 @@ function WidgetPreview(props: {
       } else if (imgUrl || artSrc) {
         const color = await extractDominantColor(imgUrl || artSrc);
         if (color) {
-          const textColor = getReadableTextOn((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : color);
+          const textColor = (cfg.theme.bgEnabled ?? true)
+            ? getReadableTextOn(cfg.theme.bg)
+            : "#ffffff"; // when background is disabled, always use white for readability
           setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
           setComputedAccent(color);
         } else {
