@@ -1,12 +1,12 @@
 // src/pages/index.tsx
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import LastfmConnect from "../components/LastfmConnect";
 import { WidgetConfig, defaultConfig, encodeConfig } from "../utils/config";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
-import { extractDominantColor, getContrastText } from "../utils/colors";
+import { extractDominantColor, getReadableTextOn } from "../utils/colors";
 
 export default function EditorPage() {
   // Config state
@@ -68,30 +68,27 @@ export default function EditorPage() {
   useEffect(() => {
     let t = 0 as unknown as number;
     const tick = async () => {
-      if (!cfg.theme.autoFromArt || !artUrl) {
+      if (!cfg.theme.autoFromArt) {
+        // Auto-from-art disabled: reflect configured colors
         setComputedText(cfg.theme.text);
         setComputedAccent(cfg.theme.accent);
-      } else {
+      } else if (artUrl) {
+        // Auto-from-art enabled with an image: try to extract via proxy; keep last-good on failure
         const color = await extractDominantColor(artUrl);
-        if (!color) {
-          setComputedText(cfg.theme.text);
-          setComputedAccent(cfg.theme.accent);
-        } else {
-          const textColor = getContrastText(color);
-          setComputedText({
-            title: cfg.theme.autoTargets?.title ? textColor : cfg.theme.text.title,
-            artist: cfg.theme.autoTargets?.artist ? textColor : cfg.theme.text.artist,
-            album: cfg.theme.autoTargets?.album ? textColor : cfg.theme.text.album,
-            meta: cfg.theme.autoTargets?.meta ? textColor : cfg.theme.text.meta,
-          });
+        if (color) {
+          const textColor = getReadableTextOn(cfg.theme.bgEnabled ?? true ? cfg.theme.bg : color);
+          setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
           setComputedAccent(color);
         }
+        // if extraction failed, keep previous computedText/Accent
+      } else {
+        // Auto-from-art enabled but no art right now: keep last-good
       }
       t = window.setTimeout(tick, 1500) as unknown as number;
     };
     tick();
     return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.autoTargets, cfg.theme.accent, artUrl]);
+  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled, artUrl]);
 
   // config helpers
   function update<K extends keyof WidgetConfig>(key: K, value: WidgetConfig[K]) {
@@ -103,8 +100,16 @@ export default function EditorPage() {
   }
 
   function toggleAccentFor(k: keyof WidgetConfig["theme"]["text"], on: boolean) {
-    const val = on ? ("accent" as const) : (cfg.theme.text[k] as string);
-    update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: on ? "accent" : (val || "#ffffff") } });
+    if (on) {
+      update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: "accent" } });
+    } else {
+      // When turning off accent, restore a reasonable hex value
+      const current = cfg.theme.text[k];
+      const fallback = (typeof current === 'string' && current !== 'accent')
+        ? (current as string)
+        : (cfg.theme.autoFromArt ? (computedText[k] as string) : (defaultConfig.theme.text[k] as string));
+      update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: fallback || "#ffffff" } });
+    }
   }
 
   async function copySettings() {
@@ -342,6 +347,16 @@ export default function EditorPage() {
                 />
                 Show background
               </label>
+              <div className="mt-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={cfg.layout.showArt}
+                    onChange={(e) => update("layout", { ...cfg.layout, showArt: e.target.checked })}
+                  />
+                  Show album art
+                </label>
+              </div>
             </div>
           </details>
 
@@ -380,6 +395,7 @@ export default function EditorPage() {
                 />
                 Auto theme from album art
               </label>
+              {/* Per-text apply toggles removed: auto-from-art applies to all text fields when enabled */}
             </div>
           </details>
 
@@ -646,6 +662,7 @@ function WidgetPreview(props: {
     };
   }, [artSrc]);
   const showImage = cfg.layout.showArt && !!imgUrl;
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const grid = useMemo(() => {
     // Place art relative to text alignment: center => art above, left => art left, right => art right
     if (!showImage) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
@@ -657,36 +674,62 @@ function WidgetPreview(props: {
   const textAlign = cfg.layout.align;
   const fontFamily = cfg.theme.font ? `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system` : undefined;
 
-  // Compute runtime colors when auto-from-art is enabled (use stable artSrc)
+  // Compute runtime colors when auto-from-art is enabled (prefer the blob imgUrl when present)
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
+  // Extract dominant color directly from the displayed <img> when it loads for maximum reliability
+  const extractFromImgEl = useMemo(() => {
+    return () => {
+      if (!cfg.theme.autoFromArt) return;
+      const el = imgRef.current;
+      if (!el) return;
+      try {
+        const size = 32;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(el, 0, 0, size, size);
+        const { data } = ctx.getImageData(0, 0, size, size);
+        const counts = new Map<string, number>();
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+          if (a < 200) continue;
+          const key = `${Math.round(r/16)*16},${Math.round(g/16)*16},${Math.round(b/16)*16}`;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        let max = 0; let best = '255,255,255';
+        for (const [k,v] of counts) { if (v > max) { max = v; best = k; } }
+        const [r,g,b] = best.split(',').map(Number);
+    const toHex = (n:number)=> n.toString(16).padStart(2,'0');
+    const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    const textColor = getReadableTextOn((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : hex);
+    setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
+        setComputedAccent(hex);
+      } catch { /* ignore */ }
+    };
+  }, [cfg.theme.autoFromArt, cfg.theme.bg, cfg.theme.bgEnabled]);
   useEffect(() => {
     let t = 0 as unknown as number;
     const run = async () => {
-      if (!cfg.theme.autoFromArt || !artSrc) {
+      if (!cfg.theme.autoFromArt) {
         setComputedText(cfg.theme.text);
         setComputedAccent(cfg.theme.accent);
-      } else {
-        const color = await extractDominantColor(artSrc);
-        if (!color) {
-          setComputedText(cfg.theme.text);
-          setComputedAccent(cfg.theme.accent);
-        } else {
-          const textColor = getContrastText(color);
-          setComputedText({
-            title: cfg.theme.autoTargets?.title ? textColor : cfg.theme.text.title,
-            artist: cfg.theme.autoTargets?.artist ? textColor : cfg.theme.text.artist,
-            album: cfg.theme.autoTargets?.album ? textColor : cfg.theme.text.album,
-            meta: cfg.theme.autoTargets?.meta ? textColor : cfg.theme.text.meta,
-          });
+      } else if (imgUrl || artSrc) {
+        const color = await extractDominantColor(imgUrl || artSrc);
+        if (color) {
+          const textColor = getReadableTextOn((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : color);
+          setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
           setComputedAccent(color);
         }
+      } else {
+        // autoFromArt on but no art; keep last-good
       }
       t = window.setTimeout(run, 1500) as unknown as number;
     };
     run();
     return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.autoTargets, artSrc, cfg.theme.accent]);
+  }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled]);
 
   return (
     <div
@@ -704,9 +747,9 @@ function WidgetPreview(props: {
       {textAlign === 'right' ? (
         <>
           <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
-          {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-          {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-          {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
@@ -714,27 +757,31 @@ function WidgetPreview(props: {
             )}
       <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
-          {cfg.layout.showArt && imgUrl && (
+      {cfg.layout.showArt && imgUrl && (
             <img
+        ref={imgRef}
               src={imgUrl}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
+        onLoad={extractFromImgEl}
             />
           )}
         </>
       ) : (
         <>
-          {cfg.layout.showArt && imgUrl && (
+      {cfg.layout.showArt && imgUrl && (
             <img
+        ref={imgRef}
               src={imgUrl}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
+        onLoad={extractFromImgEl}
             />
           )}
-          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
-  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.text.title === 'accent' ? computedAccent : computedText.title} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.text.artist === 'accent' ? computedAccent : computedText.artist} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-  {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.text.album === 'accent' ? computedAccent : computedText.album} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+    <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
+  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400) }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400) }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30" }}>
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
