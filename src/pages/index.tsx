@@ -680,13 +680,20 @@ function WidgetPreview(props: {
           </div>
       {cfg.layout.showArt && (
             <img
-        src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
+              src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
+              referrerPolicy="no-referrer"
               onError={(e) => {
-                // prevent error loop and fall back to placeholder
-                (e.currentTarget as HTMLImageElement).onerror = null;
-                (e.currentTarget as HTMLImageElement).src = "/window.svg";
+                const img = e.currentTarget as HTMLImageElement;
+                // If the proxied URL failed, try direct URL; otherwise fallback placeholder
+                const proxiedPrefix = `/api/proxy-image?url=`;
+                if (artSrc && img.src.includes(proxiedPrefix)) {
+                  img.src = artSrc;
+                } else {
+                  img.onerror = null;
+                  img.src = "/window.svg";
+                }
               }}
             />
           )}
@@ -695,12 +702,19 @@ function WidgetPreview(props: {
         <>
       {cfg.layout.showArt && (
             <img
-        src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
+              src={artSrc ? `/api/proxy-image?url=${encodeURIComponent(artSrc)}` : "/window.svg"}
               alt=""
               style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
+              referrerPolicy="no-referrer"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).onerror = null;
-                (e.currentTarget as HTMLImageElement).src = "/window.svg";
+                const img = (e.currentTarget as HTMLImageElement);
+                const proxiedPrefix = `/api/proxy-image?url=`;
+                if (artSrc && img.src.includes(proxiedPrefix)) {
+                  img.src = artSrc;
+                } else {
+                  img.onerror = null;
+                  img.src = "/window.svg";
+                }
               }}
             />
           )}
