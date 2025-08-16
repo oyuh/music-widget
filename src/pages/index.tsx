@@ -87,19 +87,26 @@ export default function EditorPage() {
         // Auto-from-art enabled with an image: try to extract via proxy; keep last-good on failure
         const color = await extractDominantColor(artUrl);
         if (color) {
-          const textColor = getReadableTextOn(cfg.theme.bgEnabled ?? true ? cfg.theme.bg : color);
+          const textColor = (cfg.theme.bgEnabled ?? true)
+            ? getReadableTextOn(cfg.theme.bg)
+            : "#ffffff"; // with transparent background, default to white for readability
           setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
           setComputedAccent(color);
+        } else {
+          // Extraction failed: reset to a safe white text and default accent
+          setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
+          setComputedAccent(cfg.fallbackAccent || cfg.theme.accent);
         }
-        // if extraction failed, keep previous computedText/Accent
-      } else {
-        // Auto-from-art enabled but no art right now: keep last-good
+  } else {
+        // Auto-from-art enabled but no art: reset to white text and default accent
+  setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
+  setComputedAccent(cfg.fallbackAccent || cfg.theme.accent);
       }
       t = window.setTimeout(tick, 1500) as unknown as number;
     };
     tick();
     return () => { if (t) clearTimeout(t); };
-  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled, artUrl]);
+  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, artUrl]);
 
   // config helpers
   function update<K extends keyof WidgetConfig>(key: K, value: WidgetConfig[K]) {
@@ -388,6 +395,15 @@ export default function EditorPage() {
                     onChange={(e) => update("theme", { ...cfg.theme, accent: e.target.value })}
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm mb-1">Fallback accent (used when album color is unavailable)</label>
+                  <input
+                    type="color"
+                    className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2 h-9"
+                    value={cfg.fallbackAccent || cfg.theme.accent}
+                    onChange={(e) => setCfg({ ...cfg, fallbackAccent: e.target.value })}
+                  />
+                </div>
               </div>
               <label className="inline-flex items-center gap-2 mt-3 text-sm">
                 <input
@@ -674,7 +690,7 @@ function WidgetPreview(props: {
   // Keep a stable art src (last non-empty); use a safe fallback on errors
   const [artSrc, setArtSrc] = useState<string>(art || "");
   useEffect(() => {
-    if (art && art.trim() !== "") setArtSrc(art);
+  setArtSrc((art || "").trim());
   }, [art]);
   // Build a robust, display-ready image URL via Blob to avoid loader/CORS quirks
   const [imgUrl, setImgUrl] = useState<string>("");
@@ -753,12 +769,14 @@ function WidgetPreview(props: {
         const [r,g,b] = best.split(',').map(Number);
     const toHex = (n:number)=> n.toString(16).padStart(2,'0');
     const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    const textColor = getReadableTextOn((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : hex);
-    setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
-        setComputedAccent(hex);
+    const textColor = (cfg.theme.bgEnabled ?? true)
+      ? getReadableTextOn(cfg.theme.bg)
+      : "#ffffff";
+  setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
+    setComputedAccent(hex || (cfg.fallbackAccent || cfg.theme.accent));
       } catch { /* ignore */ }
     };
-  }, [cfg.theme.autoFromArt, cfg.theme.bg, cfg.theme.bgEnabled]);
+  }, [cfg.theme.autoFromArt, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, cfg.theme.accent]);
   useEffect(() => {
     let t = 0 as unknown as number;
     const run = async () => {
@@ -771,9 +789,14 @@ function WidgetPreview(props: {
           const textColor = getReadableTextOn((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : color);
           setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
           setComputedAccent(color);
+        } else {
+          setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
+          setComputedAccent(cfg.theme.accent);
         }
       } else {
-        // autoFromArt on but no art; keep last-good
+        // autoFromArt on but no art; reset to white
+        setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
+        setComputedAccent(cfg.theme.accent);
       }
       t = window.setTimeout(run, 1500) as unknown as number;
     };
@@ -790,6 +813,7 @@ function WidgetPreview(props: {
         ...grid,
         fontFamily,
   // No drop shadow when background is disabled
+  color: ((!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
         opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
       }}
     >
