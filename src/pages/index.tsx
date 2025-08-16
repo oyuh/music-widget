@@ -699,6 +699,16 @@ export default function EditorPage() {
                   <option value="transparent">Hide card (transparent)</option>
                 </select>
               </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1">Paused text (when no album art)</label>
+                <input
+                  type="text"
+                  className="w-full rounded bg-neutral-800 border border-white/10 px-3 py-2"
+                  value={cfg.fields.pausedText || "Paused"}
+                  onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, pausedText: e.target.value } })}
+                  placeholder="Paused"
+                />
+              </div>
             </div>
           </details>
         </div>
@@ -884,28 +894,67 @@ function WidgetPreview(props: {
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
               </div>
             )}
-      <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
       {cfg.layout.showArt && imgUrl && (
-            <img
-        ref={imgRef}
-              src={imgUrl}
-              alt=""
-              style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
-        onLoad={extractFromImgEl}
-            />
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                ref={imgRef}
+                src={imgUrl}
+                alt=""
+                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }}
+                onLoad={extractFromImgEl}
+              />
+              {!isLive && cfg.fields.pausedMode === "label" && (
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 24, height: 24,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: 14, fontWeight: 'bold'
+                }}>
+                  ⏸
+                </div>
+              )}
+            </div>
+          )}
+          {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+            <div style={{
+              fontSize: cfg.theme.textSize?.meta ?? 12,
+              opacity: .8,
+              color: computedText.meta,
+              textAlign: 'right'
+            }}>
+              {cfg.fields.pausedText || "Paused"}
+            </div>
           )}
         </>
       ) : (
         <>
       {cfg.layout.showArt && imgUrl && (
-            <img
-        ref={imgRef}
-              src={imgUrl}
-              alt=""
-              style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
-        onLoad={extractFromImgEl}
-            />
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                ref={imgRef}
+                src={imgUrl}
+                alt=""
+                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start' }}
+                onLoad={extractFromImgEl}
+              />
+              {!isLive && cfg.fields.pausedMode === "label" && (
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 24, height: 24,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: 14, fontWeight: 'bold'
+                }}>
+                  ⏸
+                </div>
+              )}
+            </div>
           )}
     <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
   {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}` }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
@@ -916,8 +965,17 @@ function WidgetPreview(props: {
         <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
               </div>
             )}
-      <div className="mt-1 text-xs" style={{ color: computedText.meta, opacity: .8 }}>{isLive ? "" : "Paused / Not playing"}</div>
           </div>
+          {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+            <div style={{
+              fontSize: cfg.theme.textSize?.meta ?? 12,
+              opacity: .8,
+              color: computedText.meta,
+              textAlign: textAlign
+            }}>
+              {cfg.fields.pausedText || "Paused"}
+            </div>
+          )}
         </>
       )}
     </div>
