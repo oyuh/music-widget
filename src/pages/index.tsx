@@ -54,7 +54,15 @@ export default function EditorPage() {
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
-  const artUrl = track?.image?.slice(-1)?.[0]?.["#text"] ?? "";
+  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f|noimage|default/i.test(u);
+  const artUrl = useMemo(() => {
+    const imgs = track?.image ?? [];
+    for (let i = imgs.length - 1; i >= 0; i--) {
+      const u = imgs[i]?.["#text"] ?? "";
+      if (u && !isLastfmPlaceholder(u)) return u;
+    }
+    return "";
+  }, [track]);
   const [computedText, setComputedText] = useState(cfg.theme.text);
   const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
   useEffect(() => {

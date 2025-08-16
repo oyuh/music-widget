@@ -51,7 +51,15 @@ export default function WidgetPage() {
   });
 
   // Derive common values before any early returns
-  const art = track?.image?.slice(-1)?.[0]?.["#text"] ?? "";
+  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f|noimage|default/i.test(u);
+  const art = (() => {
+    const imgs = track?.image ?? [];
+    for (let i = imgs.length - 1; i >= 0; i--) {
+      const u = imgs[i]?.["#text"] ?? "";
+      if (u && !isLastfmPlaceholder(u)) return u;
+    }
+    return "";
+  })();
   const [artSrc, setArtSrc] = useState<string>(art);
   useEffect(() => {
     if (art && art.trim().length > 0) setArtSrc(art);
