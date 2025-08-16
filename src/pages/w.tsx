@@ -105,33 +105,38 @@ export default function WidgetPage() {
     let cancelled = false;
     const run = async () => {
       if (!effectiveCfg.theme.autoFromArt) {
+        // Auto-from-art disabled: honor configured theme colors
         setComputedText(effectiveCfg.theme.text);
         setComputedAccent(effectiveCfg.theme.accent);
         return;
       }
-      if (!artSrc) {
-        // Auto-from-art is ON but there's no art: reset to white text and default accent
+      // Prefer the blob/object URL we generated for the image; fall back to original src
+      const source = imgUrl || artSrc;
+      if (!source) {
+        // No image available: use readable white text and fallback/default accent
         setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
         setComputedAccent(effectiveCfg.fallbackAccent || effectiveCfg.theme.accent);
         return;
       }
-      const color = await extractDominantColor(artSrc);
+      const color = await extractDominantColor(source);
       if (cancelled) return;
       if (!color) {
-        // Extraction failed: same reset behavior
+        // Extraction failed: safe reset using fallback/default accent
         setComputedText({ title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" });
         setComputedAccent(effectiveCfg.fallbackAccent || effectiveCfg.theme.accent);
       } else {
-        const textColor = (effectiveCfg.theme.bgEnabled ?? true)
-          ? getReadableTextOn(effectiveCfg.theme.bg)
-          : "#ffffff"; // when background is transparent, stick to white for readability
+        // When background is disabled, always use white text for readability
+        // When background is enabled, compute readable text against the background
+        const textColor = !(effectiveCfg.theme.bgEnabled ?? true)
+          ? "#ffffff"
+          : getReadableTextOn(effectiveCfg.theme.bg);
         setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
         setComputedAccent(color);
       }
     };
     run();
     return () => { cancelled = true; };
-  }, [effectiveCfg.theme.autoFromArt, effectiveCfg.theme.text, artSrc, effectiveCfg.theme.accent, effectiveCfg.theme.bg, effectiveCfg.theme.bgEnabled, effectiveCfg.fallbackAccent, refreshNonce]);
+  }, [effectiveCfg.theme.autoFromArt, effectiveCfg.theme.text, imgUrl, artSrc, effectiveCfg.theme.accent, effectiveCfg.theme.bg, effectiveCfg.theme.bgEnabled, effectiveCfg.fallbackAccent, refreshNonce]);
 
   if (!cfg) return null;
 
@@ -140,7 +145,13 @@ export default function WidgetPage() {
   const isTop = showImage && artPos === 'top';
   // Last-resort guard: when the card is actually transparent (paused transparent OR bg disabled), force all text to white
   const forceWhite = (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true);
-  const pickColor = (desired: string) => (forceWhite ? '#ffffff' : desired);
+  const pickColor = (desired: string, isAccent: boolean = false) => {
+    // If this is an accent color, always show it (accent colors should be visible even on transparent backgrounds)
+    if (isAccent) return desired;
+    // For text colors: if bg is disabled, always return white regardless of what was computed
+    if (!(cfg.theme.bgEnabled ?? true)) return '#ffffff';
+    return forceWhite ? '#ffffff' : desired;
+  };
   return (
     <>
       <Head>
@@ -173,7 +184,7 @@ export default function WidgetPage() {
         {cfg.fields.title && (
                 <ScrollText
           style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
-          color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)))}
+          color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -183,7 +194,7 @@ export default function WidgetPage() {
               {cfg.fields.artist && (
                 <ScrollText
                   style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)))}
+                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -193,7 +204,7 @@ export default function WidgetPage() {
               {cfg.fields.album && (
                 <ScrollText
                   style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)))}
+                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -205,7 +216,7 @@ export default function WidgetPage() {
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string)), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
+              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
             {cfg.layout.showArt && imgUrl && <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end' }} />}
           </>
@@ -216,7 +227,7 @@ export default function WidgetPage() {
         {cfg.fields.title && (
                 <ScrollText
                   style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
-          color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)))}
+          color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -226,7 +237,7 @@ export default function WidgetPage() {
               {cfg.fields.artist && (
                 <ScrollText
                   style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)))}
+                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -236,7 +247,7 @@ export default function WidgetPage() {
               {cfg.fields.album && (
                 <ScrollText
                   style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)))}
+                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -248,7 +259,7 @@ export default function WidgetPage() {
                   <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string)), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
+              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
           </>
         ) : (
@@ -258,7 +269,7 @@ export default function WidgetPage() {
               {cfg.fields.title && (
                 <ScrollText
                   style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)))}
+                  color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
                   text={title}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -268,7 +279,7 @@ export default function WidgetPage() {
               {cfg.fields.artist && (
                 <ScrollText
                   style={{ opacity: .95, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)))}
+                  color={pickColor((effectiveCfg.theme.text.artist === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.artist as string) : (effectiveCfg.theme.text.artist as string)), effectiveCfg.theme.text.artist === 'accent')}
                   text={artist}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -278,7 +289,7 @@ export default function WidgetPage() {
               {cfg.fields.album && (
                 <ScrollText
                   style={{ opacity: .85, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.album ?? 12, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)` }}
-                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)))}
+                  color={pickColor((effectiveCfg.theme.text.album === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.album as string) : (effectiveCfg.theme.text.album as string)), effectiveCfg.theme.text.album === 'accent')}
                   text={album}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
@@ -290,7 +301,7 @@ export default function WidgetPage() {
           <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string)), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
+              <div style={{ marginTop: 4, fontSize: cfg.theme.textSize?.meta ?? 12, opacity: .8, color: pickColor(cfg.theme.text.meta === 'accent' ? computedAccent : (computedText.meta as string), cfg.theme.text.meta === 'accent'), transform: `translate(${cfg.layout.textOffset?.meta.x ?? 0}px, ${(cfg.layout.textOffset?.meta.y ?? 0)}px)` }}>{isLive ? "" : "Paused / Not playing"}</div>
             </div>
           </>
         )}
