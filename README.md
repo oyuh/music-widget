@@ -1,42 +1,51 @@
-Fast Music Stream Widget (Last.fm)
+# Fats Music Last.fm Widget for Streaming
 
-Simple, customizable stream overlay that shows your current (or recent) track from Last.fm. Includes an in-browser editor to configure the widget and a shareable widget URL for OBS.
+A customizable Last.fm now playing widget for OBS, XSplit, Streamlabs, and other streaming software.
 
-Features
-- Live now playing from Last.fm (5s polling, resilient to transient errors)
-- Album art with auto theme (extract dominant color + contrast text)
-- Typography: Google font, per-text colors/sizes/styles (title/artist/album/meta)
-- Layout: alignment, album art position/size, negative text gap, per-text X/Y offsets
-- Scrolling text (marquee): adjustable speed and gap, with per-text overrides
-- Paused/not playing behavior: show label or fully transparent
-- Share/copy settings, editor import, and deep-merge paste
+## Quick Start
 
-How it works
-- Editor: `/` (index)
-	- Build your design, see a live preview, and copy the widget link.
-	- If you connect Last.fm (optional), private profiles will preview correctly.
-	- The editor stores your config as JSON and also encodes it for sharing.
+1. **Setup Last.fm Scrobbling**: Make sure your music player is scrobbling to Last.fm
+2. **Get Widget URL**: Go to [fast.jamlog.lol](https://fast.jamlog.lol) and customize your widget
+3. **Copy Widget URL**: Click "Copy"
+4. **Add to Streaming Software**:
+   - **OBS**: Add Browser Source → Paste URL
+   - **XSplit**: Add Web Page → Paste URL
+   - **Streamlabs**: Add Browser Source → Paste URL
 
-- Widget: `/w#<base64-config>`
-	- The widget page is read-only and uses the config in the URL hash.
-	- Designed for OBS Browser Source (transparent background supported).
+## Development Setup
 
-Local setup
-1) Create a Last.fm API app: https://www.last.fm/api/account/create
-2) Add `.env.local` with:
-	 - `NEXT_PUBLIC_LFM_KEY` — your API key
-	 - `LFM_SHARED_SECRET` — your shared secret
-	 - Optional: `NEXT_PUBLIC_LFM_CALLBACK` (defaults to `/callback`)
-3) Start dev server:
-	 - `npm run dev` (or `pnpm dev`, `yarn dev`)
-4) Open http://localhost:3000
+```bash
+npm install
+npm run dev
+```
 
-Usage in OBS
-1) In the editor, copy the “Your unique widget link” (looks like `/w#...`).
-2) In OBS, add a Browser Source with that URL.
-3) Set the width/height in OBS to match your widget config.
+Visit `http://localhost:3000` to customize your widget.
 
-Troubleshooting
-- Long titles: The marquee uses a measured distance and gap—tweak speed/gap in the Marquee section.
-- Fonts not applying: Ensure the selected Google font downloads in your environment.
-- Transparent when paused: Set Fields → “When paused / not playing” to “Hide card (transparent)”.
+## Configuration
+
+All widget settings are stored in the URL hash, so your customizations persist when you copy the widget URL.
+
+## Support
+
+Having issues? Make sure:
+- Your music is scrobbling to Last.fm
+- The widget URL includes your customizations
+- Your streaming software browser source has the correct dimensions
+
+---
+
+## License
+
+Permission is hereby granted to use, copy, and modify this software for personal use, including local hosting and streaming integration.
+
+**Restrictions:**
+- You may NOT redistribute, publish, or claim this code as your own
+- Commercial redistribution requires explicit permission from the author
+- Contact the author for redistribution rights
+
+**Contributions:**
+- Contributions are welcome and encouraged
+- Contributors will receive appropriate credit
+- By contributing, you agree to these license terms
+
+[**Email Me For Contact**](mailto:me@lawsonhart.me)
