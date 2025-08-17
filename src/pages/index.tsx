@@ -1641,8 +1641,8 @@ export default function EditorPage() {
 
           {/* Polling rate notice */}
           <div className="mt-4 text-center">
-            <p className="text-green-400/80 text-xs max-w-3xl mx-auto">
-              Smart polling with pause detection and position estimation - tracks resume from estimated playback position when possible.
+            <p className="text-red-400/80 text-xs max-w-3xl mx-auto">
+              Please allow 1-3 seconds for the widget to update with the correct new track info. Things like duration are extremely unreliable.
             </p>
           </div>
         </div>
