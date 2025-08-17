@@ -56,7 +56,7 @@ export default function WidgetPage() {
   // Call hooks unconditionally to keep hook order stable across renders
   const { track, isLive, percent } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
-  pollMs: 5000,
+  pollMs: 1000,
     sessionKey: null, // keep widget public-only; preview handles private via editor
   });
 
@@ -86,7 +86,7 @@ export default function WidgetPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   useEffect(() => {
     if (!cfg?.theme.autoFromArt) return; // Don't run refresh timer when auto-from-art is off
-    const id = window.setInterval(() => setRefreshNonce((n) => n + 1), 5000) as unknown as number;
+    const id = window.setInterval(() => setRefreshNonce((n) => n + 1), 3000) as unknown as number;
     return () => clearInterval(id);
   }, [cfg?.theme.autoFromArt]);
   useEffect(() => {
