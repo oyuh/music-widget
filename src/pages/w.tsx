@@ -56,7 +56,7 @@ export default function WidgetPage() {
   }, []);
 
   // Call hooks unconditionally to keep hook order stable across renders
-  const { track, isLive, percent, progressMs, durationMs } = useNowPlaying({
+  const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
   pollMs: 5000,
     sessionKey: null, // keep widget public-only; preview handles private via editor
@@ -227,8 +227,12 @@ export default function WidgetPage() {
   const showImage = cfg.layout.showArt && !!imgUrl;
   const artPos = cfg.layout.artPosition; // 'left' | 'right' | 'top'
   const isTop = showImage && artPos === 'top';
+
+  // Enhanced pause detection: consider both Last.fm state and smart pause detection
+  const isEffectivelyPaused = !isLive || isPaused;
+
   // Last-resort guard: when the card is actually transparent (paused transparent OR bg disabled), force all text to white
-  const forceWhite = (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true);
+  const forceWhite = (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true);
   const pickColor = (desired: string, isAccent: boolean = false) => {
     // If this is an accent color, always show it (accent colors should be visible even on transparent backgrounds)
     if (isAccent) return desired;
@@ -252,14 +256,14 @@ export default function WidgetPage() {
           gridTemplateColumns: !showImage ? "1fr" : isTop ? "1fr" : (artPos === 'right' ? "1fr auto" : "auto 1fr"),
           gridTemplateRows: isTop ? "auto 1fr" : "auto",
           gap: 12,
-          background: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
+          background: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
           // Ensure readable default text color when background is actually transparent
-          color: ((!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
+          color: ((isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
           // No drop shadow when background is disabled
       padding: 12, borderRadius: cfg.layout.backgroundRadius ?? 16,
           fontFamily: `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system`,
           alignItems: 'center', justifyItems: cfg.layout.align === 'center' ? 'center' : undefined,
-      opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
+      opacity: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
           boxShadow: dropShadows?.getBackgroundShadow(),
         }}
       >
@@ -337,7 +341,7 @@ export default function WidgetPage() {
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: cfg.layout.artRadius ?? 12, justifySelf: 'end', boxShadow: dropShadows?.getAlbumArtShadow() }} />
-                {!isLive && cfg.fields.pausedMode === "label" && (
+                {isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
                     transform: 'translate(-50%, -50%)',
@@ -353,7 +357,7 @@ export default function WidgetPage() {
                 )}
               </div>
             )}
-            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+            {!cfg.layout.showArt && isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
               <div style={{
                 fontSize: cfg.theme.textSize?.meta ?? 12,
                 opacity: .8,
@@ -370,7 +374,7 @@ export default function WidgetPage() {
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: cfg.layout.artRadius ?? 12, justifySelf: (cfg.layout.align === 'center' ? 'center' : 'start'), boxShadow: dropShadows?.getAlbumArtShadow() }} />
-                {!isLive && cfg.fields.pausedMode === "label" && (
+                {isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
                     transform: 'translate(-50%, -50%)',
@@ -455,7 +459,7 @@ export default function WidgetPage() {
                 </div>
               )}
             </div>
-            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+            {!cfg.layout.showArt && isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
               <div style={{
                 fontSize: cfg.theme.textSize?.meta ?? 12,
                 opacity: .8,
@@ -473,7 +477,7 @@ export default function WidgetPage() {
             {cfg.layout.showArt && imgUrl && (
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 <img src={imgUrl} alt="" style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: cfg.layout.artRadius ?? 12, justifySelf: 'start', boxShadow: dropShadows?.getAlbumArtShadow() }} />
-                {!isLive && cfg.fields.pausedMode === "label" && (
+                {isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%',
                     transform: 'translate(-50%, -50%)',
@@ -558,7 +562,7 @@ export default function WidgetPage() {
                 </div>
               )}
             </div>
-            {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
+            {!cfg.layout.showArt && isEffectivelyPaused && cfg.fields.pausedMode === "label" && (
               <div style={{
                 fontSize: cfg.theme.textSize?.meta ?? 12,
                 opacity: .8,
