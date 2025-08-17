@@ -274,7 +274,7 @@ export default function EditorPage() {
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-3xl font-semibold tracking-tight">Fast Music (via Last.fm) Stream Widget</h1>
             <a
-              href="https://github.com/oyuh/applem-util"
+              href="https://github.com/oyuh/music-widget"
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
