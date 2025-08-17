@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
   try {
-    const upstream = await fetch(url, { headers: { "User-Agent": "applem-util/1.0 (+https://github.com/oyuh/applem-util)" } });
+    const upstream = await fetch(url, { headers: { "User-Agent": "music-widget/1.0 (+https://github.com/oyuh/music-widget)" } });
     if (!upstream.ok) {
       res.status(upstream.status).end();
       return;
