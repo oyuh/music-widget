@@ -573,6 +573,22 @@ export default function EditorPage() {
                         </div>
                       </div>
 
+                      {/* Background Corner Radius */}
+                      <div className="space-y-2">
+                        <Label className="text-white/80">Background Corner Radius ({cfg.layout.backgroundRadius ?? 16}px)</Label>
+                        <div className="px-2">
+                          <input
+                            type="range"
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={cfg.layout.backgroundRadius ?? 16}
+                            onChange={(e) => update("layout", { ...cfg.layout, backgroundRadius: +e.target.value })}
+                            className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                          />
+                        </div>
+                      </div>
+
                       {/* Album Art */}
                       <div className="space-y-4">
                         <div className="flex items-center space-x-2">
@@ -587,18 +603,35 @@ export default function EditorPage() {
                         </div>
 
                         {cfg.layout.showArt && (
-                          <div className="space-y-2">
-                            <Label className="text-white/80">Art Size ({cfg.layout.artSize}px)</Label>
-                            <div className="px-2">
-                              <input
-                                type="range"
-                                min={32}
-                                max={240}
-                                step={4}
-                                value={cfg.layout.artSize}
-                                onChange={(e) => update("layout", { ...cfg.layout, artSize: +e.target.value })}
-                                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
-                              />
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Art Size ({cfg.layout.artSize}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={32}
+                                  max={240}
+                                  step={4}
+                                  value={cfg.layout.artSize}
+                                  onChange={(e) => update("layout", { ...cfg.layout, artSize: +e.target.value })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Album Art Corner Radius ({cfg.layout.artRadius ?? 12}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={50}
+                                  step={1}
+                                  value={cfg.layout.artRadius ?? 12}
+                                  onChange={(e) => update("layout", { ...cfg.layout, artRadius: +e.target.value })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
                             </div>
                           </div>
                         )}
@@ -617,7 +650,11 @@ export default function EditorPage() {
                                 ? "bg-neutral-700 text-white"
                                 : "border-white/10 bg-transparent hover:bg-neutral-700 text-white/80"
                               }
-                              onClick={() => update("layout", { ...cfg.layout, align: align as WidgetConfig["layout"]["align"] })}
+                              onClick={() => update("layout", {
+                                ...cfg.layout,
+                                align: align as WidgetConfig["layout"]["align"],
+                                artPosition: align === "center" ? "top" : align as WidgetConfig["layout"]["artPosition"]
+                              })}
                             >
                               {align.charAt(0).toUpperCase() + align.slice(1)}
                             </Button>
@@ -1605,14 +1642,15 @@ function WidgetPreview(props: {
   const showImage = cfg.layout.showArt && !!imgUrl;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const grid = useMemo(() => {
-    // Place art relative to text alignment: center => art above, left => art left, right => art right
+    // Match the widget logic exactly: use artPosition for layout, not align
+    const artPos = cfg.layout.artPosition;
+    const isTop = showImage && artPos === 'top';
     if (!showImage) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto" } as const;
-    if (cfg.layout.align === "center") return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto 1fr", justifyItems: "center" } as const;
-    if (cfg.layout.align === "right") return { display: "grid", gridTemplateColumns: `1fr auto`, gridTemplateRows: "auto", alignItems: "center" } as const;
+    if (isTop) return { display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "auto 1fr", justifyItems: "center" } as const;
+    if (artPos === 'right') return { display: "grid", gridTemplateColumns: `1fr auto`, gridTemplateRows: "auto", alignItems: "center" } as const;
     return { display: "grid", gridTemplateColumns: `auto 1fr`, gridTemplateRows: "auto", alignItems: "center" } as const;
-  }, [showImage, cfg.layout.align]);
+  }, [showImage, cfg.layout.artPosition]);
 
-  const textAlign = cfg.layout.align;
   const fontFamily = cfg.theme.font ? `'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system` : undefined;
 
   // Compute runtime colors when auto-from-art is enabled (prefer the blob imgUrl when present)
@@ -1762,12 +1800,14 @@ function WidgetPreview(props: {
   color: ((!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
         opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
         boxShadow: dropShadows.backgroundShadow || undefined,
+        borderRadius: cfg.layout.backgroundRadius ?? 16,
       }}
     >
-      {/* Render order based on alignment: right => text then art; left/center => art then text */}
-      {textAlign === 'right' ? (
+      {/* Match widget rendering logic exactly */}
+      {showImage && cfg.layout.artPosition === 'right' ? (
         <>
-          <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
+          {/* Right layout: Text first, then art */}
+          <div className={`${cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}`} style={{ minWidth: 0 }}>
           {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
           {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
           {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
@@ -1783,7 +1823,7 @@ function WidgetPreview(props: {
                 ref={imgRef}
                 src={imgUrl}
                 alt=""
-                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: 'end', boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt ? dropShadows.getBoxShadow("#000000") : undefined }}
+                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: cfg.layout.artRadius ?? 12, justifySelf: 'end', boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt ? dropShadows.getBoxShadow("#000000") : undefined }}
                 onLoad={extractFromImgEl}
               />
               {!isLive && cfg.fields.pausedMode === "label" && (
@@ -1803,11 +1843,12 @@ function WidgetPreview(props: {
             </div>
           )}
           {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
-            <div style={{
+            <div
+              className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}
+              style={{
               fontSize: cfg.theme.textSize?.meta ?? 12,
               opacity: .8,
-              color: computedText.meta,
-              textAlign: 'right'
+              color: computedText.meta
             }}>
               {cfg.fields.pausedText || "Paused"}
             </div>
@@ -1821,7 +1862,7 @@ function WidgetPreview(props: {
                 ref={imgRef}
                 src={imgUrl}
                 alt=""
-                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: 12, justifySelf: textAlign === 'center' ? 'center' : 'start', boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt ? dropShadows.getBoxShadow("#000000") : undefined }}
+                style={{ width: cfg.layout.artSize, height: cfg.layout.artSize, objectFit: "cover", borderRadius: cfg.layout.artRadius ?? 12, justifySelf: cfg.layout.align === 'center' ? 'center' : 'start', boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt ? dropShadows.getBoxShadow("#000000") : undefined }}
                 onLoad={extractFromImgEl}
               />
               {!isLive && cfg.fields.pausedMode === "label" && (
@@ -1840,7 +1881,7 @@ function WidgetPreview(props: {
               )}
             </div>
           )}
-    <div className={{ left: "text-left", center: "text-center", right: "text-right" }[textAlign]} style={{ minWidth: 0 }}>
+    <div className={`${cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}`} style={{ minWidth: 0 }}>
   {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={trackTitle ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
   {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
   {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
@@ -1851,11 +1892,12 @@ function WidgetPreview(props: {
             )}
           </div>
           {!cfg.layout.showArt && !isLive && cfg.fields.pausedMode === "label" && (
-            <div style={{
+            <div
+              className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}
+              style={{
               fontSize: cfg.theme.textSize?.meta ?? 12,
               opacity: .8,
-              color: computedText.meta,
-              textAlign: textAlign
+              color: computedText.meta
             }}>
               {cfg.fields.pausedText || "Paused"}
             </div>
