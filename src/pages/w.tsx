@@ -58,7 +58,7 @@ export default function WidgetPage() {
   // Call hooks unconditionally to keep hook order stable across renders
   const { track, isLive, percent, progressMs, durationMs } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
-  pollMs: 1000,
+  pollMs: 5000,
     sessionKey: null, // keep widget public-only; preview handles private via editor
   });
 

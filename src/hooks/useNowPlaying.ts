@@ -17,7 +17,7 @@ export function useNowPlaying(options: {
   pollMs?: number;
   sessionKey?: string | null; // if present, we hit the proxy with sk=
 }) {
-  const { username, pollMs = 1000, sessionKey } = options;
+  const { username, pollMs = 5000, sessionKey } = options;
   const [track, setTrack] = useState<LfmTrack | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
