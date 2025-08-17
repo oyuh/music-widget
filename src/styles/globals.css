@@ -97,6 +97,14 @@ body {
 .marquee--animate .marquee__track { animation: marquee-translate var(--marquee-duration, 20s) linear infinite; }
 @keyframes marquee-translate { from { transform: translateX(0); } to { transform: translateX(calc(var(--marquee-distance, 0px) * -1)); } }
 
+/* Fix text alignment inheritance for marquee in different text-align contexts */
+.text-center .marquee { text-align: center; }
+.text-center .marquee__track { justify-content: center; }
+.text-right .marquee { text-align: right; }
+.text-right .marquee__track { justify-content: flex-end; }
+.text-left .marquee { text-align: left; }
+.text-left .marquee__track { justify-content: flex-start; }
+
 /* Custom slider styles for dark mode visibility */
 .slider-thumb::-webkit-slider-thumb {
   appearance: none;
