@@ -1,4 +1,4 @@
-# Fats Music Last.fm Widget for Streaming
+# Fast Music Last.fm Widget for Streaming
 
 A customizable Last.fm now playing widget for OBS, XSplit, Streamlabs, and other streaming software.
 
