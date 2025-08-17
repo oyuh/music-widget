@@ -1420,6 +1420,9 @@ export default function EditorPage() {
                       {cfg.fields.duration && (
                         <div className="space-y-4">
                           <h4 className="text-white font-medium">Duration Settings</h4>
+<p className="text-white/60 text-sm mt-1">
+  These aren't accurate due to Last.fm API limitations.
+</p>
 
                           <div className="space-y-2">
                             <Label className="text-white/80">Duration Format</Label>
