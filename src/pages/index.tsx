@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import LastfmConnect from "../components/LastfmConnect";
-import { WidgetConfig, defaultConfig, encodeConfig } from "../utils/config";
+import { WidgetConfig, defaultConfig, encodeConfig, formatDurationText } from "../utils/config";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
 import { extractDominantColor, getReadableTextOn, generateDropShadowCSS } from "../utils/colors";
@@ -63,7 +63,7 @@ export default function EditorPage() {
   }, [cfg, mounted]);
 
   // Live data for preview (uses connection if present)
-  const { track, isLive, percent } = useNowPlaying({
+  const { track, isLive, percent, progressMs, durationMs } = useNowPlaying({
     username: cfg.lfmUser,
   pollMs: 5000,
     sessionKey,
@@ -102,7 +102,7 @@ export default function EditorPage() {
           const textColor = (cfg.theme.bgEnabled ?? true)
             ? getReadableTextOn(cfg.theme.bg)
             : "#ffffff"; // with transparent background, default to white for readability
-          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
           const newAccent = color;
           // Only update if colors actually changed - use functional updates to access current values
           setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
@@ -112,7 +112,7 @@ export default function EditorPage() {
           return;
         } else {
           // Extraction failed: reset to a safe white text and default accent
-          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
           const newAccent = cfg.fallbackAccent || cfg.theme.accent;
           setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
           setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -125,7 +125,7 @@ export default function EditorPage() {
         }
       } else {
         // Auto-from-art enabled but no art: reset to white text and default accent
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
         const newAccent = cfg.fallbackAccent || cfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -279,10 +279,10 @@ export default function EditorPage() {
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
             >
-              Creator
+              Support
             </a>
             <a
-              href="https://github.com/oyuh/applem-util"
+              href="https://buymeacoffee.com/lawsonhart"
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
@@ -316,6 +316,8 @@ export default function EditorPage() {
                       cfg={cfg}
                       isLive={isLive}
                       percent={percent}
+                      progressMs={progressMs}
+                      durationMs={durationMs}
                       trackTitle={track?.name}
                       artist={track?.artist?.["#text"]}
                       album={track?.album?.["#text"]}
@@ -504,7 +506,7 @@ export default function EditorPage() {
                       <div className="space-y-4">
                         <h4 className="text-white font-medium">Individual Text Colors</h4>
                         <div className="grid grid-cols-2 gap-4">
-                          {(["title", "artist", "album", "meta"] as const).map((k) => (
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
                             <div key={k} className="space-y-2">
                               <Label className="text-white/80 capitalize">{k} Color</Label>
                               <div className="flex items-center gap-2">
@@ -701,7 +703,7 @@ export default function EditorPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {(["title","artist","album","meta"] as const).map((k) => (
+                            {(["title","artist","album","meta","duration"] as const).map((k) => (
                               <Card key={k} className="bg-neutral-900/40 border-white/10">
                                 <CardHeader className="pb-2">
                                   <CardTitle className="text-white capitalize text-xs">{k}</CardTitle>
@@ -719,7 +721,7 @@ export default function EditorPage() {
                                         onChange={(e) => update("layout", {
                                           ...cfg.layout,
                                           textOffset: {
-                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0} }),
+                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0}, duration:{x:0,y:0} }),
                                             [k]: {
                                               ...(cfg.layout.textOffset?.[k] ?? {x:0,y:0}),
                                               x: +e.target.value
@@ -742,7 +744,7 @@ export default function EditorPage() {
                                         onChange={(e) => update("layout", {
                                           ...cfg.layout,
                                           textOffset: {
-                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0} }),
+                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0}, duration:{x:0,y:0} }),
                                             [k]: {
                                               ...(cfg.layout.textOffset?.[k] ?? {x:0,y:0}),
                                               y: +e.target.value
@@ -790,7 +792,7 @@ export default function EditorPage() {
                       <div className="space-y-4">
                         <h4 className="text-white font-medium">Text Sizes</h4>
                         <div className="grid grid-cols-2 gap-4">
-                          {(["title", "artist", "album", "meta"] as const).map((k) => (
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
                             <div key={k} className="space-y-2">
                               <Label className="text-white/80 capitalize">
                                 {k} Size ({cfg.theme.textSize?.[k] ?? (k === "title" ? 16 : k === "artist" ? 14 : 12)}px)
@@ -805,7 +807,7 @@ export default function EditorPage() {
                                   onChange={(e) => update("theme", {
                                     ...cfg.theme,
                                     textSize: {
-                                      ...(cfg.theme.textSize ?? { title:16, artist:14, album:12, meta:12 }),
+                                      ...(cfg.theme.textSize ?? { title:16, artist:14, album:12, meta:12, duration:12 }),
                                       [k]: +e.target.value
                                     }
                                   })}
@@ -821,7 +823,7 @@ export default function EditorPage() {
                       <div className="space-y-4">
                         <h4 className="text-white font-medium">Text Styles</h4>
                         <div className="grid grid-cols-1 gap-4">
-                          {(["title", "artist", "album", "meta"] as const).map((k) => (
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
                             <Card key={k} className="bg-neutral-900/30 border-white/10">
                               <CardHeader className="pb-3">
                                 <CardTitle className="text-white capitalize text-sm">{k}</CardTitle>
@@ -1182,7 +1184,7 @@ export default function EditorPage() {
                             <div className="space-y-4">
                               <h4 className="text-white font-medium">Per-Text Drop Shadow Settings</h4>
                               <div className="grid grid-cols-1 gap-4">
-                                {(["title", "artist", "album", "meta"] as const).map((k) => (
+                                {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
                                   <Card key={k} className="bg-neutral-900/30 border-white/10">
                                     <CardHeader className="pb-3">
                                       <CardTitle className="text-white capitalize text-sm">{k} Drop Shadow</CardTitle>
@@ -1414,6 +1416,48 @@ export default function EditorPage() {
                         </div>
                       </div>
 
+                      {/* Duration Settings */}
+                      {cfg.fields.duration && (
+                        <div className="space-y-4">
+                          <h4 className="text-white font-medium">Duration Settings</h4>
+
+                          <div className="space-y-2">
+                            <Label className="text-white/80">Duration Format</Label>
+                            <select
+                              className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                              value={cfg.fields.durationFormat ?? "both"}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, durationFormat: (e.target.value as "elapsed" | "remaining" | "both") } })}
+                            >
+                              <option value="elapsed">Elapsed only (2:30)</option>
+                              <option value="remaining">Remaining only (-1:25)</option>
+                              <option value="both">Both (2:30/3:55)</option>
+                            </select>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="show-duration-on-progress"
+                              checked={cfg.fields.showDurationOnProgress ?? true}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, showDurationOnProgress: e.target.checked } })}
+                              className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <Label htmlFor="show-duration-on-progress" className="text-white/80">Show duration on progress bar</Label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="show-duration-as-text"
+                              checked={cfg.fields.showDurationAsText ?? false}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, showDurationAsText: e.target.checked } })}
+                              className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <Label htmlFor="show-duration-as-text" className="text-white/80">Show duration as separate text</Label>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Paused Behavior */}
                       <div className="space-y-4">
                         <h4 className="text-white font-medium">When Paused / Not Playing</h4>
@@ -1596,9 +1640,11 @@ function WidgetPreview(props: {
   cfg: WidgetConfig;
   isLive: boolean;
   percent: number;
+  progressMs: number;
+  durationMs: number | null;
   trackTitle?: string; artist?: string; album?: string; art?: string;
 }) {
-  const { cfg, isLive, percent, trackTitle, artist, album, art } = props;
+  const { cfg, isLive, percent, progressMs, durationMs, trackTitle, artist, album, art } = props;
   // Keep a stable art src (last non-empty); use a safe fallback on errors
   const [artSrc, setArtSrc] = useState<string>(art || "");
   useEffect(() => {
@@ -1713,7 +1759,7 @@ function WidgetPreview(props: {
     const textColor = (cfg.theme.bgEnabled ?? true)
       ? getReadableTextOn(cfg.theme.bg)
       : "#ffffff";
-  setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor });
+  setComputedText({ title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor });
     setComputedAccent(hex || (cfg.fallbackAccent || cfg.theme.accent));
       } catch { /* ignore */ }
     };
@@ -1738,7 +1784,7 @@ function WidgetPreview(props: {
 
       if (!source) {
         // No image available: use white text and fallback accent
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
         const newAccent = cfg.fallbackAccent || cfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -1762,7 +1808,7 @@ function WidgetPreview(props: {
         const textColor = (cfg.theme.bgEnabled ?? true)
           ? getReadableTextOn(cfg.theme.bg)
           : "#ffffff";
-        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
         const newAccent = color;
 
         // Only update if colors actually changed
@@ -1774,7 +1820,7 @@ function WidgetPreview(props: {
         setLastImageUrl(source);
       } else if (source !== lastImageUrl) {
         // Extraction failed for a NEW image: use fallback only if image URL changed
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
         const newAccent = cfg.fallbackAccent || cfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -1812,8 +1858,38 @@ function WidgetPreview(props: {
           {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
           {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
-              <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
-        <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+              <div className="mt-2">
+                <div className="h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
+          <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                </div>
+                {cfg.fields.duration && cfg.fields.showDurationOnProgress && (
+                  <div className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'} style={{
+                    fontSize: cfg.theme.textSize?.duration ?? 12,
+                    fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                    fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                    textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                    opacity: 0.8,
+                    marginTop: 4,
+                    transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                    color: cfg.theme.autoFromArt ? (cfg.theme.text.duration === 'accent' ? computedAccent : (computedText.duration as string)) : (cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.text.duration as string))
+                  }}>
+                    {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
+                  </div>
+                )}
+              </div>
+            )}
+            {cfg.fields.duration && cfg.fields.showDurationAsText && (
+              <div className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'} style={{
+                fontSize: cfg.theme.textSize?.duration ?? 12,
+                fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                opacity: 0.8,
+                marginTop: 4,
+                transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                color: cfg.theme.autoFromArt ? (cfg.theme.text.duration === 'accent' ? computedAccent : (computedText.duration as string)) : (cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.text.duration as string))
+              }}>
+                {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
               </div>
             )}
           </div>
@@ -1886,8 +1962,38 @@ function WidgetPreview(props: {
   {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
   {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
-              <div className="mt-2 h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
-        <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+              <div className="mt-2">
+                <div className="h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
+          <div className="h-full" style={{ width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                </div>
+                {cfg.fields.duration && cfg.fields.showDurationOnProgress && (
+                  <div className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'} style={{
+                    fontSize: cfg.theme.textSize?.duration ?? 12,
+                    fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                    fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                    textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                    opacity: 0.8,
+                    marginTop: 4,
+                    transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                    color: cfg.theme.autoFromArt ? (cfg.theme.text.duration === 'accent' ? computedAccent : (computedText.duration as string)) : (cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.text.duration as string))
+                  }}>
+                    {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
+                  </div>
+                )}
+              </div>
+            )}
+            {cfg.fields.duration && cfg.fields.showDurationAsText && (
+              <div className={cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'} style={{
+                fontSize: cfg.theme.textSize?.duration ?? 12,
+                fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                opacity: 0.8,
+                marginTop: 4,
+                transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                color: cfg.theme.autoFromArt ? (cfg.theme.text.duration === 'accent' ? computedAccent : (computedText.duration as string)) : (cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.text.duration as string))
+              }}>
+                {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
               </div>
             )}
           </div>

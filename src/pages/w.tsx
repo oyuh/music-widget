@@ -1,7 +1,7 @@
 // src/pages/w.tsx
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { decodeConfig, WidgetConfig, defaultConfig } from "../utils/config";
+import { decodeConfig, WidgetConfig, defaultConfig, formatDurationText } from "../utils/config";
 import Head from "next/head";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
@@ -27,12 +27,14 @@ export default function WidgetPage() {
               artist: p.theme?.textSize?.artist ?? defaultConfig.theme.textSize!.artist,
               album: p.theme?.textSize?.album ?? defaultConfig.theme.textSize!.album,
               meta: p.theme?.textSize?.meta ?? defaultConfig.theme.textSize!.meta,
+              duration: p.theme?.textSize?.duration ?? defaultConfig.theme.textSize!.duration,
             },
             textStyle: {
               title: { italic: p.theme?.textStyle?.title?.italic ?? defaultConfig.theme.textStyle!.title.italic, underline: p.theme?.textStyle?.title?.underline ?? defaultConfig.theme.textStyle!.title.underline, bold: p.theme?.textStyle?.title?.bold ?? defaultConfig.theme.textStyle!.title.bold, strike: p.theme?.textStyle?.title?.strike ?? defaultConfig.theme.textStyle!.title.strike },
               artist: { italic: p.theme?.textStyle?.artist?.italic ?? defaultConfig.theme.textStyle!.artist.italic, underline: p.theme?.textStyle?.artist?.underline ?? defaultConfig.theme.textStyle!.artist.underline, bold: p.theme?.textStyle?.artist?.bold ?? defaultConfig.theme.textStyle!.artist.bold, strike: p.theme?.textStyle?.artist?.strike ?? defaultConfig.theme.textStyle!.artist.strike },
               album: { italic: p.theme?.textStyle?.album?.italic ?? defaultConfig.theme.textStyle!.album.italic, underline: p.theme?.textStyle?.album?.underline ?? defaultConfig.theme.textStyle!.album.underline, bold: p.theme?.textStyle?.album?.bold ?? defaultConfig.theme.textStyle!.album.bold, strike: p.theme?.textStyle?.album?.strike ?? defaultConfig.theme.textStyle!.album.strike },
               meta: { italic: p.theme?.textStyle?.meta?.italic ?? defaultConfig.theme.textStyle!.meta.italic, underline: p.theme?.textStyle?.meta?.underline ?? defaultConfig.theme.textStyle!.meta.underline, bold: p.theme?.textStyle?.meta?.bold ?? defaultConfig.theme.textStyle!.meta.bold, strike: p.theme?.textStyle?.meta?.strike ?? defaultConfig.theme.textStyle!.meta.strike },
+              duration: { italic: p.theme?.textStyle?.duration?.italic ?? defaultConfig.theme.textStyle!.duration.italic, underline: p.theme?.textStyle?.duration?.underline ?? defaultConfig.theme.textStyle!.duration.underline, bold: p.theme?.textStyle?.duration?.bold ?? defaultConfig.theme.textStyle!.duration.bold, strike: p.theme?.textStyle?.duration?.strike ?? defaultConfig.theme.textStyle!.duration.strike },
             },
             dropShadow: {
               ...defaultConfig.theme.dropShadow!,
@@ -54,7 +56,7 @@ export default function WidgetPage() {
   }, []);
 
   // Call hooks unconditionally to keep hook order stable across renders
-  const { track, isLive, percent } = useNowPlaying({
+  const { track, isLive, percent, progressMs, durationMs } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
   pollMs: 1000,
     sessionKey: null, // keep widget public-only; preview handles private via editor
@@ -133,6 +135,9 @@ export default function WidgetPage() {
     getMetaTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
       ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.meta, color)
       : undefined,
+    getDurationTextShadow: (color: string) => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.text
+      ? generateElementDropShadowCSS(effectiveCfg.theme.dropShadow, effectiveCfg.theme.dropShadow.perText?.duration, color)
+      : undefined,
     getAlbumArtShadow: () => effectiveCfg.theme.dropShadow?.enabled && effectiveCfg.theme.dropShadow.targets?.albumArt
       ? generateDropShadowCSS(effectiveCfg.theme.dropShadow, '#000000')
       : undefined,
@@ -167,7 +172,7 @@ export default function WidgetPage() {
 
       if (!source) {
         // No image available: use readable white text and fallback/default accent
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
         const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -191,7 +196,7 @@ export default function WidgetPage() {
         const textColor = !(effectiveCfg.theme.bgEnabled ?? true)
           ? "#ffffff"
           : getReadableTextOn(effectiveCfg.theme.bg);
-        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor };
+        const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
         const newAccent = color;
 
         // Only update if colors actually changed to prevent flicker
@@ -203,7 +208,7 @@ export default function WidgetPage() {
         setLastImageUrl(source);
       } else if (source !== lastImageUrl) {
         // Extraction failed for a NEW image: use fallback only if image URL changed
-        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff" };
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
         const newAccent = effectiveCfg.fallbackAccent || effectiveCfg.theme.accent;
         setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
         setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
@@ -292,8 +297,40 @@ export default function WidgetPage() {
                 />
               )}
         {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
-          <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
+            <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                  </div>
+                  {cfg.fields.duration && cfg.fields.showDurationOnProgress && (
+                    <div style={{
+                      fontSize: cfg.theme.textSize?.duration ?? 11,
+                      opacity: 0.8,
+                      marginTop: 4,
+                      fontWeight: (cfg.theme.textStyle?.duration?.bold ? 600 : 400),
+                      fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                      textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                      transform: `translate(${cfg.layout.textOffset?.duration?.x ?? 0}px, ${cfg.layout.textOffset?.duration?.y ?? 0}px)`,
+                      color: pickColor(cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                      textShadow: dropShadows?.getDurationTextShadow(pickColor(cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                    }}>
+                      {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
+                    </div>
+                  )}
+                </div>
+              )}
+              {cfg.fields.duration && cfg.fields.showDurationAsText && (
+                <div style={{
+                  fontSize: cfg.theme.textSize?.duration ?? 11,
+                  fontWeight: (cfg.theme.textStyle?.duration?.bold ? 600 : 400),
+                  fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                  textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                  opacity: 0.8,
+                  marginTop: 4,
+                  transform: `translate(${cfg.layout.textOffset?.duration?.x ?? 0}px, ${cfg.layout.textOffset?.duration?.y ?? 0}px)`,
+                  color: pickColor(cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                  textShadow: dropShadows?.getDurationTextShadow(pickColor(cfg.theme.text.duration === 'accent' ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                }}>
+                  {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
                 </div>
               )}
             </div>
@@ -381,8 +418,40 @@ export default function WidgetPage() {
                 />
               )}
               {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
-                  <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
+                    <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                  </div>
+                  {cfg.fields.duration && cfg.fields.showDurationOnProgress && (
+                    <div style={{
+                      fontSize: cfg.theme.textSize?.duration ?? 12,
+                      fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                      fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                      textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                      opacity: 0.8,
+                      marginTop: 4,
+                      transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                      color: pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                      textShadow: dropShadows?.getDurationTextShadow(pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                    }}>
+                      {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
+                    </div>
+                  )}
+                </div>
+              )}
+              {cfg.fields.duration && cfg.fields.showDurationAsText && (
+                <div style={{
+                  fontSize: cfg.theme.textSize?.duration ?? 12,
+                  fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                  fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                  textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                  opacity: 0.8,
+                  marginTop: 4,
+                  transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                  color: pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                  textShadow: dropShadows?.getDurationTextShadow(pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                }}>
+                  {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
                 </div>
               )}
             </div>
@@ -452,8 +521,40 @@ export default function WidgetPage() {
                 />
               )}
         {cfg.fields.progress && (
-                <div style={{ marginTop: 8, height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
-          <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 6, background: "#ffffff30", borderRadius: 4, overflow: "hidden", boxShadow: dropShadows?.getProgressBarShadow() }}>
+            <div style={{ height: "100%", width: `${percent}%`, background: computedAccent, transition: "width 120ms linear" }} />
+                  </div>
+                  {cfg.fields.duration && cfg.fields.showDurationOnProgress && (
+                    <div style={{
+                      fontSize: cfg.theme.textSize?.duration ?? 12,
+                      fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                      fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                      textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                      opacity: 0.8,
+                      marginTop: 4,
+                      transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                      color: pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                      textShadow: dropShadows?.getDurationTextShadow(pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                    }}>
+                      {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
+                    </div>
+                  )}
+                </div>
+              )}
+              {cfg.fields.duration && cfg.fields.showDurationAsText && (
+                <div style={{
+                  fontSize: cfg.theme.textSize?.duration ?? 12,
+                  fontWeight: (cfg.theme.textStyle?.duration?.bold ? 700 : 400),
+                  fontStyle: (cfg.theme.textStyle?.duration?.italic ? 'italic' : 'normal'),
+                  textDecoration: `${cfg.theme.textStyle?.duration?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.duration?.strike ? ' line-through' : ''}`,
+                  opacity: 0.8,
+                  marginTop: 4,
+                  transform: `translate(${cfg.layout.textOffset?.duration.x ?? 0}px, ${(cfg.layout.textOffset?.duration.y ?? 0)}px)`,
+                  color: pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'),
+                  textShadow: dropShadows?.getDurationTextShadow(pickColor((cfg.theme.text.duration === 'accent') ? computedAccent : (cfg.theme.autoFromArt ? (computedText.duration as string) : (cfg.theme.text.duration as string)), cfg.theme.text.duration === 'accent'))
+                }}>
+                  {formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both")}
                 </div>
               )}
             </div>
