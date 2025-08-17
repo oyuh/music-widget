@@ -274,12 +274,12 @@ export default function EditorPage() {
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-3xl font-semibold tracking-tight">Fast Music (via Last.fm) Stream Widget</h1>
             <a
-              href="https://lawsonhart.me"
+              href="https://github.com/oyuh/applem-util"
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
             >
-              Support
+              Source
             </a>
             <a
               href="https://buymeacoffee.com/lawsonhart"
@@ -287,7 +287,7 @@ export default function EditorPage() {
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
             >
-              Source
+              Support
             </a>
           </div>
 
