@@ -9,13 +9,14 @@ export type WidgetConfig = {
     autoFromArt: boolean; // when true, apply dominant album color to selected targets
     autoTargets?: { title: boolean; artist: boolean; album: boolean; meta: boolean };
     font: string; // Google font key
-    text: { title: string; artist: string; album: string; meta: string };
-    textSize?: { title: number; artist: number; album: number; meta: number }; // px sizes per text
+    text: { title: string; artist: string; album: string; meta: string; duration: string };
+    textSize?: { title: number; artist: number; album: number; meta: number; duration: number }; // px sizes per text
     textStyle?: {
       title: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
       artist: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
       album: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
       meta: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+      duration: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
     };
     dropShadow?: {
       enabled: boolean;
@@ -68,6 +69,15 @@ export type WidgetConfig = {
           useOppositeColor?: boolean;
           customColor?: string;
         };
+        duration?: {
+          enabled?: boolean;
+          blur?: number;
+          intensity?: number;
+          offsetX?: number;
+          offsetY?: number;
+          useOppositeColor?: boolean;
+          customColor?: string;
+        };
       };
     };
     bgEnabled?: boolean; // optional for backward compatibility; default true
@@ -86,6 +96,7 @@ export type WidgetConfig = {
       artist: { x: number; y: number };
       album: { x: number; y: number };
       meta: { x: number; y: number };
+      duration: { x: number; y: number };
     };
   };
   marquee?: {
@@ -103,6 +114,9 @@ export type WidgetConfig = {
     progress: boolean; duration: boolean; history: number;
     pausedMode?: "label" | "transparent"; // behavior when not playing
     pausedText?: string; // custom text to show when paused and no album art
+    durationFormat?: "elapsed" | "remaining" | "both"; // how to display duration text
+    showDurationOnProgress?: boolean; // show duration text on progress bar or separately
+    showDurationAsText?: boolean; // show duration as standalone text element (separate from progress)
   };
 };
 
@@ -115,13 +129,14 @@ export const defaultConfig: WidgetConfig = {
     autoFromArt: false,
     autoTargets: { title: false, artist: true, album: false, meta: false },
     font: "Inter",
-    text: { title: "#ffffff", artist: "#e5e5e5", album: "#cfcfcf", meta: "#bdbdbd" },
-    textSize: { title: 16, artist: 14, album: 12, meta: 12 },
+    text: { title: "#ffffff", artist: "#e5e5e5", album: "#cfcfcf", meta: "#bdbdbd", duration: "#a0a0a0" },
+    textSize: { title: 16, artist: 14, album: 12, meta: 12, duration: 11 },
     textStyle: {
       title: { italic: false, underline: false, bold: true, strike: false },
       artist: { italic: false, underline: false, bold: false, strike: false },
       album: { italic: false, underline: false, bold: false, strike: false },
       meta: { italic: false, underline: false, bold: false, strike: false },
+      duration: { italic: false, underline: false, bold: false, strike: false },
     },
     dropShadow: {
       enabled: false,
@@ -142,13 +157,14 @@ export const defaultConfig: WidgetConfig = {
         artist: { enabled: true, useOppositeColor: true },
         album: { enabled: true, useOppositeColor: true },
         meta: { enabled: true, useOppositeColor: true },
+        duration: { enabled: true, useOppositeColor: true },
       },
     },
     bgEnabled: true,
   },
-  layout: { w: 420, h: 120, showArt: true, align: "left", artSize: 88, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, backgroundRadius: 16, artRadius: 12, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 } } },
+  layout: { w: 420, h: 130, showArt: true, align: "left", artSize: 88, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, backgroundRadius: 16, artRadius: 12, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 }, duration: { x: 0, y: 0 } } },
   marquee: { speedPxPerSec: 24, gapPx: 32, perText: undefined },
-  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label", pausedText: "Paused" },
+  fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label", pausedText: "Paused", durationFormat: "both", showDurationOnProgress: true, showDurationAsText: false },
 };
 
 export function encodeConfig(c: WidgetConfig): string {
@@ -166,5 +182,45 @@ export function decodeConfig(hash: string): WidgetConfig | null {
     return JSON.parse(json);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Format milliseconds to MM:SS format
+ */
+export function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format duration text based on configuration
+ */
+export function formatDurationText(
+  progressMs: number,
+  durationMs: number | null,
+  format: "elapsed" | "remaining" | "both"
+): string {
+  const elapsed = formatTime(progressMs);
+
+  if (!durationMs || durationMs <= 0) {
+    // When duration is unknown, just show elapsed time
+    return format === "remaining" ? "--:--" : elapsed;
+  }
+
+  const total = formatTime(durationMs);
+  const remaining = formatTime(Math.max(0, durationMs - progressMs));
+
+  switch (format) {
+    case "elapsed":
+      return elapsed;
+    case "remaining":
+      return `-${remaining}`;
+    case "both":
+      return `${elapsed}/${total}`;
+    default:
+      return `${elapsed}/${total}`;
   }
 }
