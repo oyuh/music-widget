@@ -63,7 +63,7 @@ export default function EditorPage() {
   }, [cfg, mounted]);
 
   // Live data for preview (uses connection if present)
-  const { track, isLive, percent, progressMs, durationMs } = useNowPlaying({
+  const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg.lfmUser,
   pollMs: 5000,
     sessionKey,
@@ -315,6 +315,8 @@ export default function EditorPage() {
                       key={refreshKey}
                       cfg={cfg}
                       isLive={isLive}
+                      isPaused={isPaused}
+                      isPositionEstimated={isPositionEstimated}
                       percent={percent}
                       progressMs={progressMs}
                       durationMs={durationMs}
@@ -1428,7 +1430,7 @@ export default function EditorPage() {
 </p>
 
                           <div className="space-y-2">
-                            <Label className="text-white/80">Duration Format</Label>
+                            <Label className="text-white/80">Duration Format (this is extremely unreliable)</Label>
                             <select
                               className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
                               value={cfg.fields.durationFormat ?? "both"}
@@ -1639,8 +1641,8 @@ export default function EditorPage() {
 
           {/* Polling rate notice */}
           <div className="mt-4 text-center">
-            <p className="text-red-400/80 text-xs max-w-3xl mx-auto">
-              This app uses quite a slow polling rate to limit Last.fm rate limiting, some track updates can take up to 15 seconds.
+            <p className="text-green-400/80 text-xs max-w-3xl mx-auto">
+              Smart polling with pause detection and position estimation - tracks resume from estimated playback position when possible.
             </p>
           </div>
         </div>
@@ -1652,12 +1654,14 @@ export default function EditorPage() {
 function WidgetPreview(props: {
   cfg: WidgetConfig;
   isLive: boolean;
+  isPaused: boolean;
+  isPositionEstimated: boolean;
   percent: number;
   progressMs: number;
   durationMs: number | null;
   trackTitle?: string; artist?: string; album?: string; art?: string;
 }) {
-  const { cfg, isLive, percent, progressMs, durationMs, trackTitle, artist, album, art } = props;
+  const { cfg, isLive, isPaused, isPositionEstimated, percent, progressMs, durationMs, trackTitle, artist, album, art } = props;
   // Keep a stable art src (last non-empty); use a safe fallback on errors
   const [artSrc, setArtSrc] = useState<string>(art || "");
   useEffect(() => {
@@ -1847,17 +1851,20 @@ function WidgetPreview(props: {
     return () => { cancelled = true; };
   }, [cfg.theme.autoFromArt, cfg.theme.text, imgUrl, artSrc, cfg.theme.accent, cfg.fallbackAccent, cfg.theme.bg, cfg.theme.bgEnabled, lastExtractedColor, lastImageUrl]);
 
+  // Enhanced pause detection: consider both Last.fm state and smart pause detection
+  const isEffectivelyPaused = !isLive || isPaused;
+
   return (
     <div
       className="rounded-2xl p-4 gap-3 items-center"
       style={{
-  background: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
+  background: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
         width: cfg.layout.w, height: cfg.layout.h,
         ...grid,
         fontFamily,
   // No drop shadow when background is disabled
-  color: ((!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
-        opacity: (!isLive && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
+  color: ((isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
+        opacity: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
         boxShadow: dropShadows.backgroundShadow || undefined,
         borderRadius: cfg.layout.backgroundRadius ?? 16,
       }}
