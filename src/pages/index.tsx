@@ -333,14 +333,6 @@ export default function EditorPage() {
                   <CardTitle className="text-white">Connection</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <LastfmConnect />
-                    {sessionKey ? (
-                      <span className="text-green-400">Connected as <b>{connectedName}</b></span>
-                    ) : (
-                      <span className="text-white/60">Not connected</span>
-                    )}
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="username" className="text-white/80">Last.fm Username</Label>
                     <input
@@ -350,6 +342,17 @@ export default function EditorPage() {
                       onChange={(e) => update("lfmUser", e.target.value)}
                       placeholder="your-lastfm-username"
                     />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <LastfmConnect />
+                    <div className="flex flex-col">
+                      {sessionKey ? (
+                        <span className="text-green-400">Connected as <b>{connectedName}</b></span>
+                      ) : (
+                        <span className="text-white/60">Not connected</span>
+                      )}
+                      <span className="text-white/40 text-xs">(Optional for private profiles)</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1631,6 +1634,13 @@ export default function EditorPage() {
             <p className="leading-relaxed max-w-3xl mx-auto">
               Enter your Last.fm username, customize the card, and copy your unique link to use as a Browser Source in OBS. {" "}
               <a href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noreferrer noopener" className="underline underline-offset-2 decoration-white/70 hover:decoration-white text-white">Set up scrobbles before using this app</a>.
+            </p>
+          </div>
+
+          {/* Polling rate notice */}
+          <div className="mt-4 text-center">
+            <p className="text-red-400/80 text-xs max-w-3xl mx-auto">
+              This app uses quite a slow polling rate to limit Last.fm rate limiting, some track updates can take up to 15 seconds.
             </p>
           </div>
         </div>
