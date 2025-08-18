@@ -6,7 +6,7 @@ import LastfmConnect from "../components/LastfmConnect";
 import { WidgetConfig, defaultConfig, encodeConfig, formatDurationText, applyTextTransform, getTextFont, getUsedFonts } from "../utils/config";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
-import { extractDominantColor, getReadableTextOn, generateDropShadowCSS } from "../utils/colors";
+import { extractDominantColor, getReadableTextOn, generateDropShadowCSS, generateElementDropShadowCSS } from "../utils/colors";
 import { KEYWORDS_META } from "../utils/keywords";
 import { Analytics } from "@vercel/analytics/next";
 import { Button } from "../components/ui/button";
@@ -451,14 +451,97 @@ export default function EditorPage() {
 
             {/* Right Column: Configuration Tabs */}
             <div>
-              <Tabs defaultValue="theme" className="w-full">
-                <TabsList className="grid w-full grid-cols-5 bg-neutral-900/40 border border-white/10">
+              <Tabs defaultValue="presets" className="w-full">
+                <TabsList className="grid w-full grid-cols-6 bg-neutral-900/40 border border-white/10">
+                  <TabsTrigger value="presets" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Presets</TabsTrigger>
                   <TabsTrigger value="theme" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Theme</TabsTrigger>
                   <TabsTrigger value="layout" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Layout</TabsTrigger>
                   <TabsTrigger value="text" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Text</TabsTrigger>
                   <TabsTrigger value="shadows" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Shadows</TabsTrigger>
                   <TabsTrigger value="behavior" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Behavior</TabsTrigger>
                 </TabsList>
+
+                {/* Presets Tab */}
+                <TabsContent value="presets" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Quick Presets</CardTitle>
+                      <CardDescription className="text-white/60">
+                        Apply professionally designed presets to get started quickly. You can customize any preset after applying it.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        {/* Preset 1: Minimalist */}
+                        <div className="border border-white/10 rounded-lg p-4 bg-neutral-800/50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">Minimalist</h3>
+                              <p className="text-white/60 text-sm mt-1">
+                                Clean and simple with transparent background, drop shadows, and accent highlights
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">Transparent BG</span>
+                                <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">Drop Shadows</span>
+                                <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">Custom Fonts</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                const preset1 = {"lfmUser":"wtflaw","fallbackAccent":"#1db954","theme":{"bg":"#000000CC","accent":"#1db954","autoFromArt":true,"autoTargets":{"title":false,"artist":true,"album":false,"meta":false},"font":"Inter","text":{"title":"#ffffff","artist":"accent","album":"#cfcfcf","meta":"#bdbdbd","duration":"#a0a0a0"},"textSize":{"title":30,"artist":16,"album":12,"meta":12},"textStyle":{"title":{"italic":false,"underline":false,"bold":true,"strike":false},"artist":{"italic":false,"underline":false,"bold":false,"strike":false},"album":{"italic":false,"underline":false,"bold":false,"strike":false},"meta":{"italic":false,"underline":false,"bold":false,"strike":false},"duration":{"italic":false,"underline":false,"bold":false,"strike":false}},"textTransform":{"title":"none","artist":"uppercase","album":"none","meta":"none","duration":"none"},"textFont":{"title":"Montserrat","artist":"Poppins"},"dropShadow":{"enabled":true,"blur":19,"intensity":15,"offsetX":2,"offsetY":2,"useOppositeColor":true,"customColor":"#000000","targets":{"text":true,"albumArt":true,"progressBar":true,"background":false},"perText":{"title":{"enabled":true,"useOppositeColor":true},"artist":{"enabled":true,"useOppositeColor":true},"album":{"enabled":true,"useOppositeColor":true},"meta":{"enabled":true,"useOppositeColor":true},"duration":{"enabled":true,"useOppositeColor":true}}},"bgEnabled":false},"layout":{"w":420,"h":130,"showArt":true,"align":"left","artSize":68,"artPosition":"left","scrollTriggerWidth":180,"textGap":2,"backgroundRadius":16,"artRadius":6,"textOffset":{"title":{"x":0,"y":0},"artist":{"x":0,"y":0},"album":{"x":0,"y":0},"meta":{"x":0,"y":0},"duration":{"x":0,"y":0}}},"marquee":{"speedPxPerSec":24,"gapPx":32},"fields":{"title":true,"artist":true,"album":false,"progress":false,"duration":false,"history":50,"pausedMode":"transparent","pausedText":"Paused","durationFormat":"both","showDurationOnProgress":true,"showDurationAsText":false}};
+                                // Preserve the current username when applying preset
+                                const currentUsername = cfg.lfmUser;
+                                setCfg({...preset1 as WidgetConfig, lfmUser: currentUsername});
+                                setRefreshKey(prev => prev + 1);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              size="sm"
+                            >
+                              Apply Preset
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Preset 2: Modern Card */}
+                        <div className="border border-white/10 rounded-lg p-4 bg-neutral-800/50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">Modern Card</h3>
+                              <p className="text-white/60 text-sm mt-1">
+                                Stylish card design with solid background, accent colors, and duration display
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <span className="text-xs px-2 py-1 bg-gray-500/20 text-gray-400 rounded">Solid BG</span>
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">Accent Colors</span>
+                                <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded">Duration</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                const preset2 = {"lfmUser":"wtflaw","fallbackAccent":"#1db954","theme":{"bg":"#797777","accent":"#1db954","autoFromArt":true,"autoTargets":{"title":false,"artist":true,"album":false,"meta":false},"font":"Inter","text":{"title":"accent","artist":"accent","album":"#cfcfcf","meta":"#bdbdbd","duration":"accent"},"textSize":{"title":27,"artist":18,"album":12,"meta":12,"duration":11},"textStyle":{"title":{"italic":false,"underline":false,"bold":true,"strike":false},"artist":{"italic":false,"underline":false,"bold":false,"strike":false},"album":{"italic":false,"underline":false,"bold":false,"strike":false},"meta":{"italic":false,"underline":false,"bold":false,"strike":false},"duration":{"italic":false,"underline":false,"bold":false,"strike":false}},"textTransform":{"title":"none","artist":"none","album":"none","meta":"none","duration":"none"},"textFont":{"title":"Poppins","artist":"Poppins","duration":"Nunito"},"dropShadow":{"enabled":false,"blur":4,"intensity":50,"offsetX":2,"offsetY":2,"useOppositeColor":true,"customColor":"#000000","targets":{"text":true,"albumArt":true,"progressBar":true,"background":false},"perText":{"title":{"enabled":true,"useOppositeColor":true},"artist":{"enabled":true,"useOppositeColor":true},"album":{"enabled":true,"useOppositeColor":true},"meta":{"enabled":true,"useOppositeColor":true},"duration":{"enabled":true,"useOppositeColor":true}}},"bgEnabled":true},"layout":{"w":310,"h":130,"showArt":true,"align":"left","artSize":72,"artPosition":"left","scrollTriggerWidth":180,"textGap":2,"backgroundRadius":16,"artRadius":9,"textOffset":{"title":{"x":0,"y":3},"artist":{"x":0,"y":-5},"album":{"x":0,"y":0},"meta":{"x":0,"y":0},"duration":{"x":0,"y":-10}}},"marquee":{"speedPxPerSec":24,"gapPx":32},"fields":{"title":true,"artist":true,"album":false,"progress":false,"duration":true,"history":50,"pausedMode":"label","pausedText":"Paused","durationFormat":"both","showDurationOnProgress":true,"showDurationAsText":true}};
+                                // Preserve the current username when applying preset
+                                const currentUsername = cfg.lfmUser;
+                                setCfg({...preset2 as WidgetConfig, lfmUser: currentUsername});
+                                setRefreshKey(prev => prev + 1);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              size="sm"
+                            >
+                              Apply Preset
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-white/10 pt-4 mt-6">
+                        <p className="text-white/60 text-sm">
+                          💡 <strong>Tip:</strong> After applying a preset, you can fine-tune any settings in the other tabs.
+                          Your Last.fm username will be preserved when switching presets.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
                 {/* Theme Tab */}
                 <TabsContent value="theme" className="mt-6">
@@ -1725,6 +1808,7 @@ export default function EditorPage() {
           </div>
         </div>
       </main>
+      <Analytics />
     </>
   );
 }
@@ -1807,9 +1891,29 @@ function WidgetPreview(props: {
   const dropShadows = useMemo(() => {
     if (!dropShadowConfig?.enabled) return {};
 
-    const getTextShadow = (textColor: string) => {
-      if (!dropShadowConfig.targets.text) return '';
-      return generateDropShadowCSS(dropShadowConfig, textColor);
+    const getTitleTextShadow = (textColor: string) => {
+      if (!dropShadowConfig.targets?.text) return undefined;
+      return generateElementDropShadowCSS(dropShadowConfig, dropShadowConfig.perText?.title, textColor);
+    };
+
+    const getArtistTextShadow = (textColor: string) => {
+      if (!dropShadowConfig.targets?.text) return undefined;
+      return generateElementDropShadowCSS(dropShadowConfig, dropShadowConfig.perText?.artist, textColor);
+    };
+
+    const getAlbumTextShadow = (textColor: string) => {
+      if (!dropShadowConfig.targets?.text) return undefined;
+      return generateElementDropShadowCSS(dropShadowConfig, dropShadowConfig.perText?.album, textColor);
+    };
+
+    const getMetaTextShadow = (textColor: string) => {
+      if (!dropShadowConfig.targets?.text) return undefined;
+      return generateElementDropShadowCSS(dropShadowConfig, dropShadowConfig.perText?.meta, textColor);
+    };
+
+    const getDurationTextShadow = (textColor: string) => {
+      if (!dropShadowConfig.targets?.text) return undefined;
+      return generateElementDropShadowCSS(dropShadowConfig, dropShadowConfig.perText?.duration, textColor);
     };
 
     const getBoxShadow = (baseColor: string) => {
@@ -1817,10 +1921,14 @@ function WidgetPreview(props: {
     };
 
     return {
-      getTextShadow,
+      getTitleTextShadow,
+      getArtistTextShadow,
+      getAlbumTextShadow,
+      getMetaTextShadow,
+      getDurationTextShadow,
       getBoxShadow,
       backgroundShadow: dropShadowConfig.targets.background ? getBoxShadow(cfg.theme.bg) : '',
-      albumArtShadow: dropShadowConfig.targets.albumArt ? getBoxShadow(cfg.theme.bg) : '',
+      albumArtShadow: dropShadowConfig.targets.albumArt ? getBoxShadow('#000000') : '',
       progressBarShadow: dropShadowConfig.targets.progressBar ? getBoxShadow(computedAccent) : ''
     };
   }, [dropShadowConfig, cfg.theme.bg, computedAccent]);
@@ -1933,28 +2041,35 @@ function WidgetPreview(props: {
   const isEffectivelyPaused = !isLive || isPaused;
 
   return (
-    <div
-      className="rounded-2xl p-4 gap-3 items-center"
-      style={{
-  background: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? "transparent" : ((cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent"),
-        width: cfg.layout.w, height: cfg.layout.h,
-        ...grid,
-        fontFamily,
-  // No drop shadow when background is disabled
-  color: ((isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true)) ? "#ffffff" : undefined,
-        opacity: (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") ? 0 : 1,
-        boxShadow: dropShadows.backgroundShadow || undefined,
-        borderRadius: cfg.layout.backgroundRadius ?? 16,
-      }}
-    >
+    <div className="relative">
+      {/* Show hidden indicator when widget would be hidden */}
+      {isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent" && (
+        <div className="absolute top-1 right-1 z-10 bg-red-600 text-white text-xs px-2 py-1 rounded font-medium">
+          WIDGET HIDDEN (Will not show up on the actual widget)
+        </div>
+      )}
+      <div
+        className="rounded-2xl p-4 gap-3 items-center"
+        style={{
+    background: (cfg.theme.bgEnabled ?? true) ? cfg.theme.bg : "transparent",
+          width: cfg.layout.w, height: cfg.layout.h,
+          ...grid,
+          fontFamily,
+    // No drop shadow when background is disabled
+    color: !(cfg.theme.bgEnabled ?? true) ? "#ffffff" : undefined,
+          opacity: 1, // Always show in preview, even when would be hidden
+          boxShadow: dropShadows.backgroundShadow || undefined,
+          borderRadius: cfg.layout.backgroundRadius ?? 16,
+        }}
+      >
       {/* Match widget rendering logic exactly */}
       {showImage && cfg.layout.artPosition === 'right' ? (
         <>
           {/* Right layout: Text first, then art */}
           <div className={`${cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}`} style={{ minWidth: 0 }}>
-          {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontFamily: getTextFont('title', cfg), fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={applyTextTransform(trackTitle ?? "—", cfg.theme.textTransform?.title ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-          {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={artist ?? "—"} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-          {cfg.fields.album && <ScrollText style={{ fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={album ?? ""} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontFamily: getTextFont('title', cfg), fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows.getTitleTextShadow ? dropShadows.getTitleTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={applyTextTransform(trackTitle ?? "—", cfg.theme.textTransform?.title ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.artist && <ScrollText style={{ fontFamily: getTextFont('artist', cfg), opacity: .95, fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows.getArtistTextShadow ? dropShadows.getArtistTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={applyTextTransform(artist ?? "—", cfg.theme.textTransform?.artist ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+          {cfg.fields.album && <ScrollText style={{ fontFamily: getTextFont('album', cfg), fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows.getAlbumTextShadow ? dropShadows.getAlbumTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={applyTextTransform(album ?? "", cfg.theme.textTransform?.album ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2">
                 <div className="h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
@@ -2056,9 +2171,9 @@ function WidgetPreview(props: {
             </div>
           )}
     <div className={`${cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}`} style={{ minWidth: 0 }}>
-  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontFamily: getTextFont('title', cfg), fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={applyTextTransform(trackTitle ?? "—", cfg.theme.textTransform?.title ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontFamily: getTextFont('artist', cfg), fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={applyTextTransform(artist ?? "—", cfg.theme.textTransform?.artist ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
-  {cfg.fields.album && <ScrollText style={{ fontFamily: getTextFont('album', cfg), fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows?.getTextShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.text ? dropShadows.getTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={applyTextTransform(album ?? "", cfg.theme.textTransform?.album ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.title && <ScrollText className={cfg.theme.textStyle?.title?.bold ? "font-semibold" : undefined} style={{ fontFamily: getTextFont('title', cfg), fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, textShadow: dropShadows.getTitleTextShadow ? dropShadows.getTitleTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.title === 'accent' ? computedAccent : (computedText.title as string)) : (cfg.theme.text.title === 'accent' ? computedAccent : (cfg.theme.text.title as string))} text={applyTextTransform(trackTitle ?? "—", cfg.theme.textTransform?.title ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.artist && <ScrollText style={{ opacity: .95, fontFamily: getTextFont('artist', cfg), fontSize: cfg.theme.textSize?.artist ?? 14, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.artist.x ?? 0}px, ${(cfg.layout.textOffset?.artist.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.artist?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.artist?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.artist?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.artist?.bold ? 600 : 400), textShadow: dropShadows.getArtistTextShadow ? dropShadows.getArtistTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.artist === 'accent' ? computedAccent : (computedText.artist as string)) : (cfg.theme.text.artist === 'accent' ? computedAccent : (cfg.theme.text.artist as string))} text={applyTextTransform(artist ?? "—", cfg.theme.textTransform?.artist ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.artist?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.artist?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
+  {cfg.fields.album && <ScrollText style={{ fontFamily: getTextFont('album', cfg), fontSize: cfg.theme.textSize?.album ?? 12, opacity: .85, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.album.x ?? 0}px, ${(cfg.layout.textOffset?.album.y ?? 0)}px)`, fontStyle: (cfg.theme.textStyle?.album?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.album?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.album?.strike ? ' line-through' : ''}`, fontWeight: (cfg.theme.textStyle?.album?.bold ? 600 : 400), textShadow: dropShadows.getAlbumTextShadow ? dropShadows.getAlbumTextShadow(cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))) : undefined }} color={cfg.theme.autoFromArt ? (cfg.theme.text.album === 'accent' ? computedAccent : (computedText.album as string)) : (cfg.theme.text.album === 'accent' ? computedAccent : (cfg.theme.text.album as string))} text={applyTextTransform(album ?? "", cfg.theme.textTransform?.album ?? 'none')} minWidthToScroll={cfg.layout.scrollTriggerWidth} speedPxPerSec={cfg.marquee?.perText?.album?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24} gapPx={cfg.marquee?.perText?.album?.gapPx ?? cfg.marquee?.gapPx ?? 32} />}
             {cfg.fields.progress && (
               <div className="mt-2">
                 <div className="h-1.5 rounded overflow-hidden" style={{ background: "#ffffff30", boxShadow: dropShadows?.getBoxShadow && cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.progressBar ? dropShadows.getBoxShadow("#ffffff30") : undefined }}>
@@ -2108,7 +2223,7 @@ function WidgetPreview(props: {
           )}
         </>
       )}
-      <Analytics />
+      </div>
     </div>
   );
 }
