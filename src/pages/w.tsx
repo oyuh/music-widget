@@ -1,7 +1,7 @@
 // src/pages/w.tsx
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { decodeConfig, WidgetConfig, defaultConfig, formatDurationText } from "../utils/config";
+import { decodeConfig, WidgetConfig, defaultConfig, formatDurationText, applyTextTransform, getTextFont, getUsedFonts } from "../utils/config";
 import Head from "next/head";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import ScrollText from "../components/ScrollText";
@@ -35,6 +35,20 @@ export default function WidgetPage() {
               album: { italic: p.theme?.textStyle?.album?.italic ?? defaultConfig.theme.textStyle!.album.italic, underline: p.theme?.textStyle?.album?.underline ?? defaultConfig.theme.textStyle!.album.underline, bold: p.theme?.textStyle?.album?.bold ?? defaultConfig.theme.textStyle!.album.bold, strike: p.theme?.textStyle?.album?.strike ?? defaultConfig.theme.textStyle!.album.strike },
               meta: { italic: p.theme?.textStyle?.meta?.italic ?? defaultConfig.theme.textStyle!.meta.italic, underline: p.theme?.textStyle?.meta?.underline ?? defaultConfig.theme.textStyle!.meta.underline, bold: p.theme?.textStyle?.meta?.bold ?? defaultConfig.theme.textStyle!.meta.bold, strike: p.theme?.textStyle?.meta?.strike ?? defaultConfig.theme.textStyle!.meta.strike },
               duration: { italic: p.theme?.textStyle?.duration?.italic ?? defaultConfig.theme.textStyle!.duration.italic, underline: p.theme?.textStyle?.duration?.underline ?? defaultConfig.theme.textStyle!.duration.underline, bold: p.theme?.textStyle?.duration?.bold ?? defaultConfig.theme.textStyle!.duration.bold, strike: p.theme?.textStyle?.duration?.strike ?? defaultConfig.theme.textStyle!.duration.strike },
+            },
+            textTransform: {
+              title: p.theme?.textTransform?.title ?? defaultConfig.theme.textTransform!.title,
+              artist: p.theme?.textTransform?.artist ?? defaultConfig.theme.textTransform!.artist,
+              album: p.theme?.textTransform?.album ?? defaultConfig.theme.textTransform!.album,
+              meta: p.theme?.textTransform?.meta ?? defaultConfig.theme.textTransform!.meta,
+              duration: p.theme?.textTransform?.duration ?? defaultConfig.theme.textTransform!.duration,
+            },
+            textFont: {
+              title: p.theme?.textFont?.title ?? defaultConfig.theme.textFont?.title,
+              artist: p.theme?.textFont?.artist ?? defaultConfig.theme.textFont?.artist,
+              album: p.theme?.textFont?.album ?? defaultConfig.theme.textFont?.album,
+              meta: p.theme?.textFont?.meta ?? defaultConfig.theme.textFont?.meta,
+              duration: p.theme?.textFont?.duration ?? defaultConfig.theme.textFont?.duration,
             },
             dropShadow: {
               ...defaultConfig.theme.dropShadow!,
@@ -231,6 +245,12 @@ export default function WidgetPage() {
   // Enhanced pause detection: consider both Last.fm state and smart pause detection
   const isEffectivelyPaused = !isLive || isPaused;
 
+  // Helper function to get transformed text and font family for text elements
+  const getTextProps = (element: "title" | "artist" | "album" | "meta" | "duration", text: string) => ({
+    text: applyTextTransform(text, cfg.theme.textTransform?.[element] ?? 'none'),
+    fontFamily: getTextFont(element, cfg)
+  });
+
   // Last-resort guard: when the card is actually transparent (paused transparent OR bg disabled), force all text to white
   const forceWhite = (isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "transparent") || !(cfg.theme.bgEnabled ?? true);
   const pickColor = (desired: string, isAccent: boolean = false) => {
@@ -245,7 +265,7 @@ export default function WidgetPage() {
       <Head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-  <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(cfg.theme.font).replace(/%20/g, "+")}:wght@400;600;700&display=swap`} rel="stylesheet" />
+  <link href={`https://fonts.googleapis.com/css2?${getUsedFonts(cfg).map(font => `family=${encodeURIComponent(font).replace(/%20/g, "+")}`).join('&')}&display=swap`} rel="stylesheet" />
   {/* Force transparent page background for embedding in streaming overlays */}
   <style>{`html, body, #__next { background: transparent !important; }`}</style>
       </Head>
@@ -272,9 +292,9 @@ export default function WidgetPage() {
             <div className={`${cfg.layout.align === 'center' ? 'text-center' : cfg.layout.align === 'right' ? 'text-right' : 'text-left'}`} style={{ minWidth: 0 }}>
         {cfg.fields.title && (
                 <ScrollText
-          style={{ fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, textShadow: dropShadows?.getTitleTextShadow(pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')) }}
+          style={{ fontFamily: getTextFont('title', cfg), fontWeight: (cfg.theme.textStyle?.title?.bold ? 700 : 400), fontStyle: (cfg.theme.textStyle?.title?.italic ? 'italic' : 'normal'), textDecoration: `${cfg.theme.textStyle?.title?.underline ? 'underline ' : ''}${cfg.theme.textStyle?.title?.strike ? ' line-through' : ''}`, fontSize: cfg.theme.textSize?.title ?? 16, marginBottom: cfg.layout.textGap ?? 2, transform: `translate(${cfg.layout.textOffset?.title.x ?? 0}px, ${(cfg.layout.textOffset?.title.y ?? 0)}px)`, textShadow: dropShadows?.getTitleTextShadow(pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')) }}
           color={pickColor((effectiveCfg.theme.text.title === 'accent') ? computedAccent : (effectiveCfg.theme.autoFromArt ? (computedText.title as string) : (effectiveCfg.theme.text.title as string)), effectiveCfg.theme.text.title === 'accent')}
-                  text={title}
+                  text={getTextProps('title', title).text}
                   minWidthToScroll={cfg.layout.scrollTriggerWidth}
                   speedPxPerSec={cfg.marquee?.perText?.title?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
                   gapPx={cfg.marquee?.perText?.title?.gapPx ?? cfg.marquee?.gapPx ?? 32}

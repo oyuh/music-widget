@@ -8,7 +8,7 @@ export type WidgetConfig = {
     accent: string;
     autoFromArt: boolean; // when true, apply dominant album color to selected targets
     autoTargets?: { title: boolean; artist: boolean; album: boolean; meta: boolean };
-    font: string; // Google font key
+    font: string; // Global Google font key (fallback for texts without individual fonts)
     text: { title: string; artist: string; album: string; meta: string; duration: string };
     textSize?: { title: number; artist: number; album: number; meta: number; duration: number }; // px sizes per text
     textStyle?: {
@@ -17,6 +17,20 @@ export type WidgetConfig = {
       album: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
       meta: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
       duration: { italic: boolean; underline: boolean; bold: boolean; strike: boolean };
+    };
+    textTransform?: {
+      title: "none" | "uppercase" | "lowercase";
+      artist: "none" | "uppercase" | "lowercase";
+      album: "none" | "uppercase" | "lowercase";
+      meta: "none" | "uppercase" | "lowercase";
+      duration: "none" | "uppercase" | "lowercase";
+    };
+    textFont?: {
+      title?: string; // Individual Google font key for title (overrides global font)
+      artist?: string; // Individual Google font key for artist (overrides global font)
+      album?: string; // Individual Google font key for album (overrides global font)
+      meta?: string; // Individual Google font key for meta (overrides global font)
+      duration?: string; // Individual Google font key for duration (overrides global font)
     };
     dropShadow?: {
       enabled: boolean;
@@ -138,6 +152,20 @@ export const defaultConfig: WidgetConfig = {
       meta: { italic: false, underline: false, bold: false, strike: false },
       duration: { italic: false, underline: false, bold: false, strike: false },
     },
+    textTransform: {
+      title: "none",
+      artist: "none",
+      album: "none",
+      meta: "none",
+      duration: "none",
+    },
+    textFont: {
+      title: undefined, // Uses global font by default
+      artist: undefined, // Uses global font by default
+      album: undefined, // Uses global font by default
+      meta: undefined, // Uses global font by default
+      duration: undefined, // Uses global font by default
+    },
     dropShadow: {
       enabled: false,
       blur: 4,
@@ -223,4 +251,50 @@ export function formatDurationText(
     default:
       return `${elapsed}/${total}`;
   }
+}
+
+/**
+ * Apply text transformation based on configuration
+ */
+export function applyTextTransform(text: string, transform: "none" | "uppercase" | "lowercase"): string {
+  switch (transform) {
+    case "uppercase":
+      return text.toUpperCase();
+    case "lowercase":
+      return text.toLowerCase();
+    case "none":
+    default:
+      return text;
+  }
+}
+
+/**
+ * Get the font family for a specific text element
+ */
+export function getTextFont(
+  textElement: "title" | "artist" | "album" | "meta" | "duration",
+  config: WidgetConfig
+): string {
+  const individualFont = config.theme.textFont?.[textElement];
+  const font = individualFont || config.theme.font;
+  return `'${font}', ui-sans-serif, system-ui, -apple-system`;
+}
+
+/**
+ * Get all unique fonts used in the configuration (for Google Fonts loading)
+ */
+export function getUsedFonts(config: WidgetConfig): string[] {
+  const fonts = new Set<string>();
+  
+  // Add global font
+  fonts.add(config.theme.font);
+  
+  // Add individual fonts if they exist
+  if (config.theme.textFont) {
+    Object.values(config.theme.textFont).forEach(font => {
+      if (font) fonts.add(font);
+    });
+  }
+  
+  return Array.from(fonts);
 }
