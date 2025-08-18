@@ -805,7 +805,7 @@ export default function EditorPage() {
                           value={cfg.theme.font}
                           onChange={(e) => update("theme", { ...cfg.theme, font: e.target.value })}
                         >
-                          {["Inter", "Poppins", "Roboto", "Montserrat", "Nunito", "Oswald", "Lato"].map((f) => (
+                          {["Inter", "Poppins", "Roboto", "Montserrat", "Nunito", "Oswald", "Lato", "Playfair Display", "Merriweather", "Source Code Pro"].map((f) => (
                             <option key={f} value={f}>
                               {f}
                             </option>
