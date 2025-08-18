@@ -285,16 +285,16 @@ export function getTextFont(
  */
 export function getUsedFonts(config: WidgetConfig): string[] {
   const fonts = new Set<string>();
-  
+
   // Add global font
   fonts.add(config.theme.font);
-  
+
   // Add individual fonts if they exist
   if (config.theme.textFont) {
     Object.values(config.theme.textFont).forEach(font => {
       if (font) fonts.add(font);
     });
   }
-  
+
   return Array.from(fonts);
 }
