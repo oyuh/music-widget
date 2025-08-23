@@ -1,6 +1,7 @@
 // src/utils/config.ts
 export type WidgetConfig = {
   lfmUser: string;
+  sessionKey?: string | null; // Last.fm session key for private profile access
   // Accent to use when auto-from-art has no color or extraction fails
   fallbackAccent?: string;
   theme: {
