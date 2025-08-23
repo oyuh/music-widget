@@ -58,14 +58,19 @@ export default function EditorPage() {
   useEffect(() => {
     if (!mounted) return;
     const origin = window.location.origin;
-    const b64 = encodeConfig(cfg);
+    // Include session key in config for private profiles
+    const configWithSession = {
+      ...cfg,
+      sessionKey: sessionKey, // Include session key for private profile access
+    };
+    const b64 = encodeConfig(configWithSession);
     setShare(`${origin}/w#${b64}`);
-  }, [cfg, mounted]);
+  }, [cfg, mounted, sessionKey]);
 
   // Live data for preview (uses connection if present)
   const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg.lfmUser,
-  pollMs: 5000,
+  pollMs: 2000, // Faster polling for more responsive username changes
     sessionKey,
   });
 
@@ -160,6 +165,22 @@ export default function EditorPage() {
       update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: fallback || "#ffffff" } });
     }
   }
+
+  // Auto-populate username when Last.fm is connected (especially for private profiles)
+  useEffect(() => {
+    if (!mounted || !connectedName) return;
+    
+    // Auto-fill username if it's empty and user is connected
+    if (!cfg.lfmUser || cfg.lfmUser === '') {
+      setCfg(prev => ({ ...prev, lfmUser: connectedName }));
+    }
+  }, [connectedName, mounted, cfg.lfmUser]);
+
+  // Trigger immediate refresh when username changes
+  useEffect(() => {
+    if (!mounted) return;
+    setRefreshKey(prev => prev + 1);
+  }, [cfg.lfmUser, mounted]);
 
   async function copySettings() {
     try {
