@@ -34,8 +34,31 @@ export default function EditorPage() {
       const nm = localStorage.getItem("lfm_session_name");
       if (sk) setSessionKey(sk);
       if (nm) setConnectedName(nm);
+
+      // Load saved configuration
+      const savedConfig = localStorage.getItem("widget_config");
+      if (savedConfig) {
+        try {
+          const parsedConfig = JSON.parse(savedConfig);
+          // Merge with default config to handle any new fields
+          setCfg({ ...defaultConfig, ...parsedConfig });
+        } catch (e) {
+          console.warn("Failed to parse saved config, using defaults");
+        }
+      }
     } catch {}
   }, []);
+
+  // Save configuration to localStorage whenever it changes
+  useEffect(() => {
+    if (!mounted) return;
+    
+    try {
+      localStorage.setItem("widget_config", JSON.stringify(cfg));
+    } catch (e) {
+      console.warn("Failed to save configuration to localStorage");
+    }
+  }, [cfg, mounted]);
 
   // Basic SEO constants
   const seo = useMemo(() => {
@@ -169,7 +192,7 @@ export default function EditorPage() {
   // Auto-populate username when Last.fm is connected (especially for private profiles)
   useEffect(() => {
     if (!mounted || !connectedName) return;
-    
+
     // Auto-fill username if it's empty and user is connected
     if (!cfg.lfmUser || cfg.lfmUser === '') {
       setCfg(prev => ({ ...prev, lfmUser: connectedName }));
@@ -258,6 +281,17 @@ export default function EditorPage() {
       };
       setCfg(next);
     } catch {}
+  }
+
+  function resetToDefaults() {
+    try {
+      // Clear saved config from localStorage
+      localStorage.removeItem("widget_config");
+      // Reset to default configuration
+      setCfg(defaultConfig);
+    } catch (e) {
+      console.warn("Failed to reset configuration");
+    }
   }
 
   return (
@@ -463,6 +497,15 @@ export default function EditorPage() {
                         onClick={pasteSettings}
                       >
                         Paste Settings
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-500/50 bg-neutral-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 h-8 px-3"
+                        onClick={resetToDefaults}
+                        title="Reset all settings to defaults and clear saved configuration"
+                      >
+                        Reset to Defaults
                       </Button>
                     </div>
                   </CardContent>
