@@ -14,7 +14,7 @@ type LfmTrack = {
 
 // Smart polling intervals based on activity and context
 const INTERVALS = {
-  FAST: 1500,        // When track just changed or user is active
+  FAST: 1000,        // When track just changed or user is active
   NORMAL: 3000,      // When actively playing
   SLOW: 6000,        // When paused or no recent activity
   IDLE: 12000,       // When user appears inactive
