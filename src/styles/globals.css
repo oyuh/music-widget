@@ -92,10 +92,10 @@ body {
 }
 
 /* Marquee scrolling text - true continuous seamless loop */
-.marquee { 
-  position: relative; 
-  overflow: hidden; 
-  white-space: nowrap; 
+.marquee {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .marquee__wrapper {
@@ -109,7 +109,7 @@ body {
   -webkit-transform: translateZ(0);
 }
 
-/* 
+/*
   Continuous scroll animations:
   - Wrapper contains 2 identical items with gap
   - Translate by -50% moves exactly one item + gap width
@@ -118,22 +118,22 @@ body {
 */
 
 /* Left-to-right scroll (left/center aligned text scrolls left) */
-@keyframes marquee-scroll-left { 
-  from { 
-    transform: translate3d(0, 0, 0); 
-  } 
-  to { 
-    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0); 
+@keyframes marquee-scroll-left {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0);
   }
 }
 
 /* Right-to-left scroll (right aligned text scrolls right) */
-@keyframes marquee-scroll-right { 
-  from { 
-    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0); 
-  } 
-  to { 
-    transform: translate3d(0, 0, 0); 
+@keyframes marquee-scroll-right {
+  from {
+    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
   }
 }
 

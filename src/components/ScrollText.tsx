@@ -11,13 +11,13 @@ type Props = {
   gapPx?: number; // gap between repeated labels
 };
 
-export default function ScrollText({ 
-  text = "", 
-  color, 
-  className = "", 
-  style, 
-  speedPxPerSec = 24, 
-  minWidthToScroll, 
+export default function ScrollText({
+  text = "",
+  color,
+  className = "",
+  style,
+  speedPxPerSec = 24,
+  minWidthToScroll,
   gapPx = 32
 }: Props) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -69,7 +69,7 @@ export default function ScrollText({
 
     // Initial measure with delay to ensure DOM is ready
     const initialTimeout = window.setTimeout(measure, 50);
-    
+
     // Measure on changes
     const ro = new ResizeObserver(() => {
       window.requestAnimationFrame(measure);
@@ -81,12 +81,12 @@ export default function ScrollText({
       window.requestAnimationFrame(measure);
     };
     window.addEventListener("resize", onResize);
-    
+
     // Re-measure when fonts load
     if (document.fonts) {
       document.fonts.ready.then(measure);
     }
-    
+
     return () => {
       clearTimeout(initialTimeout);
       window.removeEventListener("resize", onResize);
@@ -112,9 +112,9 @@ export default function ScrollText({
   };
 
   return (
-    <div 
-      ref={outerRef} 
-      className={`marquee ${animate ? "marquee--animate" : ""} ${className}`} 
+    <div
+      ref={outerRef}
+      className={`marquee ${animate ? "marquee--animate" : ""} ${className}`}
       style={containerStyle}
     >
       <div ref={wrapperRef} className="marquee__wrapper" style={wrapperStyle}>
