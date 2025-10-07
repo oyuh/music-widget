@@ -13,11 +13,12 @@ type LfmTrack = {
 };
 
 // Smart polling intervals based on activity and context
+// Increased intervals to reduce Vercel Edge request consumption
 const INTERVALS = {
-  FAST: 1000,        // When track just changed or user is active
-  NORMAL: 3000,      // When actively playing
-  SLOW: 6000,        // When paused or no recent activity
-  IDLE: 12000,       // When user appears inactive
+  FAST: 2000,        // When track just changed or user is active
+  NORMAL: 5000,      // When actively playing
+  SLOW: 10000,       // When paused or no recent activity
+  IDLE: 20000,       // When user appears inactive
 } as const;
 
 export function useNowPlaying(options: {
