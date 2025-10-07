@@ -15,7 +15,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const ct = upstream.headers.get("content-type") || "image/jpeg";
     res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "public, max-age=3600, immutable");
+    // Album art images are immutable - cache aggressively for 7 days on Vercel Edge
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=604800, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
     const buf = Buffer.from(await upstream.arrayBuffer());
     res.status(200).send(buf);
