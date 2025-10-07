@@ -52,7 +52,7 @@ export default function EditorPage() {
   // Save configuration to localStorage whenever it changes
   useEffect(() => {
     if (!mounted) return;
-    
+
     try {
       localStorage.setItem("widget_config", JSON.stringify(cfg));
     } catch (e) {

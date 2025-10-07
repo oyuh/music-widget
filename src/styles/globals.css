@@ -91,11 +91,51 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Marquee scrolling text */
-.marquee { position: relative; overflow: hidden; white-space: nowrap; }
-.marquee__track { display: inline-flex; align-items: center; }
-.marquee--animate .marquee__track { animation: marquee-translate var(--marquee-duration, 20s) linear infinite; }
-@keyframes marquee-translate { from { transform: translateX(0); } to { transform: translateX(calc(var(--marquee-distance, 0px) * -1)); } }
+/* Marquee scrolling text - true continuous seamless loop */
+.marquee { 
+  position: relative; 
+  overflow: hidden; 
+  white-space: nowrap; 
+}
+
+.marquee__wrapper {
+  display: inline-flex;
+  width: fit-content;
+  /* Hardware acceleration for smoother animation */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* 
+  Continuous scroll animations:
+  - Wrapper contains 2 identical items with gap
+  - Translate by -50% moves exactly one item + gap width
+  - Second item seamlessly takes first item's position
+  - Loop resets perfectly with no visual jump
+*/
+
+/* Left-to-right scroll (left/center aligned text scrolls left) */
+@keyframes marquee-scroll-left { 
+  from { 
+    transform: translate3d(0, 0, 0); 
+  } 
+  to { 
+    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0); 
+  }
+}
+
+/* Right-to-left scroll (right aligned text scrolls right) */
+@keyframes marquee-scroll-right { 
+  from { 
+    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0); 
+  } 
+  to { 
+    transform: translate3d(0, 0, 0); 
+  }
+}
 
 /* Fix text alignment inheritance for marquee in different text-align contexts */
 .text-center .marquee { text-align: center; }
