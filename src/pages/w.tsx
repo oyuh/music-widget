@@ -8,6 +8,10 @@ import ScrollText from "../components/ScrollText";
 import { extractDominantColor, getReadableTextOn, generateDropShadowCSS, generateElementDropShadowCSS } from "../utils/colors";
 
 export default function WidgetPage() {
+  // Cache mode controlled by environment variable (developer override)
+  const forceSevereMode = process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE === "true";
+  const autoCacheMode = forceSevereMode ? "severe" : "normal";
+
   const [cfg, setCfg] = useState<WidgetConfig | null>(null);
 
   useEffect(() => {
@@ -73,7 +77,8 @@ export default function WidgetPage() {
   const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
     pollMs: 5000,
-    sessionKey: cfg?.sessionKey ?? null, // Use session key from config for private profile access
+    sessionKey: cfg?.sessionKey ?? null,
+    cacheMode: autoCacheMode, // Controlled by env var
   });
 
   // Derive common values before any early returns

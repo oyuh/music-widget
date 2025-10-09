@@ -81,7 +81,6 @@ export default function EditorPage() {
   useEffect(() => {
     if (!mounted) return;
     const origin = window.location.origin;
-    // Include session key in config for private profiles
     const configWithSession = {
       ...cfg,
       sessionKey: sessionKey, // Include session key for private profile access
@@ -91,10 +90,24 @@ export default function EditorPage() {
   }, [cfg, mounted, sessionKey]);
 
   // Live data for preview (uses connection if present)
+  // Cache mode controlled by environment variable (developer override)
+  // NEXT_PUBLIC_FORCE_SEVERE_MODE=true forces severe mode (even with session key for public profiles)
+  const forceSevereMode = process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE === "true";
+  const autoCacheMode = forceSevereMode ? "severe" : "normal";
+
+  // DEBUG: Log environment variable value (remove this after testing)
+  useEffect(() => {
+    console.log("🔍 ENV VAR:", process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE);
+    console.log("🔍 forceSevereMode:", forceSevereMode);
+    console.log("🔍 sessionKey:", sessionKey ? "present" : "null");
+    console.log("🔍 autoCacheMode:", autoCacheMode);
+  }, [forceSevereMode, sessionKey, autoCacheMode]);
+
   const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg.lfmUser,
-  pollMs: 2000, // Faster polling for more responsive username changes
+    pollMs: 2000, // Faster polling for more responsive username changes
     sessionKey,
+    cacheMode: autoCacheMode, // Controlled by env var + session key
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
@@ -362,9 +375,34 @@ export default function EditorPage() {
               rel="noreferrer noopener"
               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
             >
-              Support
+              Support Me
             </a>
           </div>
+
+          {/* Cache Mode Notice Banner */}
+          {autoCacheMode === "severe" && (
+            <div className="mb-6 rounded-lg bg-orange-900/20 border border-orange-500/30 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <span className="text-orange-400 text-xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-orange-200 text-sm font-medium">
+                    Client-side mode enabled — I&apos;m maxing out Vercel free tier requests.{" "}
+                    <a
+                      href="https://buymeacoffee.com/lawsonhart"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline hover:text-orange-100"
+                    >
+                      Please consider donating!
+                    </a>
+                  </p>
+                  <p className="text-orange-300/70 text-xs mt-1">
+                    Severe mode fetches directly from Last.fm to save server costs.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Main Layout: Split into preview on left, controls on right */}
           <div className="grid lg:grid-cols-2 gap-8">
@@ -420,21 +458,59 @@ export default function EditorPage() {
                       placeholder="your-lastfm-username"
                     />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <LastfmConnect />
-                    <div className="flex flex-col">
-                      {sessionKey ? (
-                        <span className="text-green-400">Connected as <b>{connectedName}</b></span>
-                      ) : (
-                        <span className="text-white/60">Not connected</span>
-                      )}
-                      <span className="text-white/40 text-xs">(Optional for private profiles)</span>
+
+                  {/* Connection Status and Sign Out */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <LastfmConnect />
+                      <div className="flex-1 flex items-center justify-between">
+                        <div className="flex flex-col">
+                          {sessionKey ? (
+                            <span className="text-green-400">Connected as <b>{connectedName}</b></span>
+                          ) : (
+                            <span className="text-white/60">Not connected</span>
+                          )}
+                          <span className="text-white/40 text-xs">(Optional for private profiles)</span>
+                        </div>
+                        {sessionKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              localStorage.removeItem("lfm_session_key");
+                              localStorage.removeItem("lfm_session_name");
+                              setSessionKey(null);
+                              setConnectedName(null);
+                            }}
+                            className="border-red-500/30 bg-red-900/20 hover:bg-red-900/40 text-red-300 text-xs"
+                          >
+                            Sign Out
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              {/* Share */}
+                  {/* Cache mode info (read-only, controlled by developer) */}
+                  <div className="rounded-lg bg-neutral-800/50 border border-white/10 px-3 py-2">
+                    <p className="text-xs text-white/60">
+                      <strong className="text-white/80">Cache Mode:</strong>{" "}
+                      {autoCacheMode === "severe" ? (
+                        <span className="text-orange-400">Severe (client-side, bypasses server)</span>
+                      ) : (
+                        <span className="text-green-400">Normal (server-cached)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-white/50 mt-1">
+                      {sessionKey
+                        ? "Private profiles require server API for authentication."
+                        : forceSevereMode
+                          ? "Public profiles use direct Last.fm to save server costs."
+                          : "Server-cached mode for better performance."}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>              {/* Share */}
               {mounted && (
                 <Card className="bg-neutral-900/40 border-white/10">
                   <CardHeader>
