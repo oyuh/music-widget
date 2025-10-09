@@ -95,19 +95,11 @@ export default function EditorPage() {
   const forceSevereMode = process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE === "true";
   const autoCacheMode = forceSevereMode ? "severe" : "normal";
 
-  // DEBUG: Log environment variable value (remove this after testing)
-  useEffect(() => {
-    console.log("🔍 ENV VAR:", process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE);
-    console.log("🔍 forceSevereMode:", forceSevereMode);
-    console.log("🔍 sessionKey:", sessionKey ? "present" : "null");
-    console.log("🔍 autoCacheMode:", autoCacheMode);
-  }, [forceSevereMode, sessionKey, autoCacheMode]);
-
   const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg.lfmUser,
     pollMs: 2000, // Faster polling for more responsive username changes
     sessionKey,
-    cacheMode: autoCacheMode, // Controlled by env var + session key
+    cacheMode: autoCacheMode, // Controlled by env var
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
@@ -427,6 +419,7 @@ export default function EditorPage() {
                     <WidgetPreview
                       key={refreshKey}
                       cfg={cfg}
+                      cacheMode={autoCacheMode}
                       isLive={isLive}
                       isPaused={isPaused}
                       isPositionEstimated={isPositionEstimated}
@@ -1955,6 +1948,7 @@ export default function EditorPage() {
 
 function WidgetPreview(props: {
   cfg: WidgetConfig;
+  cacheMode: string;
   isLive: boolean;
   isPaused: boolean;
   isPositionEstimated: boolean;
@@ -1963,7 +1957,7 @@ function WidgetPreview(props: {
   durationMs: number | null;
   trackTitle?: string; artist?: string; album?: string; art?: string;
 }) {
-  const { cfg, isLive, isPaused, isPositionEstimated, percent, progressMs, durationMs, trackTitle, artist, album, art } = props;
+  const { cfg, cacheMode, isLive, isPaused, isPositionEstimated, percent, progressMs, durationMs, trackTitle, artist, album, art } = props;
   // Keep a stable art src (last non-empty); use a safe fallback on errors
   const [artSrc, setArtSrc] = useState<string>(art || "");
   useEffect(() => {
@@ -1989,10 +1983,19 @@ function WidgetPreview(props: {
           return null;
         }
       };
-      const proxied = `/api/proxy-image?url=${encodeURIComponent(artSrc)}`;
-      const viaProxy = await tryMakeUrl(proxied);
-      const viaDirect = viaProxy ? null : await tryMakeUrl(artSrc);
-      const finalUrl = viaProxy || viaDirect || "";
+
+      // In severe mode, skip the proxy and fetch directly from Last.fm to save Vercel requests
+      let finalUrl = "";
+      if (cacheMode === "severe") {
+        const viaDirect = await tryMakeUrl(artSrc);
+        finalUrl = viaDirect || "";
+      } else {
+        const proxied = `/api/proxy-image?url=${encodeURIComponent(artSrc)}`;
+        const viaProxy = await tryMakeUrl(proxied);
+        const viaDirect = viaProxy ? null : await tryMakeUrl(artSrc);
+        finalUrl = viaProxy || viaDirect || "";
+      }
+
       if (!active) return;
       if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
       currentObjUrl = finalUrl || null;
@@ -2003,7 +2006,7 @@ function WidgetPreview(props: {
       active = false;
       if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
     };
-  }, [artSrc]);
+  }, [artSrc, cacheMode]);
   const showImage = cfg.layout.showArt && !!imgUrl;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const grid = useMemo(() => {

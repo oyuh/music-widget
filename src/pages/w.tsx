@@ -119,9 +119,18 @@ export default function WidgetPage() {
         return;
       }
       const mk = async (u: string) => { try { const r = await fetch(u); if (!r.ok) return null; const b = await r.blob(); return URL.createObjectURL(b); } catch { return null; } };
-      const viaProxy = await mk(`/api/proxy-image?url=${encodeURIComponent(artSrc)}`);
-      const viaDirect = viaProxy ? null : await mk(artSrc);
-      const finalUrl = viaProxy || viaDirect || "";
+
+      // In severe mode, skip the proxy and fetch directly from Last.fm to save Vercel requests
+      let finalUrl = "";
+      if (autoCacheMode === "severe") {
+        const viaDirect = await mk(artSrc);
+        finalUrl = viaDirect || "";
+      } else {
+        const viaProxy = await mk(`/api/proxy-image?url=${encodeURIComponent(artSrc)}`);
+        const viaDirect = viaProxy ? null : await mk(artSrc);
+        finalUrl = viaProxy || viaDirect || "";
+      }
+
       if (!active) return;
       if (currentObjUrl) URL.revokeObjectURL(currentObjUrl);
       currentObjUrl = finalUrl || null;
@@ -130,7 +139,7 @@ export default function WidgetPage() {
     }
     load();
     return ()=>{ active=false; if (currentObjUrl) URL.revokeObjectURL(currentObjUrl); };
-  }, [artSrc, refreshNonce]);
+  }, [artSrc, refreshNonce, autoCacheMode]);
 
   // Compute runtime text colors if autoFromArt is enabled (use safe fallback config on first render)
   const effectiveCfg = cfg ?? defaultConfig;
