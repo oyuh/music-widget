@@ -11,8 +11,8 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     <>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
-            className="fixed inset-0 bg-black/50" 
+          <div
+            className="fixed inset-0 bg-black/50"
             onClick={() => onOpenChange?.(false)}
           />
           <div className="relative z-50">
@@ -68,6 +68,6 @@ export function DialogTrigger({ children, asChild, onClick }: { children: React.
       }
     } as any)
   }
-  
+
   return <button onClick={onClick}>{children}</button>
 }

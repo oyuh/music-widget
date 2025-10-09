@@ -93,15 +93,18 @@ export default function EditorPage() {
 
   // Live data for preview (uses connection if present)
   // Cache mode controlled by environment variable (developer override)
-  // NEXT_PUBLIC_FORCE_SEVERE_MODE=true forces severe mode (even with session key for public profiles)
+  // NEXT_PUBLIC_FORCE_SEVERE_MODE=true forces severe mode for public profiles only
+  // Private profiles (with session key) always use normal mode for server-side authentication
   const forceSevereMode = process.env.NEXT_PUBLIC_FORCE_SEVERE_MODE === "true";
-  const autoCacheMode = forceSevereMode ? "severe" : "normal";
+  const autoCacheMode = sessionKey
+    ? "normal" // Private profiles always use server-side mode (requires authentication)
+    : (forceSevereMode ? "severe" : "normal"); // Public profiles can use client-side when severe mode is enabled
 
   const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
     username: cfg.lfmUser,
     pollMs: 2000, // Faster polling for more responsive username changes
     sessionKey,
-    cacheMode: autoCacheMode, // Controlled by env var
+    cacheMode: autoCacheMode, // Controlled by session key and env var
   });
 
   // Editor-level computed colors for auto-from-art so the controls reflect them
@@ -395,29 +398,29 @@ export default function EditorPage() {
                 <div>
                   <h3 className="font-medium text-white mb-1">What is Client-side Mode?</h3>
                   <p>
-                    Client-side mode fetches your Last.fm data directly from Last.fm&apos;s API in your browser, 
+                    Client-side mode fetches your Last.fm data directly from Last.fm&apos;s API in your browser,
                     rather than routing through this website&apos;s server.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-medium text-white mb-1">Why is it enabled?</h3>
                   <p>
-                    I&apos;m currently maxing out the free tier of Vercel&apos;s serverless functions. 
-                    To keep the widget available for everyone, client-side mode reduces server load by having your browser 
+                    I&apos;m currently maxing out the free tier of Vercel&apos;s serverless functions.
+                    To keep the widget available for everyone, client-side mode reduces server load by having your browser
                     make requests directly to Last.fm.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-medium text-white mb-1">Does it affect usability?</h3>
                   <p>
-                    <strong className="text-green-400">No!</strong> The widget works exactly the same way. 
-                    You might notice the same performance and all features remain fully functional. 
+                    <strong className="text-green-400">No!</strong> The widget works exactly the same way.
+                    You might notice the same performance and all features remain fully functional.
                     The only difference is where the data comes from.
                   </p>
                 </div>
                 <div className="pt-2 border-t border-white/10">
                   <p className="text-white/70">
-                    If you&apos;d like to help keep the server mode available for private profiles, 
+                    If you&apos;d like to help keep the server mode available for private profiles,
                     please consider{" "}
                     <a
                       href="https://buymeacoffee.com/lawsonhart"
@@ -535,16 +538,16 @@ export default function EditorPage() {
                     <p className="text-xs text-white/60">
                       <strong className="text-white/80">Cache Mode:</strong>{" "}
                       {autoCacheMode === "severe" ? (
-                        <span className="text-orange-400">Severe (client-side, bypasses server)</span>
+                        <span className="text-orange-400">Client-side (bypasses server)</span>
                       ) : (
-                        <span className="text-green-400">Normal (server-cached)</span>
+                        <span className="text-green-400">Server-cached</span>
                       )}
                     </p>
                     <p className="text-xs text-white/50 mt-1">
                       {sessionKey
-                        ? "Private profiles require server API for authentication."
-                        : forceSevereMode
-                          ? "Public profiles use direct Last.fm to save server costs."
+                        ? "Private profiles always use server mode for authentication."
+                        : autoCacheMode === "severe"
+                          ? "Public profiles use client-side mode to reduce server costs."
                           : "Server-cached mode for better performance."}
                     </p>
                   </div>
