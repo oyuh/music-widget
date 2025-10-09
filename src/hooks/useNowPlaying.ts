@@ -15,18 +15,19 @@ type LfmTrack = {
 // Smart polling intervals based on activity and context
 // Increased intervals to reduce Vercel Edge request consumption
 const INTERVALS = {
-  FAST: 2000,        // When track just changed or user is active
-  NORMAL: 5000,      // When actively playing
-  SLOW: 10000,       // When paused or no recent activity
-  IDLE: 20000,       // When user appears inactive
+  FAST: 3000,        // When track just changed or user is active
+  NORMAL: 6000,      // When actively playing (increased to 6s for severe mode)
+  SLOW: 12000,       // When paused or no recent activity
+  IDLE: 24000,       // When user appears inactive
 } as const;
 
 export function useNowPlaying(options: {
   username: string;
   pollMs?: number;
   sessionKey?: string | null; // if present, we hit the proxy with sk=
+  cacheMode?: "normal" | "severe"; // normal = Vercel API, severe = direct Last.fm (no Vercel requests)
 }) {
-  const { username, sessionKey } = options;
+  const { username, sessionKey, cacheMode = "normal" } = options;
   const [track, setTrack] = useState<LfmTrack | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -46,6 +47,7 @@ export function useNowPlaying(options: {
   const lastUserActivityRef = useRef<number>(Date.now());
   const timeoutRef = useRef<number | undefined>(undefined);
   const lastTrackChangeRef = useRef<number>(0);
+  const privateProfileDetectedRef = useRef<boolean>(false); // Track if we detected a private profile
 
   // Pause detection state
   const trackStartTimeRef = useRef<number | null>(null);
@@ -162,9 +164,17 @@ export function useNowPlaying(options: {
     try {
       // Strategy 1: Check if this exact track was recently scrobbled (completed)
       // If so, and now it's playing again soon after, it might be a resume
-      const recentUrl = sessionKey
-        ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=10&sk=${encodeURIComponent(sessionKey)}`
-        : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=10`;
+
+      // Use effective cache mode (fallback to normal if private profile detected)
+      const effectiveCacheMode = (cacheMode === "severe" && privateProfileDetectedRef.current)
+        ? "normal"
+        : cacheMode;
+
+      const recentUrl = effectiveCacheMode === "severe"
+        ? `https://ws.audioscrobbler.com/2.0/?method=user.getRecentTracks&user=${encodeURIComponent(username)}&limit=10&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&format=json`
+        : sessionKey
+          ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=10&sk=${encodeURIComponent(sessionKey)}`
+          : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=10`;
 
       const recentRes = await fetch(recentUrl, { cache: "no-store" });
       if (!recentRes.ok) return 0;
@@ -233,7 +243,7 @@ export function useNowPlaying(options: {
     } catch {
       return 0; // Default to start on any error
     }
-  }, [username, sessionKey, durationMs]);
+  }, [username, sessionKey, durationMs, cacheMode]);
 
   useEffect(() => {
     if (!username) return;
@@ -248,9 +258,16 @@ export function useNowPlaying(options: {
           return;
         }
 
-        const base = sessionKey
-          ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1&sk=${encodeURIComponent(sessionKey)}`
-          : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1`;
+        // Determine effective cache mode - force normal if we've detected a private profile
+        const effectiveCacheMode = (cacheMode === "severe" && privateProfileDetectedRef.current)
+          ? "normal"
+          : cacheMode;
+
+        const base = effectiveCacheMode === "severe"
+          ? `https://ws.audioscrobbler.com/2.0/?method=user.getRecentTracks&user=${encodeURIComponent(username)}&limit=1&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&format=json`
+          : sessionKey
+            ? `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1&sk=${encodeURIComponent(sessionKey)}`
+            : `/api/lastfm/recent?user=${encodeURIComponent(username)}&limit=1`;
 
         const res = await fetch(base, {
           cache: "no-store",
@@ -263,10 +280,29 @@ export function useNowPlaying(options: {
 
         if (!res.ok) {
           consecutiveErrorsRef.current++;
+
+          // Check if this is a private profile error (403 or specific Last.fm error)
+          if (res.status === 403 || res.status === 401) {
+            privateProfileDetectedRef.current = true;
+            console.warn("⚠️ Private profile detected - switching to server API mode");
+            // Retry immediately with normal mode
+            scheduleNext();
+            return;
+          }
+
           throw new Error(`nowPlaying ${res.status}`);
         }
 
         const data = await res.json();
+
+        // Check for Last.fm API error indicating private profile
+        if (data.error === 17 || data.message?.includes("User not found") || data.message?.includes("private")) {
+          privateProfileDetectedRef.current = true;
+          console.warn("⚠️ Private profile detected via API error - switching to server API mode");
+          scheduleNext();
+          return;
+        }
+
         const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
 
         lastUpdateRef.current = now;
@@ -368,9 +404,16 @@ export function useNowPlaying(options: {
     // Separate function for fetching duration to not block main polling
     const fetchDurationAsync = async (tr: LfmTrack) => {
       try {
-        const infoUrl = sessionKey
-          ? `/api/lastfm/trackInfo?artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&sk=${encodeURIComponent(sessionKey)}`
-          : `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`;
+        // Use effective cache mode (fallback to normal if private profile detected)
+        const effectiveCacheMode = (cacheMode === "severe" && privateProfileDetectedRef.current)
+          ? "normal"
+          : cacheMode;
+
+        const infoUrl = effectiveCacheMode === "severe"
+          ? `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`
+          : sessionKey
+            ? `/api/lastfm/trackInfo?artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&sk=${encodeURIComponent(sessionKey)}`
+            : `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`;
 
         const infoRes = await fetch(infoUrl);
         const info = await infoRes.json();
@@ -401,7 +444,7 @@ export function useNowPlaying(options: {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [username, sessionKey, getOptimalInterval, detectPauseState, estimateTrackPosition]); // Added missing dependencies
+  }, [username, sessionKey, cacheMode, getOptimalInterval, detectPauseState, estimateTrackPosition]); // Added cacheMode dependency
 
   // Drive a ticker while live to keep progress moving smoothly (animation frame-based)
   // But pause the ticker when we detect the track is paused

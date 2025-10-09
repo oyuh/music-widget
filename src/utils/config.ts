@@ -2,6 +2,7 @@
 export type WidgetConfig = {
   lfmUser: string;
   sessionKey?: string | null; // Last.fm session key for private profile access
+  // cacheMode is controlled by NEXT_PUBLIC_FORCE_SEVERE_MODE env var (developer control only)
   // Accent to use when auto-from-art has no color or extraction fails
   fallbackAccent?: string;
   theme: {
@@ -137,6 +138,7 @@ export type WidgetConfig = {
 
 export const defaultConfig: WidgetConfig = {
   lfmUser: "",
+  // cacheMode removed - controlled by NEXT_PUBLIC_FORCE_SEVERE_MODE env var
   fallbackAccent: "#1db954", // default to current theme accent color
   theme: {
     bg: "#000000CC",
