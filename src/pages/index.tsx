@@ -13,6 +13,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Label } from "../components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 
 export default function EditorPage() {
   // Config state
@@ -26,6 +27,7 @@ export default function EditorPage() {
   const [mounted, setMounted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [share, setShare] = useState("");
+  const [severeModeModalOpen, setSevereModeModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -369,32 +371,76 @@ export default function EditorPage() {
             >
               Support Me
             </a>
+            {autoCacheMode === "severe" && (
+              <button
+                onClick={() => setSevereModeModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-orange-500 text-white/80"
+              >
+                <span>Client-side Mode</span>
+                <span className="text-white/60">ℹ️</span>
+              </button>
+            )}
           </div>
 
-          {/* Cache Mode Notice Banner */}
-          {autoCacheMode === "severe" && (
-            <div className="mb-6 rounded-lg bg-orange-900/20 border border-orange-500/30 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <span className="text-orange-400 text-xl">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-orange-200 text-sm font-medium">
-                    Client-side mode enabled — I&apos;m maxing out Vercel free tier requests.{" "}
+          {/* Severe Mode Info Modal */}
+          <Dialog open={severeModeModalOpen} onOpenChange={setSevereModeModalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Client-side Mode Info</DialogTitle>
+                <DialogDescription>
+                  Understanding how this mode works and why it&apos;s enabled
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 text-white/80 text-sm">
+                <div>
+                  <h3 className="font-medium text-white mb-1">What is Client-side Mode?</h3>
+                  <p>
+                    Client-side mode fetches your Last.fm data directly from Last.fm&apos;s API in your browser, 
+                    rather than routing through this website&apos;s server.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">Why is it enabled?</h3>
+                  <p>
+                    I&apos;m currently maxing out the free tier of Vercel&apos;s serverless functions. 
+                    To keep the widget available for everyone, client-side mode reduces server load by having your browser 
+                    make requests directly to Last.fm.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-white mb-1">Does it affect usability?</h3>
+                  <p>
+                    <strong className="text-green-400">No!</strong> The widget works exactly the same way. 
+                    You might notice the same performance and all features remain fully functional. 
+                    The only difference is where the data comes from.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-white/70">
+                    If you&apos;d like to help keep the server mode available for private profiles, 
+                    please consider{" "}
                     <a
                       href="https://buymeacoffee.com/lawsonhart"
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="underline hover:text-orange-100"
+                      className="text-blue-400 hover:text-blue-300 underline"
                     >
-                      Please consider donating!
+                      supporting the project
                     </a>
-                  </p>
-                  <p className="text-orange-300/70 text-xs mt-1">
-                    Severe mode fetches directly from Last.fm to save server costs.
+                    .
                   </p>
                 </div>
               </div>
-            </div>
-          )}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => setSevereModeModalOpen(false)}
+                  className="bg-neutral-700 hover:bg-neutral-600 text-white"
+                >
+                  Got it
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Main Layout: Split into preview on left, controls on right */}
           <div className="grid lg:grid-cols-2 gap-8">
