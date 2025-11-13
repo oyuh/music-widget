@@ -53,6 +53,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const r = await fetch(url);
     const j = await r.json();
 
+    // Log recent track info
+    if (r.ok && j?.recenttracks?.track) {
+      const tracks = Array.isArray(j.recenttracks.track) ? j.recenttracks.track : [j.recenttracks.track];
+      const recentTrack = tracks[0];
+      if (recentTrack) {
+        const trackName = recentTrack.name || 'Unknown';
+        const artistName = recentTrack.artist?.['#text'] || recentTrack.artist || 'Unknown';
+        const isNowPlaying = recentTrack['@attr']?.nowplaying === 'true';
+        const duration = recentTrack.duration ? `${Math.round(parseInt(recentTrack.duration) / 1000)}s` : 'N/A';
+        console.log(`🎵 [API Recent Track] ${isNowPlaying ? '▶️ NOW PLAYING' : '⏹️ RECENT'}: "${trackName}" by ${artistName} (Duration: ${duration}) [User: ${user}]`);
+      }
+    }
+
     if (r.ok) {
       // Cache for 3 seconds - balances freshness with request reduction
       cache.set(cacheKey, {
