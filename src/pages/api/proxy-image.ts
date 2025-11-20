@@ -23,4 +23,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch {
     res.status(500).json({ error: "Proxy error" });
   }
+
+  console.log(`Proxied image: ${url}`);
 }
