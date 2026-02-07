@@ -58,15 +58,16 @@ export function DialogDescription({ children, className = "" }: { children: Reac
 
 export function DialogTrigger({ children, asChild, onClick }: { children: React.ReactNode; asChild?: boolean; onClick?: () => void }) {
   if (asChild && React.isValidElement(children)) {
-    const childProps = children.props as { onClick?: (e: React.MouseEvent) => void }
-    return React.cloneElement(children, {
+    type ClickableChildProps = { onClick?: React.MouseEventHandler };
+    const child = children as React.ReactElement<ClickableChildProps>;
+    const childOnClick = child.props.onClick;
+
+    return React.cloneElement(child, {
       onClick: (e: React.MouseEvent) => {
-        onClick?.()
-        if (childProps.onClick) {
-          childProps.onClick(e)
-        }
-      }
-    } as any)
+        onClick?.();
+        childOnClick?.(e);
+      },
+    });
   }
 
   return <button onClick={onClick}>{children}</button>

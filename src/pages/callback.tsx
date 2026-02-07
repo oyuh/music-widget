@@ -9,7 +9,8 @@ export default function Callback() {
   const [msg, setMsg] = useState("Finishing sign-in…");
 
   useEffect(() => {
-    const token = router.query.token as string | undefined;
+    if (!router.isReady) return;
+    const token = typeof router.query.token === "string" ? router.query.token : undefined;
     if (!token) return;
     (async () => {
       try {
@@ -26,11 +27,12 @@ export default function Callback() {
 
         setMsg(`Connected as ${data.name}. Redirecting…`);
         setTimeout(() => router.replace("/"), 800);
-      } catch (e: any) {
-        setMsg(`Auth failed: ${e.message ?? e}`);
+      } catch (e: unknown) {
+        const text = e instanceof Error ? e.message : String(e);
+        setMsg(`Auth failed: ${text}`);
       }
     })();
-  }, [router.query.token]);
+  }, [router, router.isReady, router.query.token]);
 
   return (
     <main className="p-6 text-white" style={{ fontFamily: "system-ui" }}>
