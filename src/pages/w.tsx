@@ -74,7 +74,7 @@ export default function WidgetPage() {
   }, []);
 
   // Call hooks unconditionally to keep hook order stable across renders
-  const { track, isLive, isPaused, percent, progressMs, durationMs, isPositionEstimated } = useNowPlaying({
+  const { track, isLive, isPaused, percent, progressMs, durationMs } = useNowPlaying({
     username: cfg?.lfmUser ?? "",
     pollMs: 5000,
     sessionKey: cfg?.sessionKey ?? null,

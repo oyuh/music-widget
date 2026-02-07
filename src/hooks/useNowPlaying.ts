@@ -51,7 +51,6 @@ export function useNowPlaying(options: {
 
   // Pause detection state
   const trackStartTimeRef = useRef<number | null>(null);
-  const lastProgressCheckRef = useRef<number>(0);
   const staleProgressCountRef = useRef<number>(0);
   const expectedProgressRef = useRef<number>(0);
 
@@ -131,7 +130,7 @@ export function useNowPlaying(options: {
       if (staleProgressCountRef.current >= 3 && !isPaused && currentPercentProgress < 95) {
         setIsPaused(true);
         setPausedAt(now);
-        console.log(`⏸️ Pause detected: Progress stagnant for ${staleProgressCountRef.current} checks`);
+        console.log(`Pause detected: Progress stagnant for ${staleProgressCountRef.current} checks`);
       }
     } else {
       // Progress is moving - reset stale counter and resume if paused
@@ -143,7 +142,7 @@ export function useNowPlaying(options: {
         if (pausedAt) {
           const pauseDuration = now - pausedAt;
           setTotalPausedTime(prev => prev + pauseDuration);
-          console.log(`▶️ Resume detected: Adding ${Math.round(pauseDuration / 1000)}s pause duration`);
+          console.log(`Resume detected: Adding ${Math.round(pauseDuration / 1000)}s pause duration`);
         }
         setPausedAt(null);
       }
@@ -154,7 +153,7 @@ export function useNowPlaying(options: {
       if (!isPaused) {
         setIsPaused(true);
         setPausedAt(now);
-        console.log(`⏸️ Pause detected: Progress beyond track duration`);
+        console.log(`Pause detected: Progress beyond track duration`);
       }
     }
   }, [isPaused, pausedAt, durationMs, totalPausedTime, estimatedStartOffset]);
@@ -319,7 +318,7 @@ export function useNowPlaying(options: {
         // Track change detection - ALWAYS reset progress state when track changes
         const trackChanged = id !== lastIdRef.current;
         if (trackChanged) {
-          console.log(`🔄 Track changed from "${lastIdRef.current}" to "${id}"`);
+          console.log(`Track changed from "${lastIdRef.current}" to "${id}"`);
 
           // IMMEDIATELY reset ALL timing state to prevent ANY progress carryover
           lastIdRef.current = id;
@@ -334,13 +333,13 @@ export function useNowPlaying(options: {
           expectedProgressRef.current = 0;
           lastTrackChangeRef.current = now;
 
-          console.log(`🔄 All progress state reset for: "${tr.name}"`);
+          console.log(`All progress state reset for: "${tr.name}"`);
 
           if (live) {
             // Only do position estimation and duration fetch for live tracks
             estimateTrackPosition(tr).then(estimatedOffset => {
               if (estimatedOffset > 0) {
-                console.log(`🎵 Position estimated: ${Math.round(estimatedOffset / 1000)}s for "${tr.name}"`);
+                console.log(`Position estimated: ${Math.round(estimatedOffset / 1000)}s for "${tr.name}"`);
                 setEstimatedStartOffset(estimatedOffset);
               }
             }).catch(() => {
@@ -354,12 +353,12 @@ export function useNowPlaying(options: {
           // Same track but we don't have a start time (first load)
           trackStartTimeRef.current = now;
           setStartedAt(now);
-          console.log(`🎬 First load: "${tr.name}" - Starting fresh`);
+          console.log(`First load: "${tr.name}" - Starting fresh`);
 
           // Also try to estimate position for first load
           estimateTrackPosition(tr).then(estimatedOffset => {
             if (estimatedOffset > 0) {
-              console.log(`🎵 Position estimated on first load: ${Math.round(estimatedOffset / 1000)}s for "${tr.name}"`);
+              console.log(`Position estimated on first load: ${Math.round(estimatedOffset / 1000)}s for "${tr.name}"`);
               setEstimatedStartOffset(estimatedOffset);
             }
           }).catch(() => {
@@ -387,7 +386,7 @@ export function useNowPlaying(options: {
 
           // Only log if we're actually clearing a previously live track
           if (lastIdRef.current) {
-            console.log(`⏹️ Track stopped: "${tr?.name || 'Unknown'}" - All state cleared`);
+            console.log(`Track stopped: "${tr?.name || 'Unknown'}" - All state cleared`);
             lastIdRef.current = "";
           }
         }
