@@ -136,4 +136,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const error = e as Error;
     return res.status(500).json({ error: error.message ?? "Internal error" });
   }
+
+  console.log(`Fetched track info for ${req.query.artist} - ${req.query.track}`);
 }
