@@ -304,6 +304,14 @@ export function useNowPlaying(options: {
 
         const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
 
+        // Log the recent track data from hook
+        if (tr) {
+          const trackName = tr.name || 'Unknown';
+          const artistName = tr.artist?.['#text'] || 'Unknown';
+          const isNowPlaying = tr?.['@attr']?.nowplaying === 'true';
+          console.log(`🎧 [Hook Recent Track] ${isNowPlaying ? '▶️ NOW PLAYING' : '⏹️ RECENT'}: "${trackName}" by ${artistName} [User: ${username}]`);
+        }
+
         lastUpdateRef.current = now;
         consecutiveErrorsRef.current = 0; // Reset error count on success
 
@@ -414,9 +422,12 @@ export function useNowPlaying(options: {
             ? `/api/lastfm/trackInfo?artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&sk=${encodeURIComponent(sessionKey)}`
             : `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(process.env.NEXT_PUBLIC_LFM_KEY!)}&artist=${encodeURIComponent(tr.artist["#text"])}&track=${encodeURIComponent(tr.name)}&format=json`;
 
-        const infoRes = await fetch(infoUrl);
+            const infoRes = await fetch(infoUrl);
         const info = await infoRes.json();
         const dur = Number(info?.track?.duration ?? 0);
+        if (dur > 0) {
+          console.log(`⏱️ [Duration Fetched] "${tr.name}" by ${tr.artist['#text']}: ${Math.round(dur / 1000)}s (${Math.round(dur / 60000)}:${String(Math.round((dur % 60000) / 1000)).padStart(2, '0')})`);
+        }
         setDurationMs(dur > 0 ? dur : null);
       } catch {
         /* ignore duration fetch errors */
