@@ -346,7 +346,12 @@
       />
     {/if}
     {#if cfg.fields.progress}
-      <div data-el="progress" style="margin-top:8px">
+      <div
+        data-el="progress"
+        style="margin-top:8px;{cfg.layout.progressWidth && cfg.layout.progressWidth > 0
+          ? `width:${cfg.layout.progressWidth}px;`
+          : ''}transform:translate({cfg.layout.progressOffset?.x ?? 0}px,{cfg.layout.progressOffset?.y ?? 0}px)"
+      >
         <div
           style="height:6px;background:#ffffff30;border-radius:4px;overflow:hidden;{cfg.theme.dropShadow?.enabled &&
           cfg.theme.dropShadow.targets?.progressBar

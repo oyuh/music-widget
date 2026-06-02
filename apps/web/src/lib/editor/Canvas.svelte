@@ -111,9 +111,22 @@
     editor.select(id);
     if (isText(id)) startTextDrag(e, id);
     else if (id === "art") startArtDrag(e);
+    else if (id === "progress") startProgressDrag(e);
   }
 
-  function startResize(e: PointerEvent, kind: "wh" | "w" | "h" | "art" | "text") {
+  function startProgressDrag(e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const base = { ...(editor.config.layout.progressOffset ?? { x: 0, y: 0 }) };
+    bindDrag((ev) => {
+      const o = editor.config.layout.progressOffset!;
+      o.x = Math.round(base.x + (ev.clientX - startX));
+      o.y = Math.round(base.y + (ev.clientY - startY));
+    });
+  }
+
+  function startResize(e: PointerEvent, kind: "wh" | "w" | "h" | "art" | "text" | "progress") {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
@@ -125,6 +138,8 @@
     const sel = editor.selected;
     const textKey = sel && isText(sel) ? (sel as "title" | "artist" | "album" | "duration") : null;
     const baseSize = textKey ? editor.config.theme.textSize![textKey] : 0;
+    const progEl = wrapperEl?.querySelector('[data-el="progress"]') as HTMLElement | null;
+    const baseProgW = L.progressWidth && L.progressWidth > 0 ? L.progressWidth : (progEl?.offsetWidth ?? 200);
     bindDrag((ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -134,6 +149,7 @@
       if (kind === "text" && textKey) {
         editor.config.theme.textSize![textKey] = Math.max(8, Math.min(120, Math.round(baseSize + Math.max(dx, dy) / 3)));
       }
+      if (kind === "progress") L.progressWidth = Math.max(20, Math.round(baseProgW + dx));
     });
   }
 </script>
@@ -189,7 +205,7 @@
       {#each ["left", "right", "top"] as z (z)}
         <div
           class="pointer-events-none absolute rounded-md border-2 border-dashed transition-colors {artZone === z
-            ? 'border-white bg-white/15'
+            ? 'border-blue-400 bg-blue-400/10'
             : 'border-white/30'}"
           style={z === "top"
             ? "left:0;top:0;right:0;height:38%"
@@ -204,36 +220,34 @@
     {#if selRect}
       <div
         class="pointer-events-none absolute z-10"
-        style="left:{selRect.x - 1}px;top:{selRect.y -
-          1}px;width:{selRect.w +
-          2}px;height:{selRect.h +
-          2}px;border:2px solid #000;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,0.85)"
+        style="left:{selRect.x - 1}px;top:{selRect.y - 1}px;width:{selRect.w + 2}px;height:{selRect.h +
+          2}px;border:2px solid #3b82f6;border-radius:4px"
       ></div>
 
       {#if editor.selected === "background"}
         <!-- widget resize handles -->
         <button
           aria-label="resize width and height"
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "wh")}
         ></button>
         <button
           aria-label="resize width"
-          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-black"
+          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
           onpointerdown={(e) => startResize(e, "w")}
         ></button>
         <button
           aria-label="resize height"
-          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-black"
+          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w / 2 - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "h")}
         ></button>
       {:else if editor.selected === "art"}
         <button
           aria-label="resize album art"
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "art")}
         ></button>
@@ -241,9 +255,17 @@
         <button
           aria-label="resize text size"
           title="Drag to resize text"
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "text")}
+        ></button>
+      {:else if editor.selected === "progress"}
+        <button
+          aria-label="resize progress width"
+          title="Drag to resize progress bar width"
+          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
+          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
+          onpointerdown={(e) => startResize(e, "progress")}
         ></button>
       {/if}
     {/if}

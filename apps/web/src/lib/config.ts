@@ -106,6 +106,8 @@ export type WidgetConfig = {
     textGap: number; // px gap between title/artist/album rows
     backgroundRadius?: number; // border radius of the widget background in px
     artRadius?: number; // border radius of the album art in px
+    progressWidth?: number; // px width of the progress bar; 0/undefined = fill container
+    progressOffset?: { x: number; y: number }; // free-move offset for the progress bar
     textOffset?: {
       title: { x: number; y: number };
       artist: { x: number; y: number };
@@ -191,7 +193,7 @@ export const defaultConfig: WidgetConfig = {
     },
     bgEnabled: true,
   },
-  layout: { w: 420, h: 130, showArt: true, align: "left", artSize: 88, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, backgroundRadius: 16, artRadius: 12, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 }, duration: { x: 0, y: 0 } } },
+  layout: { w: 420, h: 130, showArt: true, align: "left", artSize: 88, artPosition: "left", scrollTriggerWidth: 180, textGap: 2, backgroundRadius: 16, artRadius: 12, progressWidth: 0, progressOffset: { x: 0, y: 0 }, textOffset: { title: { x: 0, y: 0 }, artist: { x: 0, y: 0 }, album: { x: 0, y: 0 }, meta: { x: 0, y: 0 }, duration: { x: 0, y: 0 } } },
   marquee: { speedPxPerSec: 24, gapPx: 32, perText: undefined },
   fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label", pausedText: "Paused", durationFormat: "both", showDurationOnProgress: true, showDurationAsText: false },
 };
