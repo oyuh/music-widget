@@ -36,6 +36,17 @@
     editor.save();
   }
 
+  let importText = $state("");
+  let importMsg = $state("");
+  let importOk = $state(false);
+
+  function doImport() {
+    importOk = editor.importConfig(importText);
+    importMsg = importOk ? "Imported settings!" : "Couldn't read that link / code.";
+    if (importOk) importText = "";
+    setTimeout(() => (importMsg = ""), 2500);
+  }
+
   let newPresetName = $state("");
   let copiedPresetId = $state<string | null>(null);
 
@@ -119,6 +130,30 @@
     </p>
   </section>
 
+  <!-- Import -->
+  <section class="flex flex-col gap-2">
+    <div class="text-xs font-medium text-muted-foreground uppercase">Import</div>
+    <input
+      type="text"
+      bind:value={importText}
+      placeholder="paste a /w link or base64"
+      spellcheck="false"
+      onkeydown={(e) => e.key === "Enter" && doImport()}
+      class="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+    />
+    <button
+      type="button"
+      onclick={doImport}
+      disabled={!importText.trim()}
+      class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted disabled:opacity-40"
+    >
+      Import settings
+    </button>
+    {#if importMsg}
+      <p class="text-[11px] {importOk ? 'text-green-400' : 'text-destructive'}">{importMsg}</p>
+    {/if}
+  </section>
+
   <!-- Presets -->
   <section class="flex flex-col gap-2">
     <div class="text-xs font-medium text-muted-foreground uppercase">Presets</div>
@@ -191,7 +226,7 @@
             onconfirm={() => editor.deletePreset(p.id)}
           />
           <button type="button" onclick={() => copyPresetLink(p.id)} class={pillCls}>
-            {copiedPresetId === p.id ? "Copied!" : "🔗 Link"}
+            {copiedPresetId === p.id ? "Copied!" : "Copy"}
           </button>
         </div>
       </div>

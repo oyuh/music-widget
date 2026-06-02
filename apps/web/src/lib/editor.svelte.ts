@@ -112,6 +112,28 @@ export class EditorState {
     this.config = freshConfig({ ...preset, lfmUser: user || preset.lfmUser || "", sessionKey });
   }
 
+  /**
+   * Import settings from a /w share link or a raw base64 config string.
+   * Keeps your own Last.fm user if you have one, and never imports a foreign
+   * session key. Returns false when the input can't be decoded.
+   */
+  importConfig(input: string): boolean {
+    const raw = input.trim();
+    if (!raw) return false;
+    const hash = raw.includes("#") ? raw.slice(raw.indexOf("#") + 1) : raw;
+    const parsed = decodeConfig(hash) as Partial<WidgetConfig> | null;
+    if (!parsed || !parsed.theme || !parsed.layout) return false;
+
+    const currentUser = this.config.lfmUser;
+    const currentSession = this.config.sessionKey ?? null;
+    const merged = freshConfig(parsed);
+    merged.lfmUser = currentUser || merged.lfmUser || "";
+    merged.sessionKey = currentUser ? currentSession : null;
+    this.config = merged;
+    this.save();
+    return true;
+  }
+
   reset() {
     const user = this.config.lfmUser;
     const sessionKey = this.config.sessionKey;
