@@ -274,7 +274,7 @@
   </div>
 
   <footer
-    class="shrink-0 border-t border-white/10 bg-black/40 px-4 py-2.5 text-center text-[11px] leading-relaxed text-muted-foreground backdrop-blur-sm"
+    class="font-pixel shrink-0 px-4 py-2.5 text-center text-[11px] leading-relaxed text-muted-foreground"
   >
     <div>Click an element to select · drag text/art to move · drag a handle to resize.</div>
     <div class="mt-1">

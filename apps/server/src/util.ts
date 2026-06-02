@@ -23,6 +23,7 @@ export function json(body: unknown, init: ResponseInit = {}) {
     ...init,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
       ...(init.headers || {}),
     },
   });
@@ -33,6 +34,7 @@ export function jsonText(body: string, status: number, headers: Record<string, s
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
       ...headers,
     },
   });

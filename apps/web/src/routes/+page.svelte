@@ -90,7 +90,7 @@
   <title>Music Widget — Editor</title>
 </svelte:head>
 
-<div class="grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
+<div class="font-mono-ui grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
   <aside class="min-h-0 border-r border-border bg-sidebar">
     <LeftRail {editor} />
   </aside>

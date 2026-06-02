@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -n web,api -c cyan,green \"bun run dev:web\" \"bun run dev:server\"",
     "dev:web": "bun run --filter @music-widget/web dev",
-    "dev:server": "bun --watch apps/server/src/index.ts",
+    "dev:server": "PORT=8787 bun --watch apps/server/src/index.ts",
     "build": "bun run build:web",
     "build:web": "bun run --filter @music-widget/web build",
     "start": "bun apps/server/src/index.ts",

@@ -78,7 +78,7 @@
 
   <!-- Last.fm account -->
   <section class="flex flex-col gap-2">
-    <div class="text-xs font-medium text-muted-foreground uppercase">Last.fm</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Last.fm</div>
     <input
       type="text"
       placeholder="username"
@@ -107,7 +107,7 @@
 
   <!-- Share -->
   <section class="flex flex-col gap-2">
-    <div class="text-xs font-medium text-muted-foreground uppercase">Share</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Share</div>
     <div class="flex gap-2">
       <button
         type="button"
@@ -132,7 +132,7 @@
 
   <!-- Import -->
   <section class="flex flex-col gap-2">
-    <div class="text-xs font-medium text-muted-foreground uppercase">Import</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Import</div>
     <input
       type="text"
       bind:value={importText}
@@ -156,7 +156,7 @@
 
   <!-- Presets -->
   <section class="flex flex-col gap-2">
-    <div class="text-xs font-medium text-muted-foreground uppercase">Presets</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Presets</div>
     <div class="grid grid-cols-2 gap-2">
       {#each PRESETS as p (p.name)}
         <button
@@ -180,7 +180,7 @@
   <!-- Saved presets -->
   <section class="flex flex-col gap-2">
     <div class="flex items-center justify-between">
-      <div class="text-xs font-medium text-muted-foreground uppercase">My Presets</div>
+      <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">My Presets</div>
       <div class="text-[11px] text-muted-foreground">{editor.customPresets.length}/10</div>
     </div>
     <div class="flex gap-2">
@@ -239,7 +239,7 @@
 
   <!-- Element list -->
   <section class="flex flex-col gap-1">
-    <div class="text-xs font-medium text-muted-foreground uppercase">Elements</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Elements</div>
     {#each ELEMENTS as el (el.id)}
       <button
         type="button"
@@ -256,7 +256,7 @@
   </section>
 
   <!-- Sidebar footer (content added in a later step) -->
-  <footer class="mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+  <footer class="font-pixel mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
     <!-- intentionally empty for now -->
   </footer>
 </div>
