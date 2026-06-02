@@ -1,3 +1,5 @@
+import { serviceStatus } from "./status.svelte";
+
 export type LfmTrack = {
   name: string;
   mbid?: string;
@@ -156,6 +158,7 @@ export class NowPlaying {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache, no-store, must-revalidate", Pragma: "no-cache" },
       });
+      if (res.status === 429) serviceStatus.markRateLimited();
       if (!res.ok) {
         this.#consecutiveErrors++;
         throw new Error(`nowPlaying ${res.status}`);

@@ -7,6 +7,9 @@ declare global {
     // interface PageState {}
     // interface Platform {}
   }
+
+  /** Build-time commit SHA injected by Vite `define`. */
+  const __APP_COMMIT__: string;
 }
 
 export {};

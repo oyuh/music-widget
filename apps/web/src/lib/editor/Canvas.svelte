@@ -152,11 +152,19 @@
       if (kind === "progress") L.progressWidth = Math.max(20, Math.round(baseProgW + dx));
     });
   }
+
+  // ---- preview backdrop (see your colors over different backgrounds) ----
+  let canvasBg = $state("checker");
+  function randomBg() {
+    canvasBg = `hsl(${Math.floor(Math.random() * 360)} 70% 50%)`;
+  }
+  const stop = (e: PointerEvent) => e.stopPropagation();
 </script>
 
 <div
   bind:this={canvasEl}
-  class="canvas-checker relative flex h-full w-full flex-col overflow-hidden select-none"
+  class="relative flex h-full w-full flex-col overflow-hidden select-none {canvasBg === 'checker' ? 'canvas-checker' : ''}"
+  style={canvasBg === "checker" ? "" : `background:${canvasBg}`}
   onpointerdown={onCanvasDown}
   role="application"
   aria-label="Widget canvas"
@@ -183,6 +191,46 @@
     >
       ↷
     </button>
+  </div>
+
+  <!-- Preview backdrop controls -->
+  <div class="absolute top-3 right-3 z-30 flex items-center gap-1">
+    <button
+      onpointerdown={stop}
+      onclick={() => (canvasBg = "checker")}
+      title="Checkerboard"
+      aria-label="Checkerboard backdrop"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">▦</button
+    >
+    <button
+      onpointerdown={stop}
+      onclick={() => (canvasBg = "#000000")}
+      title="Black"
+      aria-label="Black backdrop"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">●</button
+    >
+    <button
+      onpointerdown={stop}
+      onclick={() => (canvasBg = "#ffffff")}
+      title="White"
+      aria-label="White backdrop"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">○</button
+    >
+    <button
+      onpointerdown={stop}
+      onclick={randomBg}
+      title="Random color"
+      aria-label="Random backdrop"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">🎲</button
+    >
+    <input
+      type="color"
+      onpointerdown={stop}
+      oninput={(e) => (canvasBg = (e.currentTarget as HTMLInputElement).value)}
+      title="Custom backdrop color"
+      aria-label="Custom backdrop color"
+      class="h-7 w-7 cursor-pointer rounded-md border border-border bg-transparent"
+    />
   </div>
 
   <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
@@ -282,7 +330,7 @@
       <a class="underline hover:text-foreground" href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer"
         >Last.fm</a
       >
-      account — connect your music service (Spotify, Apple Music, etc.) under
+      account, connect your music service (Spotify, Apple Music, etc.) under
       <a
         class="underline hover:text-foreground"
         href="https://www.last.fm/settings/applications"
@@ -293,7 +341,7 @@
     </div>
     <div class="mt-1 opacity-75">
       Album art and track data belong to their respective owners. Not affiliated with or endorsed by Last.fm, Spotify, or
-      Apple — respect artwork &amp; content copyright.
+      Apple, respect artwork &amp; content copyright.
     </div>
   </footer>
 </div>
