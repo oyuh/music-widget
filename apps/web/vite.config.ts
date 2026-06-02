@@ -1,16 +1,12 @@
 import path from "node:path";
+import { sveltekit } from "@sveltejs/kit/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [react()],
-  // Read env from the monorepo root so .env / .env.local are the single source of truth.
-  envDir: path.resolve(__dirname, "../.."),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-    },
-  },
+  plugins: [tailwindcss(), sveltekit()],
+  // Read env from the monorepo root so .env / .env.local are the single source.
+  envDir: path.resolve(import.meta.dirname, "../.."),
   server: {
     port: 5173,
     proxy: {
