@@ -62,7 +62,7 @@
 
 <div class="grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
   <aside class="min-h-0 border-r border-border bg-sidebar">
-    <LeftRail {editor} connected={!!editor.config.sessionKey} />
+    <LeftRail {editor} />
   </aside>
 
   <main class="min-h-0 overflow-hidden">

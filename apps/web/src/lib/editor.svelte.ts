@@ -26,24 +26,52 @@ export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfi
 export class EditorState {
   config = $state<WidgetConfig>(freshConfig());
   selected = $state<ElementId | null>(null);
+  sessionName = $state<string | null>(null);
 
-  /** Load from the URL hash, then localStorage, then defaults. */
+  /** Load from the URL hash, then localStorage, then defaults; apply any connected session. */
   load() {
     if (typeof window === "undefined") return;
+
     const hash = window.location.hash;
+    let loaded = false;
     if (hash && hash.length > 1) {
       const parsed = decodeConfig(hash);
       if (parsed) {
         this.config = freshConfig(parsed);
-        return;
+        loaded = true;
       }
     }
+    if (!loaded) {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) this.config = freshConfig(JSON.parse(stored));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Pick up a connected Last.fm session stored by the /callback flow.
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) this.config = freshConfig(JSON.parse(stored));
+      const key = localStorage.getItem("lfm_session_key");
+      const name = localStorage.getItem("lfm_session_name");
+      if (key) {
+        this.config.sessionKey = key;
+        this.sessionName = name;
+        if (!this.config.lfmUser && name) this.config.lfmUser = name;
+      }
     } catch {
       /* ignore */
     }
+  }
+
+  disconnect() {
+    this.config.sessionKey = null;
+    this.sessionName = null;
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("lfm_session_key");
+      localStorage.removeItem("lfm_session_name");
+    }
+    this.save();
   }
 
   select(id: ElementId | null) {
