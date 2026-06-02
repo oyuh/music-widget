@@ -160,3 +160,60 @@
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
+
+/* ---- Vamped range slider (editor) ---- */
+.mw-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #22c55e 0%,
+    #22c55e var(--pct, 0%),
+    rgba(255, 255, 255, 0.14) var(--pct, 0%),
+    rgba(255, 255, 255, 0.14) 100%
+  );
+  cursor: pointer;
+  outline: none;
+}
+.mw-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid #22c55e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.mw-range:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.mw-range:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.18);
+}
+.mw-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3);
+}
+.mw-range::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid #22c55e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.mw-range::-moz-range-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.mw-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 9999px;
+  background: #22c55e;
+}

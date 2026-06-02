@@ -18,15 +18,25 @@ export type TextElementId = (typeof TEXT_ELEMENTS)[number];
 
 const STORAGE_KEY = "mw:config";
 
-/** A fully-defaulted, deeply-cloned config (no shared refs with defaultConfig). */
+/**
+ * A fully-defaulted, deeply-cloned config. JSON round-tripping strips any Svelte
+ * state proxies from the input (structuredClone throws on those) and ensures the
+ * result shares no references with defaultConfig.
+ */
 export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfig {
-  return structuredClone(mergeConfig(partial));
+  const input = partial ? (JSON.parse(JSON.stringify(partial)) as Partial<WidgetConfig>) : undefined;
+  return JSON.parse(JSON.stringify(mergeConfig(input))) as WidgetConfig;
 }
 
 export class EditorState {
   config = $state<WidgetConfig>(freshConfig());
   selected = $state<ElementId | null>(null);
   sessionName = $state<string | null>(null);
+
+  // History: up to 5 undo steps (+ redo). Snapshots coalesce per discrete edit.
+  undoStack = $state<WidgetConfig[]>([]);
+  redoStack = $state<WidgetConfig[]>([]);
+  #lastCommitted = "";
 
   /** Load from the URL hash, then localStorage, then defaults; apply any connected session. */
   load() {
@@ -102,6 +112,61 @@ export class EditorState {
     const user = this.config.lfmUser;
     const sessionKey = this.config.sessionKey;
     this.config = freshConfig({ lfmUser: user, sessionKey });
+  }
+
+  // ---- history ----
+  initHistory() {
+    this.#lastCommitted = JSON.stringify(this.config);
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  /**
+   * Push the pre-edit state onto the undo stack if the config changed since the
+   * last commit. Called after edits settle (debounced) so a drag or slider sweep
+   * collapses into a single undo step. Keeps at most 5.
+   */
+  commitIfChanged() {
+    const now = JSON.stringify(this.config);
+    if (now === this.#lastCommitted) return;
+    if (this.#lastCommitted) {
+      try {
+        this.undoStack.push(freshConfig(JSON.parse(this.#lastCommitted)));
+        if (this.undoStack.length > 5) this.undoStack.shift();
+        this.redoStack = [];
+      } catch {
+        /* ignore */
+      }
+    }
+    this.#lastCommitted = now;
+  }
+
+  get canUndo() {
+    return this.undoStack.length > 0;
+  }
+  get canRedo() {
+    return this.redoStack.length > 0;
+  }
+
+  undo() {
+    this.commitIfChanged();
+    const prev = this.undoStack.pop();
+    if (!prev) return;
+    this.redoStack.push(freshConfig(this.config));
+    if (this.redoStack.length > 5) this.redoStack.shift();
+    this.config = freshConfig(prev);
+    this.#lastCommitted = JSON.stringify(this.config);
+    this.save();
+  }
+
+  redo() {
+    const next = this.redoStack.pop();
+    if (!next) return;
+    this.undoStack.push(freshConfig(this.config));
+    if (this.undoStack.length > 5) this.undoStack.shift();
+    this.config = freshConfig(next);
+    this.#lastCommitted = JSON.stringify(this.config);
+    this.save();
   }
 }
 
