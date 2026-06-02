@@ -58,6 +58,11 @@
         imgUrl = "";
         return;
       }
+      // data:/blob: URLs (editor sample art) are already local — use directly.
+      if (/^(data|blob):/i.test(src)) {
+        imgUrl = src;
+        return;
+      }
       try {
         const r = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
         if (!r.ok) {
@@ -282,7 +287,7 @@
 
 {#snippet artEl(justify: string)}
   {#if cfg.layout.showArt && imgUrl}
-    <div style="position:relative;display:inline-block">
+    <div data-el="art" style="position:relative;display:inline-block">
       <img
         src={imgUrl}
         alt=""
@@ -309,6 +314,7 @@
   <div class={alignClass} style="min-width:0">
     {#if cfg.fields.title}
       <ScrollText
+        dataEl="title"
         text={applyTextTransform(title, cfg.theme.textTransform?.title ?? "none")}
         color={pickColor("title")}
         style={textStyle("title")}
@@ -319,6 +325,7 @@
     {/if}
     {#if cfg.fields.artist}
       <ScrollText
+        dataEl="artist"
         text={applyTextTransform(artist, cfg.theme.textTransform?.artist ?? "none")}
         color={pickColor("artist")}
         style={textStyle("artist")}
@@ -329,6 +336,7 @@
     {/if}
     {#if cfg.fields.album}
       <ScrollText
+        dataEl="album"
         text={applyTextTransform(album, cfg.theme.textTransform?.album ?? "none")}
         color={pickColor("album")}
         style={textStyle("album")}
@@ -338,7 +346,7 @@
       />
     {/if}
     {#if cfg.fields.progress}
-      <div style="margin-top:8px">
+      <div data-el="progress" style="margin-top:8px">
         <div
           style="height:6px;background:#ffffff30;border-radius:4px;overflow:hidden;{cfg.theme.dropShadow?.enabled &&
           cfg.theme.dropShadow.targets?.progressBar
@@ -348,12 +356,12 @@
           <div style="height:100%;width:{percent}%;background:{computedAccent};transition:width 120ms linear"></div>
         </div>
         {#if cfg.fields.duration && cfg.fields.showDurationOnProgress}
-          <div class={alignClass} style={durationStyle()}>{dur}</div>
+          <div data-el="duration" class={alignClass} style={durationStyle()}>{dur}</div>
         {/if}
       </div>
     {/if}
     {#if cfg.fields.duration && cfg.fields.showDurationAsText}
-      <div class={alignClass} style={durationStyle()}>{dur}</div>
+      <div data-el="duration" class={alignClass} style={durationStyle()}>{dur}</div>
     {/if}
   </div>
 {/snippet}
@@ -376,7 +384,7 @@
       Hidden on the live widget
     </div>
   {/if}
-  <div style={containerStyle}>
+  <div style={containerStyle} data-el="background">
     {#if artPos === "right"}
       {@render textCol()}
       {@render artEl("end")}

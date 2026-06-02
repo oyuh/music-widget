@@ -8,6 +8,8 @@
     speedPxPerSec?: number;
     minWidthToScroll?: number;
     gapPx?: number;
+    /** Element id used by the editor for hit-testing/selection. */
+    dataEl?: string;
   }
 
   let {
@@ -18,6 +20,7 @@
     speedPxPerSec = 24,
     minWidthToScroll,
     gapPx = 32,
+    dataEl,
   }: Props = $props();
 
   let outer = $state<HTMLDivElement | null>(null);
@@ -88,7 +91,12 @@
   );
 </script>
 
-<div bind:this={outer} class="marquee {animate ? 'marquee--animate' : ''} {className}" style="min-width:0;position:relative;{style}">
+<div
+  bind:this={outer}
+  data-el={dataEl}
+  class="marquee {animate ? 'marquee--animate' : ''} {className}"
+  style="min-width:0;position:relative;{style}"
+>
   <div class="marquee__wrapper" style={wrapperStyle}>
     <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">{text}</span>
     <span class="marquee__item" aria-hidden="true" style="color:{color};white-space:nowrap;display:{animate ? 'inline-block' : 'none'}">{text}</span>
