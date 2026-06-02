@@ -45,6 +45,10 @@ app.use("/api/*", async (c, next) => {
 
 app.options("/api/*", () => new Response(null, { status: 204 }));
 
+// Liveness probe — always 200 while the process is up (used by Railway's
+// healthcheck). /api/health additionally reports Redis status and may 503.
+app.get("/api/ping", () => json({ ok: true }));
+
 app.get("/api/health", async () => {
   if (!redisEnabled()) return json({ ok: true, redis: "disabled" });
 

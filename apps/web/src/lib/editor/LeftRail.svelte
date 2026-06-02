@@ -4,9 +4,8 @@
 
   interface Props {
     editor: EditorState;
-    connected?: boolean;
   }
-  let { editor, connected = false }: Props = $props();
+  let { editor }: Props = $props();
 
   let copied = $state(false);
 
@@ -33,7 +32,6 @@
   }
 
   function onUserInput() {
-    editor.config.sessionKey = null; // public lookups when typing a username
     editor.save();
   }
 </script>
@@ -55,13 +53,22 @@
       spellcheck="false"
       class="w-full rounded-md border border-border bg-background px-2 py-1.5"
     />
-    <button
-      type="button"
-      onclick={connect}
-      class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
-    >
-      {connected ? "✓ Connected (private profiles)" : "Connect for private profile"}
-    </button>
+    {#if editor.sessionName}
+      <div class="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs">
+        <span class="truncate text-green-400">✓ {editor.sessionName}</span>
+        <button type="button" onclick={() => editor.disconnect()} class="text-muted-foreground hover:text-foreground">
+          Disconnect
+        </button>
+      </div>
+    {:else}
+      <button
+        type="button"
+        onclick={connect}
+        class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
+      >
+        Connect for private profile
+      </button>
+    {/if}
   </section>
 
   <!-- Share -->
