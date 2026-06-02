@@ -3,7 +3,7 @@
   import LeftRail from "$lib/editor/LeftRail.svelte";
   import Canvas from "$lib/editor/Canvas.svelte";
   import Inspector from "$lib/editor/Inspector.svelte";
-  import { EditorState } from "$lib/editor.svelte";
+  import { EditorState, TEXT_ELEMENTS } from "$lib/editor.svelte";
   import { NowPlaying } from "$lib/nowplaying.svelte";
   import { ensureGoogleFonts } from "$lib/fonts";
 
@@ -24,15 +24,36 @@
     editor.initHistory();
 
     const onKey = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
       const target = e.target as HTMLElement;
       const isTextField =
         (target instanceof HTMLInputElement &&
           ["text", "search", "url", "email", "password", "number", "tel"].includes(target.type)) ||
         target instanceof HTMLTextAreaElement ||
         target.isContentEditable;
-      if (isTextField) return; // let text fields handle their own undo
+      if (isTextField) return; // let text fields keep their native keys
+
+      // Arrow keys nudge the selected movable element (Shift = bigger step).
+      if (e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const sel = editor.selected;
+        let off: { x: number; y: number } | undefined;
+        if (sel && (TEXT_ELEMENTS as readonly string[]).includes(sel)) {
+          off = editor.config.layout.textOffset?.[sel as "title" | "artist" | "album" | "duration"];
+        } else if (sel === "progress") {
+          off = editor.config.layout.progressOffset;
+        }
+        if (!off) return;
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        if (e.key === "ArrowUp") off.y -= step;
+        else if (e.key === "ArrowDown") off.y += step;
+        else if (e.key === "ArrowLeft") off.x -= step;
+        else if (e.key === "ArrowRight") off.x += step;
+        editor.save();
+        return;
+      }
+
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) {
         e.preventDefault();

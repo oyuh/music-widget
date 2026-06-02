@@ -55,7 +55,8 @@
     }
     const wr = wrapperEl.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    selRect = { x: r.left - wr.left, y: r.top - wr.top, w: r.width, h: r.height };
+    // Convert scaled screen coords back to the wrapper's local (unscaled) space.
+    selRect = { x: (r.left - wr.left) / zoom, y: (r.top - wr.top) / zoom, w: r.width / zoom, h: r.height / zoom };
   });
 
   function bindDrag(onMove: (e: PointerEvent) => void) {
@@ -74,10 +75,11 @@
     const startY = e.clientY;
     const offsets = editor.config.layout.textOffset!;
     const base = { ...offsets[id as keyof typeof offsets] };
+    const z = zoom;
     bindDrag((ev) => {
       const o = editor.config.layout.textOffset![id as keyof typeof offsets];
-      o.x = Math.round(base.x + (ev.clientX - startX));
-      o.y = Math.round(base.y + (ev.clientY - startY));
+      o.x = Math.round(base.x + (ev.clientX - startX) / z);
+      o.y = Math.round(base.y + (ev.clientY - startY) / z);
     });
   }
 
@@ -119,10 +121,11 @@
     const startX = e.clientX;
     const startY = e.clientY;
     const base = { ...(editor.config.layout.progressOffset ?? { x: 0, y: 0 }) };
+    const z = zoom;
     bindDrag((ev) => {
       const o = editor.config.layout.progressOffset!;
-      o.x = Math.round(base.x + (ev.clientX - startX));
-      o.y = Math.round(base.y + (ev.clientY - startY));
+      o.x = Math.round(base.x + (ev.clientX - startX) / z);
+      o.y = Math.round(base.y + (ev.clientY - startY) / z);
     });
   }
 
@@ -140,9 +143,10 @@
     const baseSize = textKey ? editor.config.theme.textSize![textKey] : 0;
     const progEl = wrapperEl?.querySelector('[data-el="progress"]') as HTMLElement | null;
     const baseProgW = L.progressWidth && L.progressWidth > 0 ? L.progressWidth : (progEl?.offsetWidth ?? 200);
+    const z = zoom;
     bindDrag((ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      const dx = (ev.clientX - startX) / z;
+      const dy = (ev.clientY - startY) / z;
       if (kind === "wh" || kind === "w") L.w = Math.max(120, Math.round(bw + dx));
       if (kind === "wh" || kind === "h") L.h = Math.max(60, Math.round(bh + dy));
       if (kind === "art") L.artSize = Math.max(24, Math.round(ba + Math.max(dx, dy)));
@@ -159,6 +163,23 @@
     canvasBg = `hsl(${Math.floor(Math.random() * 360)} 70% 50%)`;
   }
   const stop = (e: PointerEvent) => e.stopPropagation();
+
+  // ---- zoom (scroll over the preview, or the buttons) ----
+  let zoom = $state(1);
+  let zoomAreaEl = $state<HTMLDivElement | null>(null);
+  function setZoom(z: number) {
+    zoom = Math.min(4, Math.max(0.5, Math.round(z * 100) / 100));
+  }
+  $effect(() => {
+    const el = zoomAreaEl;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  });
 </script>
 
 <div
@@ -233,8 +254,35 @@
     />
   </div>
 
-  <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
-    <div bind:this={wrapperEl} class="relative">
+  <!-- Zoom controls -->
+  <div class="absolute top-14 right-3 z-30 flex items-center gap-1">
+    <button
+      onpointerdown={stop}
+      onclick={() => setZoom(zoom - 0.25)}
+      title="Zoom out"
+      aria-label="Zoom out"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">−</button
+    >
+    <button
+      onpointerdown={stop}
+      onclick={() => setZoom(1)}
+      title="Reset zoom (scroll over the preview to zoom)"
+      aria-label="Reset zoom"
+      class="min-w-[3.25rem] rounded-md border border-border bg-card px-2 py-1 text-center text-xs tabular-nums transition hover:bg-muted"
+    >
+      {Math.round(zoom * 100)}%
+    </button>
+    <button
+      onpointerdown={stop}
+      onclick={() => setZoom(zoom + 0.25)}
+      title="Zoom in"
+      aria-label="Zoom in"
+      class="rounded-md border border-border bg-card px-2 py-1 text-sm transition hover:bg-muted">+</button
+    >
+  </div>
+
+  <div bind:this={zoomAreaEl} class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
+    <div bind:this={wrapperEl} class="relative" style="transform:scale({zoom});transform-origin:center">
     <Widget
       cfg={editor.config}
       {isLive}
