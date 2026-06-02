@@ -1,0 +1,214 @@
+<script lang="ts">
+  import Widget from "$lib/Widget.svelte";
+  import { TEXT_ELEMENTS, type EditorState, type ElementId } from "$lib/editor.svelte";
+
+  interface Props {
+    editor: EditorState;
+    isLive?: boolean;
+    isPaused?: boolean;
+    percent?: number;
+    progressMs?: number;
+    durationMs?: number | null;
+    title?: string;
+    artist?: string;
+    album?: string;
+    art?: string;
+  }
+
+  let {
+    editor,
+    isLive = false,
+    isPaused = false,
+    percent = 30,
+    progressMs = 60000,
+    durationMs = 200000,
+    title = "Song Title",
+    artist = "Artist Name",
+    album = "Album Name",
+    art = "",
+  }: Props = $props();
+
+  let canvasEl = $state<HTMLDivElement | null>(null);
+  let wrapperEl = $state<HTMLDivElement | null>(null);
+
+  let selRect = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+  let dragArt = $state(false);
+  let artZone = $state<"left" | "right" | "top" | null>(null);
+
+  const isText = (id: ElementId) => (TEXT_ELEMENTS as readonly string[]).includes(id);
+
+  // Track the selected element's box. Recomputes synchronously whenever the
+  // selection or config changes (edits, drag) — getBoundingClientRect forces a
+  // layout read so it's always accurate, with no rAF (works in background tabs).
+  $effect(() => {
+    const sel = editor.selected;
+    JSON.stringify(editor.config); // deep dependency on any config change
+    if (!sel || !wrapperEl) {
+      selRect = null;
+      return;
+    }
+    const el = wrapperEl.querySelector(`[data-el="${sel}"]`) as HTMLElement | null;
+    if (!el) {
+      selRect = null;
+      return;
+    }
+    const wr = wrapperEl.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    selRect = { x: r.left - wr.left, y: r.top - wr.top, w: r.width, h: r.height };
+  });
+
+  function bindDrag(onMove: (e: PointerEvent) => void) {
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      editor.save();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function startTextDrag(e: PointerEvent, id: ElementId) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const offsets = editor.config.layout.textOffset!;
+    const base = { ...offsets[id as keyof typeof offsets] };
+    bindDrag((ev) => {
+      const o = editor.config.layout.textOffset![id as keyof typeof offsets];
+      o.x = Math.round(base.x + (ev.clientX - startX));
+      o.y = Math.round(base.y + (ev.clientY - startY));
+    });
+  }
+
+  function startArtDrag(e: PointerEvent) {
+    e.preventDefault();
+    dragArt = true;
+    bindDrag((ev) => {
+      if (!wrapperEl) return;
+      const r = wrapperEl.getBoundingClientRect();
+      const relX = ev.clientX - r.left;
+      const relY = ev.clientY - r.top;
+      const zone = relY < r.height * 0.38 ? "top" : relX < r.width / 2 ? "left" : "right";
+      artZone = zone;
+      editor.config.layout.artPosition = zone;
+    });
+    const cleanup = () => {
+      dragArt = false;
+      artZone = null;
+      window.removeEventListener("pointerup", cleanup);
+    };
+    window.addEventListener("pointerup", cleanup);
+  }
+
+  function onCanvasDown(e: PointerEvent) {
+    const node = (e.target as HTMLElement).closest("[data-el]") as HTMLElement | null;
+    const id = node?.getAttribute("data-el") as ElementId | null;
+    if (!id) {
+      editor.select(null);
+      return;
+    }
+    editor.select(id);
+    if (isText(id)) startTextDrag(e, id);
+    else if (id === "art") startArtDrag(e);
+  }
+
+  function startResize(e: PointerEvent, kind: "wh" | "w" | "h" | "art") {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const L = editor.config.layout;
+    const bw = L.w;
+    const bh = L.h;
+    const ba = L.artSize;
+    bindDrag((ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (kind === "wh" || kind === "w") L.w = Math.max(120, Math.round(bw + dx));
+      if (kind === "wh" || kind === "h") L.h = Math.max(60, Math.round(bh + dy));
+      if (kind === "art") L.artSize = Math.max(24, Math.round(ba + Math.max(dx, dy)));
+    });
+  }
+</script>
+
+<div
+  bind:this={canvasEl}
+  class="canvas-checker relative grid h-full w-full place-items-center overflow-auto p-8 select-none"
+  onpointerdown={onCanvasDown}
+  role="application"
+  aria-label="Widget canvas"
+>
+  <div bind:this={wrapperEl} class="relative">
+    <Widget
+      cfg={editor.config}
+      {isLive}
+      {isPaused}
+      {percent}
+      {progressMs}
+      {durationMs}
+      {title}
+      {artist}
+      {album}
+      {art}
+      preview
+    />
+
+    <!-- Art drop-zone hints -->
+    {#if dragArt}
+      {#each ["left", "right", "top"] as z (z)}
+        <div
+          class="pointer-events-none absolute rounded-md border-2 border-dashed transition-colors {artZone === z
+            ? 'border-blue-400 bg-blue-400/10'
+            : 'border-white/30'}"
+          style={z === "top"
+            ? "left:0;top:0;right:0;height:38%"
+            : z === "left"
+              ? "left:0;top:38%;width:50%;bottom:0"
+              : "right:0;top:38%;width:50%;bottom:0"}
+        ></div>
+      {/each}
+    {/if}
+
+    <!-- Selection outline + handles -->
+    {#if selRect}
+      <div
+        class="pointer-events-none absolute z-10"
+        style="left:{selRect.x - 1}px;top:{selRect.y -
+          1}px;width:{selRect.w + 2}px;height:{selRect.h + 2}px;border:2px solid #3b82f6;border-radius:4px"
+      ></div>
+
+      {#if editor.selected === "background"}
+        <!-- widget resize handles -->
+        <button
+          aria-label="resize width and height"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
+          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
+          onpointerdown={(e) => startResize(e, "wh")}
+        ></button>
+        <button
+          aria-label="resize width"
+          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
+          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
+          onpointerdown={(e) => startResize(e, "w")}
+        ></button>
+        <button
+          aria-label="resize height"
+          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-blue-500"
+          style="left:{selRect.x + selRect.w / 2 - 5}px;top:{selRect.y + selRect.h - 5}px"
+          onpointerdown={(e) => startResize(e, "h")}
+        ></button>
+      {:else if editor.selected === "art"}
+        <button
+          aria-label="resize album art"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
+          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
+          onpointerdown={(e) => startResize(e, "art")}
+        ></button>
+      {/if}
+    {/if}
+  </div>
+
+  <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
+    click to select · drag text to move · drag art to reposition
+  </div>
+</div>

@@ -1,25 +1,86 @@
 <script lang="ts">
-  // Placeholder editor shell — the visual canvas editor lands in the next step.
-  const lfmKey = import.meta.env.VITE_LFM_KEY ? "set" : "missing";
+  import { onMount, onDestroy } from "svelte";
+  import LeftRail from "$lib/editor/LeftRail.svelte";
+  import Canvas from "$lib/editor/Canvas.svelte";
+  import Inspector from "$lib/editor/Inspector.svelte";
+  import { EditorState } from "$lib/editor.svelte";
+  import { NowPlaying } from "$lib/nowplaying.svelte";
+  import { ensureGoogleFonts } from "$lib/fonts";
+
+  const editor = new EditorState();
+  const np = new NowPlaying();
+
+  // Colorful placeholder art so the canvas (and auto-from-art) has something
+  // to show before a real track loads.
+  const sampleArt =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#7c3aed'/><stop offset='0.55' stop-color='#db2777'/><stop offset='1' stop-color='#f59e0b'/></linearGradient></defs><rect width='300' height='300' fill='url(#g)'/></svg>`,
+    );
+
+  onMount(() => editor.load());
+  onDestroy(() => np.destroy());
+
+  // Live preview from the configured user (falls back to the sample below).
+  $effect(() => {
+    np.setSource(editor.config.lfmUser ?? "", editor.config.sessionKey ?? null);
+  });
+
+  // Keep Google Fonts in sync with the design.
+  $effect(() => {
+    ensureGoogleFonts(editor.config);
+  });
+
+  // Autosave to localStorage (debounced).
+  let saveTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    JSON.stringify(editor.config); // establish a deep dependency
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => editor.save(), 300);
+  });
+
+  const isPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f/i.test(u);
+  const hasLive = $derived(!!np.track);
+  const liveArt = $derived.by(() => {
+    const imgs = np.track?.image ?? [];
+    for (let i = imgs.length - 1; i >= 0; i--) {
+      const u = imgs[i]?.["#text"] ?? "";
+      if (u && !isPlaceholder(u)) return u;
+    }
+    return "";
+  });
+
+  const dTitle = $derived(hasLive ? (np.track!.name ?? "—") : "Song Title");
+  const dArtist = $derived(hasLive ? (np.track!.artist?.["#text"] ?? "—") : "Artist Name");
+  const dAlbum = $derived(hasLive ? (np.track!.album?.["#text"] ?? "") : "Album Name");
+  const dArt = $derived(hasLive ? liveArt : sampleArt);
 </script>
 
 <svelte:head>
   <title>Music Widget — Editor</title>
 </svelte:head>
 
-<main class="min-h-screen grid place-items-center p-8">
-  <div class="max-w-md w-full rounded-xl border border-border bg-card text-card-foreground p-8 shadow-lg">
-    <h1 class="text-2xl font-semibold tracking-tight">Music Widget</h1>
-    <p class="mt-2 text-muted-foreground">
-      SvelteKit shell is live. The visual editor (canvas + drag + inspector) is being built next.
-    </p>
-    <div class="mt-6 flex flex-col gap-2 text-sm">
-      <div class="flex items-center justify-between rounded-md bg-muted px-3 py-2">
-        <span class="text-muted-foreground">VITE_LFM_KEY</span>
-        <span class="font-mono">{lfmKey}</span>
-      </div>
-      <a class="text-primary underline underline-offset-4" href="/w">/w — standalone widget</a>
-      <a class="text-primary underline underline-offset-4" href="/callback">/callback — auth return</a>
-    </div>
-  </div>
-</main>
+<div class="grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
+  <aside class="min-h-0 border-r border-border bg-sidebar">
+    <LeftRail {editor} connected={!!editor.config.sessionKey} />
+  </aside>
+
+  <main class="min-h-0 overflow-hidden">
+    <Canvas
+      {editor}
+      isLive={hasLive ? np.isLive : true}
+      isPaused={hasLive ? np.isPaused : false}
+      percent={hasLive ? np.percent : 35}
+      progressMs={hasLive ? np.progressMs : 63000}
+      durationMs={hasLive ? np.durationMs : 180000}
+      title={dTitle}
+      artist={dArtist}
+      album={dAlbum}
+      art={dArt}
+    />
+  </main>
+
+  <aside class="min-h-0 border-l border-border bg-sidebar">
+    <Inspector {editor} />
+  </aside>
+</div>
