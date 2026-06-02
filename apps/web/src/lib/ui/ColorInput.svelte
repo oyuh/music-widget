@@ -33,7 +33,7 @@
       type="text"
       bind:value
       spellcheck="false"
-      class="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-xs"
+      class="min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2 py-1 font-mono text-xs"
     />
     {#if allowAccent}
       <button

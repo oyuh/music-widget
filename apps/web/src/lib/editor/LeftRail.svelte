@@ -85,7 +85,7 @@
       bind:value={editor.config.lfmUser}
       oninput={onUserInput}
       spellcheck="false"
-      class="w-full rounded-md border border-border bg-background px-2 py-1.5"
+      class="w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5"
     />
     {#if editor.sessionName}
       <div class="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs">
@@ -139,7 +139,7 @@
       placeholder="paste a /w link or base64"
       spellcheck="false"
       onkeydown={(e) => e.key === "Enter" && doImport()}
-      class="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+      class="w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-xs"
     />
     <button
       type="button"
@@ -190,7 +190,7 @@
         placeholder="preset name"
         maxlength="24"
         spellcheck="false"
-        class="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+        class="min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2 py-1 text-xs"
       />
       <button
         type="button"
@@ -254,4 +254,9 @@
       </button>
     {/each}
   </section>
+
+  <!-- Sidebar footer (content added in a later step) -->
+  <footer class="mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+    <!-- intentionally empty for now -->
+  </footer>
 </div>
