@@ -2,46 +2,67 @@ import { RedisClient } from "bun";
 import { log } from "./log";
 
 const REDIS_TIMEOUT_MS = 1500;
+// After a failure, skip Redis entirely for this long so a sustained outage fails
+// open instantly instead of paying the timeout on every request.
+const CIRCUIT_COOLDOWN_MS = 3000;
 
 let client: RedisClient | null = null;
-let initialized = false;
+let openUntil = 0;
 
-/**
- * Lazily create a single persistent Redis connection.
- *
- * Unlike the old Cloudflare Worker (which opened a raw socket per command),
- * the long-lived Bun server keeps one connection alive for the whole process.
- * Returns null when REDIS_URL is unset so the caller can fail open.
- */
-function getClient(): RedisClient | null {
-  if (initialized) return client;
-  initialized = true;
-
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    client = null;
-    return null;
-  }
-
-  client = new RedisClient(url, {
-    // Cap how long we wait to establish the connection.
+function createClient(url: string): RedisClient {
+  const c = new RedisClient(url, {
     connectionTimeout: REDIS_TIMEOUT_MS,
-    // Surface failures fast instead of silently waiting on reconnect.
     autoReconnect: true,
-    maxRetries: 2,
-    enableOfflineQueue: false,
+    maxRetries: 1000,
+    // Commands issued during a (re)connect wait for the socket rather than
+    // failing instantly; withTimeout() below is the hard cap.
+    enableOfflineQueue: true,
   });
 
-  client.onclose = (error) => {
+  c.onclose = (error) => {
     log("warn", "redis.connection_closed", {
       error: error instanceof Error ? error.message : String(error),
     });
   };
 
+  return c;
+}
+
+/**
+ * Lazily build a single persistent connection. Unlike the old Worker (one socket
+ * per command), the long-lived Bun server reuses one connection for the process.
+ * Returns null when REDIS_URL is unset so callers can fail open.
+ */
+function getClient(): RedisClient | null {
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  if (!client) client = createClient(url);
   return client;
 }
 
+/**
+ * Drop a dead client so the next call rebuilds and reconnects from scratch.
+ * Bun's client can otherwise get stuck in a terminal failed state after the
+ * Redis server restarts (e.g. a Railway Redis redeploy).
+ */
+function dropClient() {
+  const dead = client;
+  client = null;
+  if (dead) {
+    try {
+      dead.close();
+    } catch {
+      // already closed
+    }
+  }
+}
+
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  // Guarantee the underlying promise always has a handler, so a rejection that
+  // arrives after the timeout already won the race never becomes an unhandled
+  // rejection (Bun surfaces those as bare 500s).
+  promise.catch(() => {});
+
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
     promise,
@@ -51,27 +72,44 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   ]).finally(() => clearTimeout(timer));
 }
 
+async function exec<T>(label: string, run: (c: RedisClient) => Promise<T>): Promise<T> {
+  if (Date.now() < openUntil) {
+    throw new Error("Redis circuit open");
+  }
+
+  const c = getClient();
+  if (!c) throw new Error("Redis disabled");
+
+  try {
+    const result = await withTimeout(run(c), label);
+    openUntil = 0; // success closes the breaker
+    return result;
+  } catch (error) {
+    // Trip the breaker and rebuild so the next attempt reconnects fresh.
+    openUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    dropClient();
+    throw error;
+  }
+}
+
 export function redisEnabled() {
   return Boolean(process.env.REDIS_URL);
 }
 
 export async function redisGet(key: string): Promise<string | null> {
-  const c = getClient();
-  if (!c) return null;
-  const result = await withTimeout(c.send("GET", [key]), "Redis GET");
+  if (!redisEnabled()) return null;
+  const result = await exec("Redis GET", (c) => c.send("GET", [key]));
   if (result === null || result === undefined) return null;
   return typeof result === "string" ? result : String(result);
 }
 
 export async function redisSetEx(key: string, seconds: number, value: string): Promise<void> {
-  const c = getClient();
-  if (!c) return;
-  await withTimeout(c.send("SET", [key, value, "EX", String(seconds)]), "Redis SET");
+  if (!redisEnabled()) return;
+  await exec("Redis SET", (c) => c.send("SET", [key, value, "EX", String(seconds)]));
 }
 
 export async function redisPing(): Promise<boolean> {
-  const c = getClient();
-  if (!c) return false;
-  const result = await withTimeout(c.send("PING", []), "Redis PING");
+  if (!redisEnabled()) return false;
+  const result = await exec("Redis PING", (c) => c.send("PING", []));
   return result === "PONG";
 }
