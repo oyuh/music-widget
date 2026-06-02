@@ -113,3 +113,14 @@ export async function redisPing(): Promise<boolean> {
   const result = await exec("Redis PING", (c) => c.send("PING", []));
   return result === "PONG";
 }
+
+export async function redisIncr(key: string): Promise<number> {
+  if (!redisEnabled()) return 0;
+  const result = await exec("Redis INCR", (c) => c.send("INCR", [key]));
+  return Number(result) || 0;
+}
+
+export async function redisExpire(key: string, seconds: number): Promise<void> {
+  if (!redisEnabled()) return;
+  await exec("Redis EXPIRE", (c) => c.send("EXPIRE", [key, String(seconds)]));
+}

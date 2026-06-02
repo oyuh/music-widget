@@ -174,13 +174,13 @@
     <Slider bind:value={cfg.layout.textGap!} min={0} max={24} label="Row gap" suffix="px" />
 
     <hr class="border-border" />
-    <div class="text-xs font-medium text-muted-foreground uppercase">Marquee</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Marquee</div>
     <Slider bind:value={cfg.marquee!.speedPxPerSec} min={0} max={120} label="Speed" suffix="px/s" />
     <Slider bind:value={cfg.marquee!.gapPx} min={0} max={120} label="Gap" suffix="px" />
     <Slider bind:value={cfg.layout.scrollTriggerWidth} min={60} max={400} label="Scroll trigger width" suffix="px" />
 
     <hr class="border-border" />
-    <div class="text-xs font-medium text-muted-foreground uppercase">When paused</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">When paused</div>
     <Segmented
       bind:value={cfg.fields.pausedMode!}
       options={[
@@ -191,7 +191,7 @@
     <input type="text" bind:value={cfg.fields.pausedText} placeholder="Paused" class={inputCls} />
 
     <hr class="border-border" />
-    <div class="text-xs font-medium text-muted-foreground uppercase">Drop shadow</div>
+    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Drop shadow</div>
     <Toggle bind:checked={cfg.theme.dropShadow!.enabled} label="Enable" />
     {#if cfg.theme.dropShadow!.enabled}
       <Slider bind:value={cfg.theme.dropShadow!.blur} min={0} max={40} label="Blur" suffix="px" />

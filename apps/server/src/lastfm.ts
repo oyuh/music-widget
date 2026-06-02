@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { AppEnv } from "./types";
 import { withJsonCache } from "./cache";
 import { json, sha256, signLastfm } from "./util";
+import { isAllowedImageHost } from "./security";
 import { log } from "./log";
 
 const RECENT_TTL_SECONDS = 3;
@@ -32,7 +33,7 @@ function requireLastfmEnv(): Response | null {
 export const handleRecent: Handler = async (c) => {
   const reqId = c.get("reqId");
   const user = c.req.query("user") || "";
-  const limit = c.req.query("limit") || "1";
+  const limit = String(Math.min(50, Math.max(1, parseInt(c.req.query("limit") || "1", 10) || 1)));
   const sk = c.req.query("sk") || "";
 
   if (!user) {
@@ -197,6 +198,11 @@ export const handleProxyImage: Handler = async (c) => {
   }
 
   const safe = new URL(raw);
+  if (!isAllowedImageHost(safe.hostname)) {
+    log("warn", "api.proxy-image.host_blocked", { requestId: reqId, host: safe.host });
+    return json({ error: "Image host not allowed" }, { status: 400 });
+  }
+
   const upstreamT0 = Date.now();
   const upstream = await fetch(raw, {
     headers: {

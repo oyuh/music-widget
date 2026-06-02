@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
 import { redisEnabled, redisPing } from "./redis";
+import { clientIp, rateLimitOk } from "./security";
 import { json, xmlEscape } from "./util";
 import { log } from "./log";
 
@@ -28,6 +29,20 @@ app.use("/api/*", async (c, next) => {
     c.req.header("cf-ray") ||
     crypto.randomUUID();
   c.set("reqId", reqId);
+
+  // Lenient per-IP rate limit (skips health/liveness + preflight).
+  const path = new URL(c.req.url).pathname;
+  const exempt = c.req.method === "OPTIONS" || path === "/api/ping" || path === "/api/health";
+  if (!exempt) {
+    const limit = await rateLimitOk(clientIp(c), reqId);
+    if (!limit.ok) {
+      c.res = json(
+        { error: "Too many requests — slow down for a moment." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+      );
+      return;
+    }
+  }
 
   const t0 = Date.now();
   try {
