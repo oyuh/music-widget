@@ -2,6 +2,7 @@
   import { ELEMENTS, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
+  import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
   interface Props {
     editor: EditorState;
@@ -72,7 +73,7 @@
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
   <div>
-    <div class="text-base font-semibold tracking-tight">Music Widget</div>
+    <div class="text-base font-semibold tracking-tight">fast.Jamlog.lol</div>
     <div class="text-xs text-muted-foreground">Last.fm now-playing overlay</div>
   </div>
 
@@ -255,8 +256,8 @@
     {/each}
   </section>
 
-  <!-- Sidebar footer (content added in a later step) -->
+  <!-- Sidebar footer -->
   <footer class="font-pixel mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-    <!-- intentionally empty for now -->
+    <SidebarFooter />
   </footer>
 </div>
