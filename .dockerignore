@@ -1,0 +1,17 @@
+node_modules
+apps/*/node_modules
+apps/*/dist
+apps/api/.wrangler
+.wrangler
+.next
+build
+coverage
+.docker
+.env
+.env.*
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+docker-compose*.yml
+.git
+.gitignore

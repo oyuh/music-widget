@@ -1,0 +1,1905 @@
+// src/pages/index.tsx
+import { useEffect, useMemo, useState } from "react";
+import { Helmet as Head } from "react-helmet-async";
+import LastfmConnect from "../components/LastfmConnect";
+import { WidgetConfig, defaultConfig, encodeConfig, getUsedFonts } from "../utils/config";
+import { useNowPlaying } from "../hooks/useNowPlaying";
+import { WidgetPreview } from "../components/editor/WidgetPreview";
+import { extractDominantColor, getReadableTextOn } from "../utils/colors";
+import { KEYWORDS_META } from "../utils/keywords";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Label } from "../components/ui/label";
+
+export default function EditorPage() {
+  // Config state
+  const [cfg, setCfg] = useState<WidgetConfig>(defaultConfig);
+
+  // Connection (optional; preview only)
+  const [sessionKey, setSessionKey] = useState<string | null>(null);
+  const [connectedName, setConnectedName] = useState<string | null>(null);
+
+  // UI helpers
+  const [mounted, setMounted] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [share, setShare] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const sk = localStorage.getItem("lfm_session_key");
+      const nm = localStorage.getItem("lfm_session_name");
+      if (sk) setSessionKey(sk);
+      if (nm) setConnectedName(nm);
+
+      // Load saved configuration
+      const savedConfig = localStorage.getItem("widget_config");
+      if (savedConfig) {
+        try {
+          const parsedConfig = JSON.parse(savedConfig);
+          // Merge with default config to handle any new fields
+          setCfg({ ...defaultConfig, ...parsedConfig });
+        } catch (e) {
+          console.warn("Failed to parse saved config, using defaults", e);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Save configuration to localStorage whenever it changes
+  useEffect(() => {
+    if (!mounted) return;
+
+    try {
+      localStorage.setItem("widget_config", JSON.stringify(cfg));
+    } catch (e) {
+      console.warn("Failed to save configuration to localStorage", e);
+    }
+  }, [cfg, mounted]);
+
+  // Basic SEO constants
+  const seo = useMemo(() => {
+    const title = "Fast Music Stream Widget (Last.fm)";
+    const description = "A fast, customizable music overlay for streamers powered by Last.fm. Pick fonts, colors, marquee scrolling, and auto-theme from album art. Works great in OBS as a Browser Source.";
+    const keywords = KEYWORDS_META;
+    return { title, description, keywords };
+  }, []);
+  const siteOrigin = useMemo(() => (typeof window !== "undefined" ? window.location.origin : ""), []);
+  const socialImage = `${siteOrigin || ""}/window.svg`;
+
+  // Build share and editor-import URLs when config changes on client
+  const editorImportUrl = useMemo(() => {
+    if (!mounted) return "";
+    const origin = window.location.origin;
+    const b64 = encodeConfig(cfg);
+    return `${origin}/?import=${b64}`;
+  }, [cfg, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const origin = window.location.origin;
+    const configWithSession = {
+      ...cfg,
+      sessionKey: sessionKey, // Include session key for private profile access
+    };
+    const b64 = encodeConfig(configWithSession);
+    setShare(`${origin}/w#${b64}`);
+  }, [cfg, mounted, sessionKey]);
+
+  // Live data for preview. All Last.fm requests go through the Worker API.
+  const { track, isLive, isPaused, percent, progressMs, durationMs } = useNowPlaying({
+    username: cfg.lfmUser,
+    pollMs: 2000, // Faster polling for more responsive username changes
+    sessionKey,
+  });
+
+  // Editor-level computed colors for auto-from-art so the controls reflect them
+  const isLastfmPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f/i.test(u);
+  const artUrl = useMemo(() => {
+    const imgs = track?.image ?? [];
+    for (let i = imgs.length - 1; i >= 0; i--) {
+      const u = imgs[i]?.["#text"] ?? "";
+      if (u && !isLastfmPlaceholder(u)) return u;
+    }
+    return "";
+  }, [track]);
+  const [computedText, setComputedText] = useState(cfg.theme.text);
+  const [computedAccent, setComputedAccent] = useState(cfg.theme.accent);
+  useEffect(() => {
+    let t = 0 as unknown as number;
+    let retryCount = 0;
+    const maxRetries = 3; // Stop retrying after 3 attempts to avoid infinite flickering
+
+    const tick = async () => {
+      if (!cfg.theme.autoFromArt) {
+        // Auto-from-art disabled: reflect configured colors
+        const newText = cfg.theme.text;
+        const newAccent = cfg.theme.accent;
+        // Only update if actually different to prevent flicker
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule another retry for non-auto mode
+      } else if (artUrl) {
+        // Auto-from-art enabled with an image: try to extract via proxy; keep last-good on failure
+        const color = await extractDominantColor(artUrl);
+        if (color) {
+          const textColor = (cfg.theme.bgEnabled ?? true)
+            ? getReadableTextOn(cfg.theme.bg)
+            : "#ffffff"; // with transparent background, default to white for readability
+          const newText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
+          const newAccent = color;
+          // Only update if colors actually changed - use functional updates to access current values
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // If we got a successful extraction, stop retrying
+          return;
+        } else {
+          // Extraction failed: reset to a safe white text and default accent
+          const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
+          const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+          setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+          setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+
+          // Retry extraction a few times in case of transient failures
+          retryCount++;
+          if (retryCount < maxRetries) {
+            t = window.setTimeout(tick, 2000) as unknown as number; // Longer delay between retries
+          }
+        }
+      } else {
+        // Auto-from-art enabled but no art: reset to white text and default accent
+        const newText = { title: "#ffffff", artist: "#ffffff", album: "#ffffff", meta: "#ffffff", duration: "#ffffff" };
+        const newAccent = cfg.fallbackAccent || cfg.theme.accent;
+        setComputedText(prev => JSON.stringify(prev) !== JSON.stringify(newText) ? newText : prev);
+        setComputedAccent(prev => prev !== newAccent ? newAccent : prev);
+        return; // Don't schedule retry for no-art case
+      }
+    };
+
+    // Reset retry count when dependencies change (new track, etc.)
+    retryCount = 0;
+    tick();
+    return () => { if (t) clearTimeout(t); };
+  }, [cfg.theme.autoFromArt, cfg.theme.text, cfg.theme.accent, cfg.theme.bg, cfg.theme.bgEnabled, cfg.fallbackAccent, artUrl]);
+
+  // config helpers
+  function update<K extends keyof WidgetConfig>(key: K, value: WidgetConfig[K]) {
+    setCfg((c) => ({ ...c, [key]: value }));
+  }
+
+  function isAccent(k: keyof WidgetConfig["theme"]["text"]) {
+    return cfg.theme.text[k] === "accent";
+  }
+
+  function toggleAccentFor(k: keyof WidgetConfig["theme"]["text"], on: boolean) {
+    if (on) {
+      update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: "accent" } });
+    } else {
+      // When turning off accent, restore a reasonable hex value
+      const current = cfg.theme.text[k];
+      const fallback = (typeof current === 'string' && current !== 'accent')
+        ? (current as string)
+        : (cfg.theme.autoFromArt ? (computedText[k] as string) : (defaultConfig.theme.text[k] as string));
+      update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: fallback || "#ffffff" } });
+    }
+  }
+
+  // Auto-populate username when Last.fm is connected (especially for private profiles)
+  useEffect(() => {
+    if (!mounted || !connectedName) return;
+
+    // Auto-fill username if it's empty and user is connected
+    if (!cfg.lfmUser || cfg.lfmUser === '') {
+      setCfg(prev => ({ ...prev, lfmUser: connectedName }));
+    }
+  }, [connectedName, mounted, cfg.lfmUser]);
+
+  // Trigger immediate refresh when username changes
+  useEffect(() => {
+    if (!mounted) return;
+    setRefreshKey(prev => prev + 1);
+  }, [cfg.lfmUser, mounted]);
+
+  async function copySettings() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(cfg));
+    } catch {}
+  }
+
+  async function pasteSettings() {
+    try {
+      const t = await navigator.clipboard.readText();
+      const parsed = JSON.parse(t);
+      // shallow + selective deep merge to keep required keys
+      const next: WidgetConfig = {
+        ...defaultConfig,
+        ...parsed,
+        theme: {
+          ...defaultConfig.theme,
+          ...parsed?.theme,
+          text: { ...defaultConfig.theme.text, ...(parsed?.theme?.text ?? {}) },
+          textSize: {
+            title: parsed?.theme?.textSize?.title ?? defaultConfig.theme.textSize!.title,
+            artist: parsed?.theme?.textSize?.artist ?? defaultConfig.theme.textSize!.artist,
+            album: parsed?.theme?.textSize?.album ?? defaultConfig.theme.textSize!.album,
+            meta: parsed?.theme?.textSize?.meta ?? defaultConfig.theme.textSize!.meta,
+          },
+          textStyle: {
+            title: {
+              italic: parsed?.theme?.textStyle?.title?.italic ?? defaultConfig.theme.textStyle!.title.italic,
+              underline: parsed?.theme?.textStyle?.title?.underline ?? defaultConfig.theme.textStyle!.title.underline,
+              bold: parsed?.theme?.textStyle?.title?.bold ?? defaultConfig.theme.textStyle!.title.bold,
+              strike: parsed?.theme?.textStyle?.title?.strike ?? defaultConfig.theme.textStyle!.title.strike,
+            },
+            artist: {
+              italic: parsed?.theme?.textStyle?.artist?.italic ?? defaultConfig.theme.textStyle!.artist.italic,
+              underline: parsed?.theme?.textStyle?.artist?.underline ?? defaultConfig.theme.textStyle!.artist.underline,
+              bold: parsed?.theme?.textStyle?.artist?.bold ?? defaultConfig.theme.textStyle!.artist.bold,
+              strike: parsed?.theme?.textStyle?.artist?.strike ?? defaultConfig.theme.textStyle!.artist.strike,
+            },
+            album: {
+              italic: parsed?.theme?.textStyle?.album?.italic ?? defaultConfig.theme.textStyle!.album.italic,
+              underline: parsed?.theme?.textStyle?.album?.underline ?? defaultConfig.theme.textStyle!.album.underline,
+              bold: parsed?.theme?.textStyle?.album?.bold ?? defaultConfig.theme.textStyle!.album.bold,
+              strike: parsed?.theme?.textStyle?.album?.strike ?? defaultConfig.theme.textStyle!.album.strike,
+            },
+            meta: {
+              italic: parsed?.theme?.textStyle?.meta?.italic ?? defaultConfig.theme.textStyle!.meta.italic,
+              underline: parsed?.theme?.textStyle?.meta?.underline ?? defaultConfig.theme.textStyle!.meta.underline,
+              bold: parsed?.theme?.textStyle?.meta?.bold ?? defaultConfig.theme.textStyle!.meta.bold,
+              strike: parsed?.theme?.textStyle?.meta?.strike ?? defaultConfig.theme.textStyle!.meta.strike,
+            },
+            duration: {
+              italic: parsed?.theme?.textStyle?.duration?.italic ?? defaultConfig.theme.textStyle!.duration.italic,
+              underline: parsed?.theme?.textStyle?.duration?.underline ?? defaultConfig.theme.textStyle!.duration.underline,
+              bold: parsed?.theme?.textStyle?.duration?.bold ?? defaultConfig.theme.textStyle!.duration.bold,
+              strike: parsed?.theme?.textStyle?.duration?.strike ?? defaultConfig.theme.textStyle!.duration.strike,
+            },
+          },
+          textTransform: {
+            title: parsed?.theme?.textTransform?.title ?? defaultConfig.theme.textTransform!.title,
+            artist: parsed?.theme?.textTransform?.artist ?? defaultConfig.theme.textTransform!.artist,
+            album: parsed?.theme?.textTransform?.album ?? defaultConfig.theme.textTransform!.album,
+            meta: parsed?.theme?.textTransform?.meta ?? defaultConfig.theme.textTransform!.meta,
+            duration: parsed?.theme?.textTransform?.duration ?? defaultConfig.theme.textTransform!.duration,
+          },
+          textFont: {
+            title: parsed?.theme?.textFont?.title ?? defaultConfig.theme.textFont?.title,
+            artist: parsed?.theme?.textFont?.artist ?? defaultConfig.theme.textFont?.artist,
+            album: parsed?.theme?.textFont?.album ?? defaultConfig.theme.textFont?.album,
+            meta: parsed?.theme?.textFont?.meta ?? defaultConfig.theme.textFont?.meta,
+            duration: parsed?.theme?.textFont?.duration ?? defaultConfig.theme.textFont?.duration,
+          },
+        },
+        layout: { ...defaultConfig.layout, ...(parsed?.layout ?? {}) },
+        fields: { ...defaultConfig.fields, ...(parsed?.fields ?? {}) },
+      };
+      setCfg(next);
+    } catch {}
+  }
+
+  function resetToDefaults() {
+    try {
+      // Clear saved config from localStorage
+      localStorage.removeItem("widget_config");
+      // Reset to default configuration
+      setCfg(defaultConfig);
+    } catch (e) {
+      console.warn("Failed to reset configuration", e);
+    }
+  }
+
+  return (
+    <>
+      <Head>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <meta name="keywords" content={seo.keywords} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="application-name" content="Fast Music Stream Widget" />
+        <meta name="theme-color" content={cfg.theme.bg} />
+        {siteOrigin && <link rel="canonical" href={siteOrigin} />}
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Fast Music Stream Widget" />
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.description} />
+        {siteOrigin && <meta property="og:url" content={siteOrigin} />}
+        {siteOrigin && <meta property="og:image" content={socialImage} />}
+        <meta property="og:image:alt" content="Fast Music Stream Widget preview" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:description" content={seo.description} />
+        {siteOrigin && <meta name="twitter:image" content={socialImage} />}
+
+        {/* JSON-LD structured data */}
+        <script
+          type="application/ld+json"
+          // Using a string to avoid hydration warnings
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Fast Music Stream Widget",
+              applicationCategory: "MultimediaApplication",
+              operatingSystem: "Windows, macOS, Linux",
+              description: seo.description,
+              url: siteOrigin || undefined,
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            }),
+          }}
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href={`https://fonts.googleapis.com/css2?${getUsedFonts(cfg).map(font => `family=${encodeURIComponent(font).replace(/%20/g, "+")}`).join('&')}&display=swap`}
+          rel="stylesheet"
+        />
+      </Head>
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <h1 className="text-3xl font-semibold tracking-tight">Fast Music (via Last.fm) Stream Widget</h1>
+            <a
+              href="https://github.com/oyuh/music-widget"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
+            >
+              Source
+            </a>
+            <a
+              href="https://buymeacoffee.com/lawsonhart"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 border border-white/10 text-white/80"
+            >
+              Support Me
+            </a>
+          </div>
+
+          {/* Main Layout: Split into preview on left, controls on right */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Left Column: Preview and Share */}
+            <div>
+              <Card className="bg-neutral-900/40 border-white/10 mb-6">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-white">Live Preview</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRefreshKey((k) => k + 1)}
+                      className="border-white/10 bg-neutral-700 hover:bg-neutral-600 text-white"
+                    >
+                      ↻ Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-center">
+                    <WidgetPreview
+                      key={refreshKey}
+                      cfg={cfg}
+                      isLive={isLive}
+                      isPaused={isPaused}
+                      percent={percent}
+                      progressMs={progressMs}
+                      durationMs={durationMs}
+                      trackTitle={track?.name}
+                      artist={track?.artist?.["#text"]}
+                      album={track?.album?.["#text"]}
+                      art={artUrl}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Connection */}
+              <Card className="bg-neutral-900/40 border-white/10 mb-6">
+                <CardHeader>
+                  <CardTitle className="text-white">Connection</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-white/80">Last.fm Username</Label>
+                    <input
+                      id="username"
+                      className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                      value={cfg.lfmUser}
+                      onChange={(e) => update("lfmUser", e.target.value)}
+                      placeholder="your-lastfm-username"
+                    />
+                  </div>
+
+                  {/* Connection Status and Sign Out */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <LastfmConnect />
+                      <div className="flex-1 flex items-center justify-between">
+                        <div className="flex flex-col">
+                          {sessionKey ? (
+                            <span className="text-green-400">Connected as <b>{connectedName}</b></span>
+                          ) : (
+                            <span className="text-white/60">Not connected</span>
+                          )}
+                          <span className="text-white/40 text-xs">(Optional for private profiles)</span>
+                        </div>
+                        {sessionKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              localStorage.removeItem("lfm_session_key");
+                              localStorage.removeItem("lfm_session_name");
+                              setSessionKey(null);
+                              setConnectedName(null);
+                            }}
+                            className="border-red-500/30 bg-red-900/20 hover:bg-red-900/40 text-red-300 text-xs"
+                          >
+                            Sign Out
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Server data mode info */}
+                  <div className="rounded-lg bg-neutral-800/50 border border-white/10 px-3 py-2">
+                    <p className="text-xs text-white/60">
+                      <strong className="text-white/80">Data Mode:</strong>{" "}
+                      <span className="text-green-400">Server-cached through Cloudflare Worker</span>
+                    </p>
+                    <p className="text-xs text-white/50 mt-1">
+                      {sessionKey
+                        ? "Private profile requests include your Last.fm session key and still go through the Worker."
+                        : "Public profile requests use the shared Worker and Railway Redis cache."}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>              {/* Share */}
+              {mounted && (
+                <Card className="bg-neutral-900/40 border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white">Your Widget Link</CardTitle>
+                    <CardDescription className="text-white/70">
+                      Copy this link to use as a Browser Source in OBS
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        className="flex-1 min-w-0 rounded bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                        value={share}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-neutral-700 hover:bg-neutral-600 text-white"
+                        onClick={async () => { try { await navigator.clipboard.writeText(share); } catch {} }}
+                      >
+                        Copy
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-neutral-700 hover:bg-neutral-600 text-white"
+                        asChild
+                      >
+                        <a href={share} target="_blank" rel="noreferrer noopener">
+                          Open
+                        </a>
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 text-sm text-white/70">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white h-8 px-3"
+                        asChild
+                      >
+                        <a href={editorImportUrl} target="_blank" rel="noreferrer noopener">
+                          Open in Editor
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white h-8 px-3"
+                        onClick={copySettings}
+                      >
+                        Copy Settings
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white h-8 px-3"
+                        onClick={pasteSettings}
+                      >
+                        Paste Settings
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-500/50 bg-neutral-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 h-8 px-3"
+                        onClick={resetToDefaults}
+                        title="Reset all settings to defaults and clear saved configuration"
+                      >
+                        Reset to Defaults
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Right Column: Configuration Tabs */}
+            <div>
+              <Tabs defaultValue="presets" className="w-full">
+                <TabsList className="grid w-full grid-cols-6 bg-neutral-900/40 border border-white/10">
+                  <TabsTrigger value="presets" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Presets</TabsTrigger>
+                  <TabsTrigger value="theme" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Theme</TabsTrigger>
+                  <TabsTrigger value="layout" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Layout</TabsTrigger>
+                  <TabsTrigger value="text" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Text</TabsTrigger>
+                  <TabsTrigger value="shadows" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Shadows</TabsTrigger>
+                  <TabsTrigger value="behavior" className="data-[state=active]:bg-neutral-700 text-white/80 data-[state=active]:text-white">Behavior</TabsTrigger>
+                </TabsList>
+
+                {/* Presets Tab */}
+                <TabsContent value="presets" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Quick Presets</CardTitle>
+                      <CardDescription className="text-white/60">
+                        Apply professionally designed presets to get started quickly. You can customize any preset after applying it.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        {/* Preset 1: Minimalist */}
+                        <div className="border border-white/10 rounded-lg p-4 bg-neutral-800/50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">Minimalist</h3>
+                              <p className="text-white/60 text-sm mt-1">
+                                Clean and simple with transparent background, drop shadows, and accent highlights
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">Transparent BG</span>
+                                <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">Drop Shadows</span>
+                                <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">Custom Fonts</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                const preset1 = {"lfmUser":"wtflaw","fallbackAccent":"#1db954","theme":{"bg":"#000000CC","accent":"#1db954","autoFromArt":true,"autoTargets":{"title":false,"artist":true,"album":false,"meta":false},"font":"Inter","text":{"title":"#ffffff","artist":"accent","album":"#cfcfcf","meta":"#bdbdbd","duration":"#a0a0a0"},"textSize":{"title":30,"artist":16,"album":12,"meta":12},"textStyle":{"title":{"italic":false,"underline":false,"bold":true,"strike":false},"artist":{"italic":false,"underline":false,"bold":false,"strike":false},"album":{"italic":false,"underline":false,"bold":false,"strike":false},"meta":{"italic":false,"underline":false,"bold":false,"strike":false},"duration":{"italic":false,"underline":false,"bold":false,"strike":false}},"textTransform":{"title":"none","artist":"uppercase","album":"none","meta":"none","duration":"none"},"textFont":{"title":"Montserrat","artist":"Poppins"},"dropShadow":{"enabled":true,"blur":19,"intensity":15,"offsetX":2,"offsetY":2,"useOppositeColor":true,"customColor":"#000000","targets":{"text":true,"albumArt":true,"progressBar":true,"background":false},"perText":{"title":{"enabled":true,"useOppositeColor":true},"artist":{"enabled":true,"useOppositeColor":true},"album":{"enabled":true,"useOppositeColor":true},"meta":{"enabled":true,"useOppositeColor":true},"duration":{"enabled":true,"useOppositeColor":true}}},"bgEnabled":false},"layout":{"w":420,"h":130,"showArt":true,"align":"left","artSize":68,"artPosition":"left","scrollTriggerWidth":180,"textGap":2,"backgroundRadius":16,"artRadius":6,"textOffset":{"title":{"x":0,"y":0},"artist":{"x":0,"y":0},"album":{"x":0,"y":0},"meta":{"x":0,"y":0},"duration":{"x":0,"y":0}}},"marquee":{"speedPxPerSec":24,"gapPx":32},"fields":{"title":true,"artist":true,"album":false,"progress":false,"duration":false,"history":50,"pausedMode":"transparent","pausedText":"Paused","durationFormat":"both","showDurationOnProgress":true,"showDurationAsText":false}};
+                                // Preserve the current username when applying preset
+                                const currentUsername = cfg.lfmUser;
+                                setCfg({...preset1 as WidgetConfig, lfmUser: currentUsername});
+                                setRefreshKey(prev => prev + 1);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              size="sm"
+                            >
+                              Apply Preset
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Preset 2: Modern Card */}
+                        <div className="border border-white/10 rounded-lg p-4 bg-neutral-800/50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">Modern Card</h3>
+                              <p className="text-white/60 text-sm mt-1">
+                                Stylish card design with solid background, accent colors, and duration display
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <span className="text-xs px-2 py-1 bg-gray-500/20 text-gray-400 rounded">Solid BG</span>
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">Accent Colors</span>
+                                <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded">Duration</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                const preset2 = {"lfmUser":"wtflaw","fallbackAccent":"#1db954","theme":{"bg":"#797777","accent":"#1db954","autoFromArt":true,"autoTargets":{"title":false,"artist":true,"album":false,"meta":false},"font":"Inter","text":{"title":"accent","artist":"accent","album":"#cfcfcf","meta":"#bdbdbd","duration":"accent"},"textSize":{"title":27,"artist":18,"album":12,"meta":12,"duration":11},"textStyle":{"title":{"italic":false,"underline":false,"bold":true,"strike":false},"artist":{"italic":false,"underline":false,"bold":false,"strike":false},"album":{"italic":false,"underline":false,"bold":false,"strike":false},"meta":{"italic":false,"underline":false,"bold":false,"strike":false},"duration":{"italic":false,"underline":false,"bold":false,"strike":false}},"textTransform":{"title":"none","artist":"none","album":"none","meta":"none","duration":"none"},"textFont":{"title":"Poppins","artist":"Poppins","duration":"Nunito"},"dropShadow":{"enabled":false,"blur":4,"intensity":50,"offsetX":2,"offsetY":2,"useOppositeColor":true,"customColor":"#000000","targets":{"text":true,"albumArt":true,"progressBar":true,"background":false},"perText":{"title":{"enabled":true,"useOppositeColor":true},"artist":{"enabled":true,"useOppositeColor":true},"album":{"enabled":true,"useOppositeColor":true},"meta":{"enabled":true,"useOppositeColor":true},"duration":{"enabled":true,"useOppositeColor":true}}},"bgEnabled":true},"layout":{"w":310,"h":130,"showArt":true,"align":"left","artSize":72,"artPosition":"left","scrollTriggerWidth":180,"textGap":2,"backgroundRadius":16,"artRadius":9,"textOffset":{"title":{"x":0,"y":3},"artist":{"x":0,"y":-5},"album":{"x":0,"y":0},"meta":{"x":0,"y":0},"duration":{"x":0,"y":-10}}},"marquee":{"speedPxPerSec":24,"gapPx":32},"fields":{"title":true,"artist":true,"album":false,"progress":false,"duration":true,"history":50,"pausedMode":"label","pausedText":"Paused","durationFormat":"both","showDurationOnProgress":true,"showDurationAsText":true}};
+                                // Preserve the current username when applying preset
+                                const currentUsername = cfg.lfmUser;
+                                setCfg({...preset2 as WidgetConfig, lfmUser: currentUsername});
+                                setRefreshKey(prev => prev + 1);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              size="sm"
+                            >
+                              Apply Preset
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-white/10 pt-4 mt-6">
+                        <p className="text-white/60 text-sm">
+                          💡 <strong>Tip:</strong> After applying a preset, you can fine-tune any settings in the other tabs.
+                          Your Last.fm username will be preserved when switching presets.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Theme Tab */}
+                <TabsContent value="theme" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Colors & Themes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Basic Colors */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Background Color</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              className="w-12 h-10 rounded bg-neutral-800 border border-white/10"
+                              value={cfg.theme.bg}
+                              onChange={(e) => update("theme", { ...cfg.theme, bg: e.target.value })}
+                            />
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="show-bg"
+                                checked={cfg.theme.bgEnabled ?? true}
+                                onChange={(e) => update("theme", { ...cfg.theme, bgEnabled: e.target.checked })}
+                                className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <Label htmlFor="show-bg" className="text-white/80">Show Background</Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Accent Color</Label>
+                          <input
+                            type="color"
+                            className="w-12 h-10 rounded bg-neutral-800 border border-white/10"
+                            value={cfg.theme.autoFromArt ? computedAccent : cfg.theme.accent}
+                            disabled={cfg.theme.autoFromArt}
+                            onChange={(e) => update("theme", { ...cfg.theme, accent: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Auto from Art */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="auto-theme"
+                            checked={cfg.theme.autoFromArt}
+                            onChange={(e) => update("theme", { ...cfg.theme, autoFromArt: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <Label htmlFor="auto-theme" className="text-white/80">Auto theme from album art</Label>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Fallback Accent (when album art unavailable)</Label>
+                          <input
+                            type="color"
+                            className="w-12 h-10 rounded bg-neutral-800 border border-white/10"
+                            value={cfg.fallbackAccent || cfg.theme.accent}
+                            onChange={(e) => setCfg({ ...cfg, fallbackAccent: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Individual Text Colors */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Individual Text Colors</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                            <div key={k} className="space-y-2">
+                              <Label className="text-white/80 capitalize">{k} Color</Label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  className="w-10 h-10 rounded bg-neutral-800 border border-white/10"
+                                  disabled={isAccent(k)}
+                                  value={isAccent(k) ? (cfg.theme.autoFromArt ? computedAccent : cfg.theme.accent) : (cfg.theme.autoFromArt ? (computedText[k] as string) : (cfg.theme.text[k] as string))}
+                                  onChange={(e) => update("theme", { ...cfg.theme, text: { ...cfg.theme.text, [k]: e.target.value } })}
+                                />
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id={`accent-${k}`}
+                                    checked={isAccent(k)}
+                                    onChange={(e) => toggleAccentFor(k, e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                  />
+                                  <Label htmlFor={`accent-${k}`} className="text-white/80 text-sm">Use accent</Label>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Layout Tab */}
+                <TabsContent value="layout" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Layout & Positioning</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Basic Layout */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Width ({cfg.layout.w}px)</Label>
+                          <div className="px-2">
+                            <input
+                              type="range"
+                              min={200}
+                              max={900}
+                              step={10}
+                              value={cfg.layout.w}
+                              onChange={(e) => update("layout", { ...cfg.layout, w: +e.target.value })}
+                              className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Height ({cfg.layout.h}px)</Label>
+                          <div className="px-2">
+                            <input
+                              type="range"
+                              min={80}
+                              max={400}
+                              step={10}
+                              value={cfg.layout.h}
+                              onChange={(e) => update("layout", { ...cfg.layout, h: +e.target.value })}
+                              className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Background Corner Radius */}
+                      <div className="space-y-2">
+                        <Label className="text-white/80">Background Corner Radius ({cfg.layout.backgroundRadius ?? 16}px)</Label>
+                        <div className="px-2">
+                          <input
+                            type="range"
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={cfg.layout.backgroundRadius ?? 16}
+                            onChange={(e) => update("layout", { ...cfg.layout, backgroundRadius: +e.target.value })}
+                            className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Album Art */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="show-art"
+                            checked={cfg.layout.showArt}
+                            onChange={(e) => update("layout", { ...cfg.layout, showArt: e.target.checked })}
+                            className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <Label htmlFor="show-art" className="text-white/80">Show album art</Label>
+                        </div>
+
+                        {cfg.layout.showArt && (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Art Size ({cfg.layout.artSize}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={32}
+                                  max={240}
+                                  step={4}
+                                  value={cfg.layout.artSize}
+                                  onChange={(e) => update("layout", { ...cfg.layout, artSize: +e.target.value })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Album Art Corner Radius ({cfg.layout.artRadius ?? 12}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={50}
+                                  step={1}
+                                  value={cfg.layout.artRadius ?? 12}
+                                  onChange={(e) => update("layout", { ...cfg.layout, artRadius: +e.target.value })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Text Alignment */}
+                      <div className="space-y-2">
+                        <Label className="text-white/80">Text Alignment</Label>
+                        <div className="flex gap-2">
+                          {["left", "center", "right"].map((align) => (
+                            <Button
+                              key={align}
+                              variant={cfg.layout.align === align ? "default" : "outline"}
+                              size="sm"
+                              className={cfg.layout.align === align
+                                ? "bg-neutral-700 text-white"
+                                : "border-white/10 bg-transparent hover:bg-neutral-700 text-white/80"
+                              }
+                              onClick={() => update("layout", {
+                                ...cfg.layout,
+                                align: align as WidgetConfig["layout"]["align"],
+                                artPosition: align === "center" ? "top" : align as WidgetConfig["layout"]["artPosition"]
+                              })}
+                            >
+                              {align.charAt(0).toUpperCase() + align.slice(1)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Spacing */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Text Gap ({cfg.layout.textGap ?? 2}px)</Label>
+                          <div className="px-2">
+                            <input
+                              type="range"
+                              min={-16}
+                              max={16}
+                              step={1}
+                              value={cfg.layout.textGap ?? 2}
+                              onChange={(e) => update("layout", { ...cfg.layout, textGap: +e.target.value })}
+                              className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Scroll Trigger Width ({cfg.layout.scrollTriggerWidth ?? 180}px)</Label>
+                          <div className="px-2">
+                            <input
+                              type="range"
+                              min={0}
+                              max={600}
+                              step={10}
+                              value={cfg.layout.scrollTriggerWidth ?? 180}
+                              onChange={(e) => update("layout", { ...cfg.layout, scrollTriggerWidth: Math.max(0, +e.target.value) })}
+                              className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Text Offsets - RESTORED */}
+                      <Card className="bg-neutral-900/30 border-white/10">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-white text-sm">Per-text Position Offsets</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {(["title","artist","album","meta","duration"] as const).map((k) => (
+                              <Card key={k} className="bg-neutral-900/40 border-white/10">
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-white capitalize text-xs">{k}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0 space-y-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-white/70 text-xs">X Offset ({cfg.layout.textOffset?.[k]?.x ?? 0}px)</Label>
+                                    <div className="px-1">
+                                      <input
+                                        type="range"
+                                        min={-100}
+                                        max={100}
+                                        step={1}
+                                        value={cfg.layout.textOffset?.[k]?.x ?? 0}
+                                        onChange={(e) => update("layout", {
+                                          ...cfg.layout,
+                                          textOffset: {
+                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0}, duration:{x:0,y:0} }),
+                                            [k]: {
+                                              ...(cfg.layout.textOffset?.[k] ?? {x:0,y:0}),
+                                              x: +e.target.value
+                                            }
+                                          }
+                                        })}
+                                        className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-white/70 text-xs">Y Offset ({cfg.layout.textOffset?.[k]?.y ?? 0}px)</Label>
+                                    <div className="px-1">
+                                      <input
+                                        type="range"
+                                        min={-100}
+                                        max={100}
+                                        step={1}
+                                        value={cfg.layout.textOffset?.[k]?.y ?? 0}
+                                        onChange={(e) => update("layout", {
+                                          ...cfg.layout,
+                                          textOffset: {
+                                            ...(cfg.layout.textOffset ?? { title:{x:0,y:0}, artist:{x:0,y:0}, album:{x:0,y:0}, meta:{x:0,y:0}, duration:{x:0,y:0} }),
+                                            [k]: {
+                                              ...(cfg.layout.textOffset?.[k] ?? {x:0,y:0}),
+                                              y: +e.target.value
+                                            }
+                                          }
+                                        })}
+                                        className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Text Tab */}
+                <TabsContent value="text" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Typography</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Font Family */}
+                      <div className="space-y-2">
+                        <Label className="text-white/80">Font Family</Label>
+                        <select
+                          className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                          value={cfg.theme.font}
+                          onChange={(e) => update("theme", { ...cfg.theme, font: e.target.value })}
+                        >
+                          {["Inter", "Poppins", "Roboto", "Montserrat", "Nunito", "Oswald", "Lato", "Playfair Display", "Merriweather", "Source Code Pro"].map((f) => (
+                            <option key={f} value={f}>
+                              {f}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Text Sizes */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Text Sizes</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                            <div key={k} className="space-y-2">
+                              <Label className="text-white/80 capitalize">
+                                {k} Size ({cfg.theme.textSize?.[k] ?? (k === "title" ? 16 : k === "artist" ? 14 : 12)}px)
+                              </Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={10}
+                                  max={k === "title" ? 48 : k === "artist" ? 40 : k === "album" ? 32 : 24}
+                                  step={1}
+                                  value={cfg.theme.textSize?.[k] ?? (k === "title" ? 16 : k === "artist" ? 14 : 12)}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    textSize: {
+                                      ...(cfg.theme.textSize ?? { title:16, artist:14, album:12, meta:12, duration:12 }),
+                                      [k]: +e.target.value
+                                    }
+                                  })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Text Styles */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Text Styles</h4>
+                        <div className="grid grid-cols-1 gap-4">
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                            <Card key={k} className="bg-neutral-900/30 border-white/10">
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-white capitalize text-sm">{k}</CardTitle>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <div className="flex flex-wrap gap-4">
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`${k}-bold`}
+                                      checked={cfg.theme.textStyle?.[k]?.bold ?? (k === 'title')}
+                                      onChange={(e) => update("theme", {
+                                        ...cfg.theme,
+                                        textStyle: {
+                                          ...(cfg.theme.textStyle ?? defaultConfig.theme.textStyle!),
+                                          [k]: {
+                                            ...(cfg.theme.textStyle?.[k] ?? defaultConfig.theme.textStyle![k]),
+                                            bold: e.target.checked
+                                          }
+                                        }
+                                      })}
+                                      className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <Label htmlFor={`${k}-bold`} className="text-white/80 text-sm">Bold</Label>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`${k}-italic`}
+                                      checked={cfg.theme.textStyle?.[k]?.italic ?? false}
+                                      onChange={(e) => update("theme", {
+                                        ...cfg.theme,
+                                        textStyle: {
+                                          ...(cfg.theme.textStyle ?? defaultConfig.theme.textStyle!),
+                                          [k]: {
+                                            ...(cfg.theme.textStyle?.[k] ?? defaultConfig.theme.textStyle![k]),
+                                            italic: e.target.checked
+                                          }
+                                        }
+                                      })}
+                                      className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <Label htmlFor={`${k}-italic`} className="text-white/80 text-sm">Italic</Label>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`${k}-underline`}
+                                      checked={cfg.theme.textStyle?.[k]?.underline ?? false}
+                                      onChange={(e) => update("theme", {
+                                        ...cfg.theme,
+                                        textStyle: {
+                                          ...(cfg.theme.textStyle ?? defaultConfig.theme.textStyle!),
+                                          [k]: {
+                                            ...(cfg.theme.textStyle?.[k] ?? defaultConfig.theme.textStyle![k]),
+                                            underline: e.target.checked
+                                          }
+                                        }
+                                      })}
+                                      className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <Label htmlFor={`${k}-underline`} className="text-white/80 text-sm">Underline</Label>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`${k}-strike`}
+                                      checked={cfg.theme.textStyle?.[k]?.strike ?? false}
+                                      onChange={(e) => update("theme", {
+                                        ...cfg.theme,
+                                        textStyle: {
+                                          ...(cfg.theme.textStyle ?? defaultConfig.theme.textStyle!),
+                                          [k]: {
+                                            ...(cfg.theme.textStyle?.[k] ?? defaultConfig.theme.textStyle![k]),
+                                            strike: e.target.checked
+                                          }
+                                        }
+                                      })}
+                                      className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <Label htmlFor={`${k}-strike`} className="text-white/80 text-sm">Strikethrough</Label>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Text Transform */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Text Transform</h4>
+                        <div className="grid grid-cols-1 gap-3">
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                            <div key={k} className="flex items-center justify-between">
+                              <Label className="text-white/80 capitalize text-sm">{k}</Label>
+                              <select
+                                className="rounded-lg bg-neutral-800 border border-white/10 px-3 py-1 text-white text-sm min-w-[140px]"
+                                value={cfg.theme.textTransform?.[k] ?? 'none'}
+                                onChange={(e) => update("theme", {
+                                  ...cfg.theme,
+                                  textTransform: {
+                                    ...(cfg.theme.textTransform ?? { title: 'none', artist: 'none', album: 'none', meta: 'none', duration: 'none' }),
+                                    [k]: e.target.value as "none" | "uppercase" | "lowercase"
+                                  }
+                                })}
+                              >
+                                <option value="none">Normal</option>
+                                <option value="uppercase">UPPERCASE</option>
+                                <option value="lowercase">lowercase</option>
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Individual Fonts */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Per-Text Fonts</h4>
+                        <p className="text-white/60 text-sm">Override the global font for specific text elements</p>
+                        <div className="grid grid-cols-1 gap-3">
+                          {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                            <div key={k} className="flex items-center justify-between">
+                              <Label className="text-white/80 capitalize text-sm">{k}</Label>
+                              <select
+                                className="rounded-lg bg-neutral-800 border border-white/10 px-3 py-1 text-white text-sm min-w-[140px]"
+                                value={cfg.theme.textFont?.[k] ?? ''}
+                                onChange={(e) => update("theme", {
+                                  ...cfg.theme,
+                                  textFont: {
+                                    ...(cfg.theme.textFont ?? {}),
+                                    [k]: e.target.value === '' ? undefined : e.target.value
+                                  }
+                                })}
+                              >
+                                <option value="">Use Global Font</option>
+                                {["Inter", "Poppins", "Roboto", "Montserrat", "Nunito", "Oswald", "Lato", "Playfair Display", "Merriweather", "Source Code Pro"].map((f) => (
+                                  <option key={f} value={f}>
+                                    {f}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Shadows Tab */}
+                <TabsContent value="shadows" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Drop Shadows</CardTitle>
+                      <CardDescription className="text-white/70">
+                        Add depth and visual interest with customizable drop shadows
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Enable Drop Shadows */}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="enable-shadows"
+                          checked={cfg.theme.dropShadow?.enabled ?? false}
+                          onChange={(e) => update("theme", {
+                            ...cfg.theme,
+                            dropShadow: {
+                              ...(cfg.theme.dropShadow ?? {
+                                enabled: false,
+                                blur: 4,
+                                intensity: 50,
+                                offsetX: 2,
+                                offsetY: 2,
+                                useOppositeColor: true,
+                                customColor: "#000000",
+                                targets: { text: true, albumArt: true, progressBar: true, background: false }
+                              }),
+                              enabled: e.target.checked
+                            }
+                          })}
+                          className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <Label htmlFor="enable-shadows" className="text-white/80">Enable Drop Shadows</Label>
+                      </div>
+
+                      {(cfg.theme.dropShadow?.enabled) && (
+                        <>
+                          {/* Shadow Properties */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Blur Radius ({cfg.theme.dropShadow?.blur ?? 4}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={20}
+                                  step={1}
+                                  value={cfg.theme.dropShadow?.blur ?? 4}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      blur: +e.target.value
+                                    }
+                                  })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Intensity ({cfg.theme.dropShadow?.intensity ?? 50}%)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  step={5}
+                                  value={cfg.theme.dropShadow?.intensity ?? 50}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      intensity: +e.target.value
+                                    }
+                                  })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-white/80">X Offset ({cfg.theme.dropShadow?.offsetX ?? 2}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={-20}
+                                  max={20}
+                                  step={1}
+                                  value={cfg.theme.dropShadow?.offsetX ?? 2}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      offsetX: +e.target.value
+                                    }
+                                  })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-white/80">Y Offset ({cfg.theme.dropShadow?.offsetY ?? 2}px)</Label>
+                              <div className="px-2">
+                                <input
+                                  type="range"
+                                  min={-20}
+                                  max={20}
+                                  step={1}
+                                  value={cfg.theme.dropShadow?.offsetY ?? 2}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      offsetY: +e.target.value
+                                    }
+                                  })}
+                                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Shadow Color */}
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="use-opposite-color"
+                                checked={cfg.theme.dropShadow?.useOppositeColor ?? true}
+                                onChange={(e) => update("theme", {
+                                  ...cfg.theme,
+                                  dropShadow: {
+                                    ...(cfg.theme.dropShadow!),
+                                    useOppositeColor: e.target.checked
+                                  }
+                                })}
+                                className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <Label htmlFor="use-opposite-color" className="text-white/80">Use opposite colors automatically</Label>
+                            </div>
+
+                            {!(cfg.theme.dropShadow?.useOppositeColor ?? true) && (
+                              <div className="space-y-2">
+                                <Label className="text-white/80">Custom Shadow Color</Label>
+                                <input
+                                  type="color"
+                                  className="w-12 h-10 rounded bg-neutral-800 border border-white/10"
+                                  value={cfg.theme.dropShadow?.customColor ?? "#000000"}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      customColor: e.target.value
+                                    }
+                                  })}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Shadow Targets */}
+                          <div className="space-y-4">
+                            <h4 className="text-white font-medium">Apply Shadows To</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="shadow-text"
+                                  checked={cfg.theme.dropShadow?.targets?.text ?? true}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      targets: {
+                                        text: e.target.checked,
+                                        albumArt: cfg.theme.dropShadow?.targets?.albumArt ?? true,
+                                        progressBar: cfg.theme.dropShadow?.targets?.progressBar ?? true,
+                                        background: cfg.theme.dropShadow?.targets?.background ?? false
+                                      }
+                                    }
+                                  })}
+                                  className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <Label htmlFor="shadow-text" className="text-white/80">Text Elements</Label>
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="shadow-art"
+                                  checked={cfg.theme.dropShadow?.targets?.albumArt ?? true}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      targets: {
+                                        text: cfg.theme.dropShadow?.targets?.text ?? true,
+                                        albumArt: e.target.checked,
+                                        progressBar: cfg.theme.dropShadow?.targets?.progressBar ?? true,
+                                        background: cfg.theme.dropShadow?.targets?.background ?? false
+                                      }
+                                    }
+                                  })}
+                                  className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <Label htmlFor="shadow-art" className="text-white/80">Album Art</Label>
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="shadow-progress"
+                                  checked={cfg.theme.dropShadow?.targets?.progressBar ?? true}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      targets: {
+                                        text: cfg.theme.dropShadow?.targets?.text ?? true,
+                                        albumArt: cfg.theme.dropShadow?.targets?.albumArt ?? true,
+                                        progressBar: e.target.checked,
+                                        background: cfg.theme.dropShadow?.targets?.background ?? false
+                                      }
+                                    }
+                                  })}
+                                  className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <Label htmlFor="shadow-progress" className="text-white/80">Progress Bar</Label>
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="shadow-background"
+                                  checked={cfg.theme.dropShadow?.targets?.background ?? false}
+                                  onChange={(e) => update("theme", {
+                                    ...cfg.theme,
+                                    dropShadow: {
+                                      ...(cfg.theme.dropShadow!),
+                                      targets: {
+                                        text: cfg.theme.dropShadow?.targets?.text ?? true,
+                                        albumArt: cfg.theme.dropShadow?.targets?.albumArt ?? true,
+                                        progressBar: cfg.theme.dropShadow?.targets?.progressBar ?? true,
+                                        background: e.target.checked
+                                      }
+                                    }
+                                  })}
+                                  className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <Label htmlFor="shadow-background" className="text-white/80">Widget Background</Label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Per-Text Drop Shadow Controls */}
+                          {(cfg.theme.dropShadow?.targets?.text) && (
+                            <div className="space-y-4">
+                              <h4 className="text-white font-medium">Per-Text Drop Shadow Settings</h4>
+                              <div className="grid grid-cols-1 gap-4">
+                                {(["title", "artist", "album", "meta", "duration"] as const).map((k) => (
+                                  <Card key={k} className="bg-neutral-900/30 border-white/10">
+                                    <CardHeader className="pb-3">
+                                      <CardTitle className="text-white capitalize text-sm">{k} Drop Shadow</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0 space-y-4">
+                                      {/* Enable for this element */}
+                                      <div className="flex items-center space-x-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`${k}-shadow-enabled`}
+                                          checked={cfg.theme.dropShadow?.perText?.[k]?.enabled ?? true}
+                                          onChange={(e) => update("theme", {
+                                            ...cfg.theme,
+                                            dropShadow: {
+                                              ...(cfg.theme.dropShadow!),
+                                              perText: {
+                                                ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                [k]: {
+                                                  ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                  enabled: e.target.checked
+                                                }
+                                              }
+                                            }
+                                          })}
+                                          className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                        />
+                                        <Label htmlFor={`${k}-shadow-enabled`} className="text-white/80 text-sm">Enable {k} shadow</Label>
+                                      </div>
+
+                                      {(cfg.theme.dropShadow?.perText?.[k]?.enabled ?? true) && (
+                                        <>
+                                          {/* Use opposite color */}
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="checkbox"
+                                              id={`${k}-shadow-opposite`}
+                                              checked={cfg.theme.dropShadow?.perText?.[k]?.useOppositeColor ?? cfg.theme.dropShadow?.useOppositeColor ?? true}
+                                              onChange={(e) => update("theme", {
+                                                ...cfg.theme,
+                                                dropShadow: {
+                                                  ...(cfg.theme.dropShadow!),
+                                                  perText: {
+                                                    ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                    [k]: {
+                                                      ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                      useOppositeColor: e.target.checked
+                                                    }
+                                                  }
+                                                }
+                                              })}
+                                              className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                                            />
+                                            <Label htmlFor={`${k}-shadow-opposite`} className="text-white/80 text-sm">Use opposite color automatically</Label>
+                                          </div>
+
+                                          {/* Custom color if not using opposite */}
+                                          {!(cfg.theme.dropShadow?.perText?.[k]?.useOppositeColor ?? cfg.theme.dropShadow?.useOppositeColor ?? true) && (
+                                            <div className="space-y-2">
+                                              <Label className="text-white/80 text-sm">Custom Shadow Color</Label>
+                                              <input
+                                                type="color"
+                                                className="w-12 h-8 rounded bg-neutral-800 border border-white/10"
+                                                value={cfg.theme.dropShadow?.perText?.[k]?.customColor ?? cfg.theme.dropShadow?.customColor ?? "#000000"}
+                                                onChange={(e) => update("theme", {
+                                                  ...cfg.theme,
+                                                  dropShadow: {
+                                                    ...(cfg.theme.dropShadow!),
+                                                    perText: {
+                                                      ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                      [k]: {
+                                                        ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                        customColor: e.target.value
+                                                      }
+                                                    }
+                                                  }
+                                                })}
+                                              />
+                                            </div>
+                                          )}
+
+                                          {/* Individual blur, intensity, offset controls */}
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                              <Label className="text-white/70 text-xs">Blur ({cfg.theme.dropShadow?.perText?.[k]?.blur ?? cfg.theme.dropShadow?.blur ?? 4}px)</Label>
+                                              <div className="px-1">
+                                                <input
+                                                  type="range"
+                                                  min={0}
+                                                  max={20}
+                                                  step={1}
+                                                  value={cfg.theme.dropShadow?.perText?.[k]?.blur ?? cfg.theme.dropShadow?.blur ?? 4}
+                                                  onChange={(e) => update("theme", {
+                                                    ...cfg.theme,
+                                                    dropShadow: {
+                                                      ...(cfg.theme.dropShadow!),
+                                                      perText: {
+                                                        ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                        [k]: {
+                                                          ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                          blur: +e.target.value
+                                                        }
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                              <Label className="text-white/70 text-xs">Intensity ({cfg.theme.dropShadow?.perText?.[k]?.intensity ?? cfg.theme.dropShadow?.intensity ?? 50}%)</Label>
+                                              <div className="px-1">
+                                                <input
+                                                  type="range"
+                                                  min={0}
+                                                  max={100}
+                                                  step={5}
+                                                  value={cfg.theme.dropShadow?.perText?.[k]?.intensity ?? cfg.theme.dropShadow?.intensity ?? 50}
+                                                  onChange={(e) => update("theme", {
+                                                    ...cfg.theme,
+                                                    dropShadow: {
+                                                      ...(cfg.theme.dropShadow!),
+                                                      perText: {
+                                                        ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                        [k]: {
+                                                          ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                          intensity: +e.target.value
+                                                        }
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                              <Label className="text-white/70 text-xs">X Offset ({cfg.theme.dropShadow?.perText?.[k]?.offsetX ?? cfg.theme.dropShadow?.offsetX ?? 2}px)</Label>
+                                              <div className="px-1">
+                                                <input
+                                                  type="range"
+                                                  min={-20}
+                                                  max={20}
+                                                  step={1}
+                                                  value={cfg.theme.dropShadow?.perText?.[k]?.offsetX ?? cfg.theme.dropShadow?.offsetX ?? 2}
+                                                  onChange={(e) => update("theme", {
+                                                    ...cfg.theme,
+                                                    dropShadow: {
+                                                      ...(cfg.theme.dropShadow!),
+                                                      perText: {
+                                                        ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                        [k]: {
+                                                          ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                          offsetX: +e.target.value
+                                                        }
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                              <Label className="text-white/70 text-xs">Y Offset ({cfg.theme.dropShadow?.perText?.[k]?.offsetY ?? cfg.theme.dropShadow?.offsetY ?? 2}px)</Label>
+                                              <div className="px-1">
+                                                <input
+                                                  type="range"
+                                                  min={-20}
+                                                  max={20}
+                                                  step={1}
+                                                  value={cfg.theme.dropShadow?.perText?.[k]?.offsetY ?? cfg.theme.dropShadow?.offsetY ?? 2}
+                                                  onChange={(e) => update("theme", {
+                                                    ...cfg.theme,
+                                                    dropShadow: {
+                                                      ...(cfg.theme.dropShadow!),
+                                                      perText: {
+                                                        ...(cfg.theme.dropShadow?.perText ?? {}),
+                                                        [k]: {
+                                                          ...(cfg.theme.dropShadow?.perText?.[k] ?? {}),
+                                                          offsetY: +e.target.value
+                                                        }
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Behavior Tab */}
+                <TabsContent value="behavior" className="mt-6">
+                  <Card className="bg-neutral-900/40 border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white">Behavior & Features</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Fields */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Show Fields</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {(["title","artist","album","progress","duration"] as const).map(f => (
+                            <div key={f} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`field-${f}`}
+                                checked={cfg.fields[f]}
+                                onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, [f]: e.target.checked } })}
+                                className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <Label htmlFor={`field-${f}`} className="text-white/80 capitalize">{f}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Duration Settings */}
+                      {cfg.fields.duration && (
+                        <div className="space-y-4">
+                          <h4 className="text-white font-medium">Duration Settings</h4>
+<p className="text-white/60 text-sm mt-1">
+  {"These aren't accurate due to Last.fm API limitations."}
+</p>
+
+                          <div className="space-y-2">
+                            <Label className="text-white/80">Duration Format (this is extremely unreliable)</Label>
+                            <select
+                              className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                              value={cfg.fields.durationFormat ?? "both"}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, durationFormat: (e.target.value as "elapsed" | "remaining" | "both") } })}
+                            >
+                              <option value="elapsed">Elapsed only (2:30)</option>
+                              <option value="remaining">Remaining only (-1:25)</option>
+                              <option value="both">Both (2:30/3:55)</option>
+                            </select>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="show-duration-on-progress"
+                              checked={cfg.fields.showDurationOnProgress ?? true}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, showDurationOnProgress: e.target.checked } })}
+                              className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <Label htmlFor="show-duration-on-progress" className="text-white/80">Show duration on progress bar</Label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="show-duration-as-text"
+                              checked={cfg.fields.showDurationAsText ?? false}
+                              onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, showDurationAsText: e.target.checked } })}
+                              className="w-4 h-4 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <Label htmlFor="show-duration-as-text" className="text-white/80">Show duration as separate text</Label>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Paused Behavior */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">When Paused / Not Playing</h4>
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Behavior</Label>
+                          <select
+                            className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                            value={cfg.fields.pausedMode ?? "label"}
+                            onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, pausedMode: (e.target.value as "label" | "transparent") } })}
+                          >
+                            <option value="label">Show card with label</option>
+                            <option value="transparent">Hide card (transparent)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-white/80">Paused Text (when no album art)</Label>
+                          <input
+                            type="text"
+                            className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                            value={cfg.fields.pausedText || "Paused"}
+                            onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, pausedText: e.target.value } })}
+                            placeholder="Paused"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Marquee */}
+                      <div className="space-y-4">
+                        <h4 className="text-white font-medium">Marquee Scrolling</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-white/80">Speed ({cfg.marquee?.speedPxPerSec ?? 24}px/s)</Label>
+                            <div className="px-2">
+                              <input
+                                type="range"
+                                min={4}
+                                max={120}
+                                step={1}
+                                value={cfg.marquee?.speedPxPerSec ?? 24}
+                                onChange={(e) => setCfg({
+                                  ...cfg,
+                                  marquee: {
+                                    ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }),
+                                    speedPxPerSec: +e.target.value
+                                  }
+                                })}
+                                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-white/80">Gap ({cfg.marquee?.gapPx ?? 32}px)</Label>
+                            <div className="px-2">
+                              <input
+                                type="range"
+                                min={8}
+                                max={128}
+                                step={1}
+                                value={cfg.marquee?.gapPx ?? 32}
+                                onChange={(e) => setCfg({
+                                  ...cfg,
+                                  marquee: {
+                                    ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }),
+                                    gapPx: +e.target.value
+                                  }
+                                })}
+                                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Per-text Marquee Overrides - RESTORED */}
+                        <Card className="bg-neutral-900/30 border-white/10">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-white text-sm">Per-text Marquee Overrides</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              {(["title","artist","album"] as const).map((k) => (
+                                <Card key={k} className="bg-neutral-900/40 border-white/10">
+                                  <CardHeader className="pb-2">
+                                    <CardTitle className="text-white capitalize text-xs">{k}</CardTitle>
+                                  </CardHeader>
+                                  <CardContent className="pt-0 space-y-3">
+                                    <div className="space-y-1">
+                                      <Label className="text-white/70 text-xs">Speed ({cfg.marquee?.perText?.[k]?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}px/s)</Label>
+                                      <div className="px-1">
+                                        <input
+                                          type="range"
+                                          min={4}
+                                          max={120}
+                                          step={1}
+                                          value={cfg.marquee?.perText?.[k]?.speedPxPerSec ?? cfg.marquee?.speedPxPerSec ?? 24}
+                                          onChange={(e) => setCfg({
+                                            ...cfg,
+                                            marquee: {
+                                              ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }),
+                                              perText: {
+                                                ...(cfg.marquee?.perText ?? {}),
+                                                [k]: {
+                                                  ...(cfg.marquee?.perText?.[k] ?? {}),
+                                                  speedPxPerSec: +e.target.value
+                                                }
+                                              }
+                                            }
+                                          })}
+                                          className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-white/70 text-xs">Gap ({cfg.marquee?.perText?.[k]?.gapPx ?? cfg.marquee?.gapPx ?? 32}px)</Label>
+                                      <div className="px-1">
+                                        <input
+                                          type="range"
+                                          min={8}
+                                          max={128}
+                                          step={1}
+                                          value={cfg.marquee?.perText?.[k]?.gapPx ?? cfg.marquee?.gapPx ?? 32}
+                                          onChange={(e) => setCfg({
+                                            ...cfg,
+                                            marquee: {
+                                              ...(cfg.marquee ?? { speedPxPerSec: 24, gapPx: 32 }),
+                                              perText: {
+                                                ...(cfg.marquee?.perText ?? {}),
+                                                [k]: {
+                                                  ...(cfg.marquee?.perText?.[k] ?? {}),
+                                                  gapPx: +e.target.value
+                                                }
+                                              }
+                                            }
+                                          })}
+                                          className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer slider-thumb-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* History */}
+                      <div className="space-y-2">
+                        <Label className="text-white/80">History Count</Label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          className="w-full rounded-lg bg-neutral-800 border border-white/10 px-3 py-2 text-white"
+                          value={cfg.fields.history}
+                          onChange={(e) => setCfg({ ...cfg, fields: { ...cfg.fields, history: +e.target.value } })}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Description moved to bottom */}
+          <div className="mt-8 text-center text-white/70">
+            <p className="leading-relaxed max-w-3xl mx-auto">
+              Enter your Last.fm username, customize the card, and copy your unique link to use as a Browser Source in OBS. {" "}
+              <a href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noreferrer noopener" className="underline underline-offset-2 decoration-white/70 hover:decoration-white text-white">Set up scrobbles before using this app</a>.
+            </p>
+          </div>
+
+          {/* Polling rate notice */}
+          <div className="mt-4 text-center">
+            <p className="text-red-400/80 text-xs max-w-3xl mx-auto">
+              Please allow 1-3 seconds for the widget to update with the correct new track info. Things like duration are extremely unreliable.
+            </p>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}

@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dependencies (nested workspaces)
+node_modules/
+
+# build output
+dist/
+build/
+.svelte-kit/
+.wrangler/
+
+# worker / local secret files (not covered by .env*)
+.dev.vars
+*.dev.vars
+.docker/*.env
