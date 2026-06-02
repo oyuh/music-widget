@@ -18,7 +18,29 @@
       `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#7c3aed'/><stop offset='0.55' stop-color='#db2777'/><stop offset='1' stop-color='#f59e0b'/></linearGradient></defs><rect width='300' height='300' fill='url(#g)'/></svg>`,
     );
 
-  onMount(() => editor.load());
+  onMount(() => {
+    editor.load();
+    editor.initHistory();
+
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const target = e.target as HTMLElement;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable) {
+        return; // let inputs handle their own undo
+      }
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        editor.undo();
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        editor.redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   onDestroy(() => np.destroy());
 
   // Live preview from the configured user (falls back to the sample below).
@@ -36,7 +58,10 @@
   $effect(() => {
     JSON.stringify(editor.config); // establish a deep dependency
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => editor.save(), 300);
+    saveTimer = setTimeout(() => {
+      editor.commitIfChanged();
+      editor.save();
+    }, 350);
   });
 
   const isPlaceholder = (u?: string) => !!u && /2a96cbd8b46e442fc41c2b86b821562f/i.test(u);

@@ -36,6 +36,7 @@
   let artZone = $state<"left" | "right" | "top" | null>(null);
 
   const isText = (id: ElementId) => (TEXT_ELEMENTS as readonly string[]).includes(id);
+  const selIsText = $derived(!!editor.selected && isText(editor.selected));
 
   // Track the selected element's box. Recomputes synchronously whenever the
   // selection or config changes (edits, drag) — getBoundingClientRect forces a
@@ -112,7 +113,7 @@
     else if (id === "art") startArtDrag(e);
   }
 
-  function startResize(e: PointerEvent, kind: "wh" | "w" | "h" | "art") {
+  function startResize(e: PointerEvent, kind: "wh" | "w" | "h" | "art" | "text") {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
@@ -121,12 +122,18 @@
     const bw = L.w;
     const bh = L.h;
     const ba = L.artSize;
+    const sel = editor.selected;
+    const textKey = sel && isText(sel) ? (sel as "title" | "artist" | "album" | "duration") : null;
+    const baseSize = textKey ? editor.config.theme.textSize![textKey] : 0;
     bindDrag((ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       if (kind === "wh" || kind === "w") L.w = Math.max(120, Math.round(bw + dx));
       if (kind === "wh" || kind === "h") L.h = Math.max(60, Math.round(bh + dy));
       if (kind === "art") L.artSize = Math.max(24, Math.round(ba + Math.max(dx, dy)));
+      if (kind === "text" && textKey) {
+        editor.config.theme.textSize![textKey] = Math.max(8, Math.min(120, Math.round(baseSize + Math.max(dx, dy) / 3)));
+      }
     });
   }
 </script>
@@ -138,6 +145,30 @@
   role="application"
   aria-label="Widget canvas"
 >
+  <!-- Undo / redo toolbar -->
+  <div class="absolute top-3 left-3 z-30 flex gap-1">
+    <button
+      onpointerdown={(e) => e.stopPropagation()}
+      onclick={() => editor.undo()}
+      disabled={!editor.canUndo}
+      title="Undo (Ctrl+Z)"
+      aria-label="Undo"
+      class="rounded-md border border-border bg-card px-2.5 py-1 text-sm shadow-sm transition hover:bg-muted disabled:opacity-40"
+    >
+      ↶
+    </button>
+    <button
+      onpointerdown={(e) => e.stopPropagation()}
+      onclick={() => editor.redo()}
+      disabled={!editor.canRedo}
+      title="Redo (Ctrl+Shift+Z)"
+      aria-label="Redo"
+      class="rounded-md border border-border bg-card px-2.5 py-1 text-sm shadow-sm transition hover:bg-muted disabled:opacity-40"
+    >
+      ↷
+    </button>
+  </div>
+
   <div bind:this={wrapperEl} class="relative">
     <Widget
       cfg={editor.config}
@@ -158,7 +189,7 @@
       {#each ["left", "right", "top"] as z (z)}
         <div
           class="pointer-events-none absolute rounded-md border-2 border-dashed transition-colors {artZone === z
-            ? 'border-blue-400 bg-blue-400/10'
+            ? 'border-white bg-white/15'
             : 'border-white/30'}"
           style={z === "top"
             ? "left:0;top:0;right:0;height:38%"
@@ -174,35 +205,45 @@
       <div
         class="pointer-events-none absolute z-10"
         style="left:{selRect.x - 1}px;top:{selRect.y -
-          1}px;width:{selRect.w + 2}px;height:{selRect.h + 2}px;border:2px solid #3b82f6;border-radius:4px"
+          1}px;width:{selRect.w +
+          2}px;height:{selRect.h +
+          2}px;border:2px solid #000;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,0.85)"
       ></div>
 
       {#if editor.selected === "background"}
         <!-- widget resize handles -->
         <button
           aria-label="resize width and height"
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "wh")}
         ></button>
         <button
           aria-label="resize width"
-          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
+          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-black"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
           onpointerdown={(e) => startResize(e, "w")}
         ></button>
         <button
           aria-label="resize height"
-          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-blue-500"
+          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-black"
           style="left:{selRect.x + selRect.w / 2 - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "h")}
         ></button>
       {:else if editor.selected === "art"}
         <button
           aria-label="resize album art"
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "art")}
+        ></button>
+      {:else if selIsText}
+        <button
+          aria-label="resize text size"
+          title="Drag to resize text"
+          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-black"
+          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
+          onpointerdown={(e) => startResize(e, "text")}
         ></button>
       {/if}
     {/if}
