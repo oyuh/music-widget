@@ -54,3 +54,4 @@ build/
 .dev.vars
 *.dev.vars
 .docker/*.env
+docs/

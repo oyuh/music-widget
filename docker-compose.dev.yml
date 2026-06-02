@@ -1,3 +1,5 @@
+# Local development cache only. The app (Hono + Vite) runs directly on the host
+# via `bun run dev`; this just provides a Redis instance for `bun run dev:server`.
 services:
   redis:
     image: redis:7-alpine
@@ -9,18 +11,3 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .docker/local.env
-    environment:
-      REDIS_URL: redis://redis:6379
-      VITE_LFM_CALLBACK: http://localhost:8787/callback
-    ports:
-      - "8787:8787"
-    depends_on:
-      redis:
-        condition: service_healthy
