@@ -287,14 +287,13 @@
 
 {#snippet artEl(justify: string)}
   {#if cfg.layout.showArt && imgUrl}
-    <div data-el="art" style="position:relative;display:inline-block">
+    <div data-el="art" style="position:relative;display:inline-block;justify-self:{justify}">
       <img
         src={imgUrl}
         alt=""
         onload={onArtLoad}
         style="width:{cfg.layout.artSize}px;height:{cfg.layout.artSize}px;object-fit:cover;border-radius:{cfg.layout
-          .artRadius ?? 12}px;justify-self:{justify};{cfg.theme.dropShadow?.enabled &&
-        cfg.theme.dropShadow.targets?.albumArt
+          .artRadius ?? 12}px;{cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt
           ? `box-shadow:${boxShadow('#000000')}`
           : ''}"
       />
@@ -394,7 +393,7 @@
       {@render textCol()}
       {@render artEl("end")}
     {:else}
-      {@render artEl(cfg.layout.align === "center" ? "center" : "start")}
+      {@render artEl(artPos === "top" ? "center" : cfg.layout.align === "center" ? "center" : "start")}
       {@render textCol()}
     {/if}
     {@render pausedNoArt()}
