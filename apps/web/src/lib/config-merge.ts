@@ -54,6 +54,10 @@ export function mergeConfig(partial: Partial<WidgetConfig> | null | undefined): 
     layout: {
       ...d.layout,
       ...p.layout,
+      progressOffset: {
+        x: p.layout?.progressOffset?.x ?? d.layout.progressOffset?.x ?? 0,
+        y: p.layout?.progressOffset?.y ?? d.layout.progressOffset?.y ?? 0,
+      },
       textOffset: {
         title: { ...d.layout.textOffset!.title, ...p.layout?.textOffset?.title },
         artist: { ...d.layout.textOffset!.artist, ...p.layout?.textOffset?.artist },

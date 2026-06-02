@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ELEMENTS, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
+  import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
 
   interface Props {
     editor: EditorState;
@@ -34,6 +35,28 @@
   function onUserInput() {
     editor.save();
   }
+
+  let newPresetName = $state("");
+  let copiedPresetId = $state<string | null>(null);
+
+  function savePreset() {
+    editor.saveCurrentAsPreset(newPresetName);
+    newPresetName = "";
+  }
+
+  async function copyPresetLink(id: string) {
+    try {
+      await navigator.clipboard.writeText(editor.presetShareUrl(id));
+      copiedPresetId = id;
+      setTimeout(() => {
+        if (copiedPresetId === id) copiedPresetId = null;
+      }, 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const pillCls = "rounded border border-border px-1.5 py-0.5 text-[11px] transition hover:bg-muted";
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
@@ -117,6 +140,66 @@
     >
       Reset to default
     </button>
+  </section>
+
+  <!-- Saved presets -->
+  <section class="flex flex-col gap-2">
+    <div class="flex items-center justify-between">
+      <div class="text-xs font-medium text-muted-foreground uppercase">My Presets</div>
+      <div class="text-[11px] text-muted-foreground">{editor.customPresets.length}/10</div>
+    </div>
+    <div class="flex gap-2">
+      <input
+        type="text"
+        bind:value={newPresetName}
+        placeholder="preset name"
+        maxlength="24"
+        spellcheck="false"
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+      />
+      <button
+        type="button"
+        onclick={savePreset}
+        disabled={!editor.canSavePreset}
+        title={editor.canSavePreset ? "Save current look" : "Limit of 10 reached"}
+        class="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-40"
+      >
+        Save
+      </button>
+    </div>
+
+    {#each editor.customPresets as p (p.id)}
+      <div class="rounded-md border border-border p-2">
+        <div class="mb-1.5 truncate text-xs font-medium" title={p.name}>{p.name}</div>
+        <div class="flex flex-wrap gap-1">
+          <ConfirmButton
+            label="Apply"
+            confirmLabel="Apply?"
+            class={pillCls}
+            onconfirm={() => editor.applyCustomPreset(p.id)}
+          />
+          <ConfirmButton
+            label="Override"
+            confirmLabel="Override?"
+            class={pillCls}
+            onconfirm={() => editor.overridePreset(p.id)}
+          />
+          <ConfirmButton
+            label="Delete"
+            confirmLabel="Delete?"
+            class="{pillCls} text-red-400"
+            onconfirm={() => editor.deletePreset(p.id)}
+          />
+          <button type="button" onclick={() => copyPresetLink(p.id)} class={pillCls}>
+            {copiedPresetId === p.id ? "Copied!" : "🔗 Link"}
+          </button>
+        </div>
+      </div>
+    {/each}
+
+    {#if editor.customPresets.length === 0}
+      <p class="text-[11px] text-muted-foreground">Save the current look to reuse it later.</p>
+    {/if}
   </section>
 
   <!-- Element list -->

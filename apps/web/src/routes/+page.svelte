@@ -20,15 +20,19 @@
 
   onMount(() => {
     editor.load();
+    editor.loadPresets();
     editor.initHistory();
 
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
       const target = e.target as HTMLElement;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable) {
-        return; // let inputs handle their own undo
-      }
+      const isTextField =
+        (target instanceof HTMLInputElement &&
+          ["text", "search", "url", "email", "password", "number", "tel"].includes(target.type)) ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable;
+      if (isTextField) return; // let text fields handle their own undo
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -57,6 +61,7 @@
   let saveTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
     JSON.stringify(editor.config); // establish a deep dependency
+    editor.dirty = true; // enable undo immediately; cleared when the commit settles
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       editor.commitIfChanged();

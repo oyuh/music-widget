@@ -36,7 +36,11 @@ export class EditorState {
   // History: up to 5 undo steps (+ redo). Snapshots coalesce per discrete edit.
   undoStack = $state<WidgetConfig[]>([]);
   redoStack = $state<WidgetConfig[]>([]);
+  dirty = $state(false);
   #lastCommitted = "";
+
+  // Custom presets (localStorage), up to 10.
+  customPresets = $state<{ id: string; name: string; config: WidgetConfig }[]>([]);
 
   /** Load from the URL hash, then localStorage, then defaults; apply any connected session. */
   load() {
@@ -128,8 +132,7 @@ export class EditorState {
    */
   commitIfChanged() {
     const now = JSON.stringify(this.config);
-    if (now === this.#lastCommitted) return;
-    if (this.#lastCommitted) {
+    if (now !== this.#lastCommitted && this.#lastCommitted) {
       try {
         this.undoStack.push(freshConfig(JSON.parse(this.#lastCommitted)));
         if (this.undoStack.length > 5) this.undoStack.shift();
@@ -139,23 +142,26 @@ export class EditorState {
       }
     }
     this.#lastCommitted = now;
+    this.dirty = false;
   }
 
+  // Enabled as soon as there's an uncommitted change, so undo feels instant.
   get canUndo() {
-    return this.undoStack.length > 0;
+    return this.undoStack.length > 0 || this.dirty;
   }
   get canRedo() {
     return this.redoStack.length > 0;
   }
 
   undo() {
-    this.commitIfChanged();
+    this.commitIfChanged(); // flush any pending edit into history first
     const prev = this.undoStack.pop();
     if (!prev) return;
     this.redoStack.push(freshConfig(this.config));
     if (this.redoStack.length > 5) this.redoStack.shift();
     this.config = freshConfig(prev);
     this.#lastCommitted = JSON.stringify(this.config);
+    this.dirty = false;
     this.save();
   }
 
@@ -166,7 +172,70 @@ export class EditorState {
     if (this.undoStack.length > 5) this.undoStack.shift();
     this.config = freshConfig(next);
     this.#lastCommitted = JSON.stringify(this.config);
+    this.dirty = false;
     this.save();
+  }
+
+  // ---- custom presets (localStorage, up to 10) ----
+  loadPresets() {
+    if (typeof window === "undefined") return;
+    try {
+      const s = localStorage.getItem("mw:presets");
+      if (s) this.customPresets = JSON.parse(s);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  #savePresets() {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("mw:presets", JSON.stringify(this.customPresets));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  get canSavePreset() {
+    return this.customPresets.length < 10;
+  }
+
+  /** Snapshot the current look (without user/session) as a named preset. */
+  saveCurrentAsPreset(name: string) {
+    if (this.customPresets.length >= 10) return;
+    const config = freshConfig({ ...this.config, lfmUser: "", sessionKey: null });
+    this.customPresets.push({
+      id: crypto.randomUUID(),
+      name: name.trim() || `Preset ${this.customPresets.length + 1}`,
+      config,
+    });
+    this.#savePresets();
+  }
+
+  overridePreset(id: string) {
+    const p = this.customPresets.find((x) => x.id === id);
+    if (!p) return;
+    p.config = freshConfig({ ...this.config, lfmUser: "", sessionKey: null });
+    this.#savePresets();
+  }
+
+  deletePreset(id: string) {
+    this.customPresets = this.customPresets.filter((x) => x.id !== id);
+    this.#savePresets();
+  }
+
+  applyCustomPreset(id: string) {
+    const p = this.customPresets.find((x) => x.id === id);
+    if (p) this.applyPreset(p.config);
+  }
+
+  /** Share URL for a preset, with the editor's current Last.fm user/session injected. */
+  presetShareUrl(id: string) {
+    if (typeof window === "undefined") return "";
+    const p = this.customPresets.find((x) => x.id === id);
+    if (!p) return "";
+    const cfg = { ...p.config, lfmUser: this.config.lfmUser, sessionKey: this.config.sessionKey };
+    return `${window.location.origin}/w#${encodeConfig(cfg)}`;
   }
 }
 

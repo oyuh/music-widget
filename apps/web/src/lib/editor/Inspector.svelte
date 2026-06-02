@@ -131,6 +131,11 @@
   {:else if sel === "progress"}
     <!-- ===== Progress bar ===== -->
     <Toggle bind:checked={cfg.fields.progress} label="Show progress bar" />
+    <Slider bind:value={cfg.layout.progressWidth!} min={0} max={600} label="Width (0 = full)" suffix="px" />
+    <div class="grid grid-cols-2 gap-2">
+      <Slider bind:value={cfg.layout.progressOffset!.x} min={-200} max={200} label="Nudge X" suffix="px" />
+      <Slider bind:value={cfg.layout.progressOffset!.y} min={-100} max={100} label="Nudge Y" suffix="px" />
+    </div>
     <Toggle bind:checked={cfg.fields.duration!} label="Track duration" />
     <Toggle bind:checked={cfg.fields.showDurationOnProgress!} label="Show duration under bar" />
   {:else}
