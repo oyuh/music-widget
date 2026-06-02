@@ -156,7 +156,7 @@
 
 <div
   bind:this={canvasEl}
-  class="canvas-checker relative grid h-full w-full place-items-center overflow-auto p-8 select-none"
+  class="canvas-checker relative flex h-full w-full flex-col overflow-hidden select-none"
   onpointerdown={onCanvasDown}
   role="application"
   aria-label="Widget canvas"
@@ -185,7 +185,8 @@
     </button>
   </div>
 
-  <div bind:this={wrapperEl} class="relative">
+  <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
+    <div bind:this={wrapperEl} class="relative">
     <Widget
       cfg={editor.config}
       {isLive}
@@ -269,9 +270,30 @@
         ></button>
       {/if}
     {/if}
+    </div>
   </div>
 
-  <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
-    click to select · drag text to move · drag art to reposition
-  </div>
+  <footer
+    class="shrink-0 border-t border-white/10 bg-black/40 px-4 py-2.5 text-center text-[11px] leading-relaxed text-muted-foreground backdrop-blur-sm"
+  >
+    <div>Click an element to select · drag text/art to move · drag a handle to resize.</div>
+    <div class="mt-1">
+      Needs a free
+      <a class="underline hover:text-foreground" href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer"
+        >Last.fm</a
+      >
+      account — connect your music service (Spotify, Apple Music, etc.) under
+      <a
+        class="underline hover:text-foreground"
+        href="https://www.last.fm/settings/applications"
+        target="_blank"
+        rel="noopener noreferrer">Last.fm → Applications</a
+      >
+      so it scrobbles what you play, then enter your username in the sidebar.
+    </div>
+    <div class="mt-1 opacity-75">
+      Album art and track data belong to their respective owners. Not affiliated with or endorsed by Last.fm, Spotify, or
+      Apple — respect artwork &amp; content copyright.
+    </div>
+  </footer>
 </div>

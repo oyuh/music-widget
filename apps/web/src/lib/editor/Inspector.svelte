@@ -26,7 +26,7 @@
     duration: "Duration",
   };
 
-  const inputCls = "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm";
+  const inputCls = "w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-sm";
   const selectCls = inputCls;
 </script>
 
