@@ -1,195 +1,89 @@
-# Deployment
+# Deployment (Railway)
 
-This project deploys as:
+The app deploys as **one Railway service** (Bun + Hono serving the SvelteKit SPA
+and the API) plus a **Railway Redis** database. No Cloudflare, no Vercel.
 
-- Frontend: Vite React static assets.
-- API: Cloudflare Worker.
-- Static hosting: Cloudflare Workers Static Assets.
-- Shared cache: Railway Redis through Railway TCP Proxy.
-- Local full-stack test: Docker Compose with app + local Redis.
+Build is driven by the repo `Dockerfile` (multi-stage `oven/bun`: install →
+build the SPA → run the server). `railway.json` points at it and uses
+`/api/ping` as the healthcheck.
 
-No Vercel or Node serverless functions are used in production.
+## 1. Create the project
 
-## 1. Verify Locally
+1. Push the branch you want to deploy (e.g. `the-refactor`, which doubles as
+   staging):
+   ```bash
+   git push -u origin the-refactor
+   ```
+2. Railway → **New Project → Deploy from GitHub repo** → select the repo → set
+   the **deploy branch** to `the-refactor`.
+   - (CLI alternative: `railway login` → `railway init` → `railway up`.)
 
-Install dependencies:
+## 2. Add Redis
 
-```bash
-bun install
-```
+In the project: **New → Database → Redis**.
 
-Run checks:
+## 3. Set variables on the app service
 
-```bash
-bun run typecheck
-bun run build
-```
+| Variable | Value | When |
+|---|---|---|
+| `LFM_API_KEY` | your Last.fm API key | runtime |
+| `LFM_SHARED_SECRET` | your Last.fm shared secret | runtime (**secret**) |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` | runtime (private networking) |
+| `VITE_LFM_KEY` | the same Last.fm API key (public) | **build** |
+| `VITE_LFM_CALLBACK` | `https://<your-domain>/callback` | **build** |
 
-Run the Docker full-stack test:
+`PORT` is injected by Railway automatically. Railway passes service variables as
+Docker build args, and the `Dockerfile` declares `ARG VITE_LFM_KEY`,
+`ARG VITE_LFM_CALLBACK`, `ARG VITE_COMMIT`/`ARG RAILWAY_GIT_COMMIT_SHA`, so the
+public values get inlined into the SPA at build time.
 
-```bash
-bun run docker:dev -- --detach
-```
+> **Build-time vs runtime matters.** `VITE_*` values are baked into the browser
+> bundle during the build. `VITE_LFM_CALLBACK` in particular must be the final
+> public domain **before** you build — otherwise the "Connect" button points at
+> the wrong place. Change the domain later → redeploy.
 
-Check the local Worker:
+## 4. Domain
 
-```bash
-curl http://127.0.0.1:8787/api/health
-curl "http://127.0.0.1:8787/api/lastfm/recent?user=rj&limit=1"
-```
+Settings → Networking → **Generate Domain** (e.g. `…up.railway.app`). Set
+`VITE_LFM_CALLBACK` to `https://<that-domain>/callback` and redeploy so it's
+baked in. (Custom-domain cutover is in §7.)
 
-Expected:
+## 5. Last.fm app settings
 
-- `/api/health` returns Redis `connected`.
-- A valid Last.fm user returns `200`.
-- Repeating the same recent-track request quickly returns `x-cache: L1`.
+In your Last.fm API account, set the **Callback URL** to
+`https://<your-domain>/callback`.
 
-Stop local containers when finished:
-
-```bash
-bun run docker:down
-```
-
-## 2. Create Railway Redis
-
-1. Create/open the Railway project.
-2. Add a Redis database service.
-3. Open the Redis service settings.
-4. Enable TCP Proxy for Redis.
-5. Copy the TCP Proxy hostname and port.
-
-Do not use a `*.railway.internal` hostname for Cloudflare. Workers run outside Railway and need the public TCP Proxy.
-
-Build the production `REDIS_URL`:
+## 6. Smoke test
 
 ```bash
-redis://default:<password>@<tcp-proxy-host>:<tcp-proxy-port>
+curl https://<domain>/api/ping       # {"ok":true}
+curl https://<domain>/api/health     # {"ok":true,"redis":"connected"}
+curl -i "https://<domain>/api/lastfm/recent?user=rj&limit=1"  # 200 (fallback path)
 ```
 
-Example shape:
+Then in a browser: open `/`, set a username, drag things, **Copy widget URL**,
+open `/w#…`, and try **Connect** (private profile). Public widgets call Last.fm
+directly from the browser, so most traffic never touches the server.
 
-```bash
-redis://default:password@shuttle.proxy.rlwy.net:15140
-```
+## 7. Zero-downtime cutover from Vercel
 
-Use `rediss://` only if your Railway Redis proxy is configured for TLS.
+The live domain (e.g. `apple.jamlog.lol`) currently points at Vercel. Move it
+**after** the Railway deploy is verified on its `…up.railway.app` URL.
 
-## 3. Configure Cloudflare Worker
+1. **Lower the DNS TTL** for the `apple` record (to e.g. 300s) a little ahead of
+   time, wherever DNS for `jamlog.lol` is managed.
+2. Railway → app service → Settings → Networking → **Custom Domain** → add
+   `apple.jamlog.lol`. Railway shows a **CNAME target** and provisions a cert.
+3. Make sure `VITE_LFM_CALLBACK=https://apple.jamlog.lol/callback` is set and the
+   service has been **redeployed** with it (so the built SPA uses the real
+   callback), and the Last.fm callback URL matches.
+4. In your DNS provider, change the `apple` **CNAME** from the Vercel target to
+   the Railway target.
+5. During propagation both hosts serve correctly (Vercel = old build, Railway =
+   new), so there's no downtime. Once it's fully propagated and verified, you can
+   remove the domain from Vercel / retire the Vercel project.
+6. Merge `the-refactor` → `main` once you're happy.
 
-Log in to Cloudflare from your local machine:
-
-```bash
-cd apps/api
-bunx wrangler login
-```
-
-Set production secrets:
-
-```bash
-wrangler secret put LFM_API_KEY
-wrangler secret put LFM_SHARED_SECRET
-wrangler secret put REDIS_URL
-```
-
-Secret meanings:
-
-- `LFM_API_KEY`: Last.fm API key.
-- `LFM_SHARED_SECRET`: Last.fm shared secret for session exchange/signatures.
-- `REDIS_URL`: Railway Redis TCP Proxy connection string.
-
-Keep these out of Git. The public Vite values are separate:
-
-```bash
-VITE_LFM_KEY=your-lastfm-api-key
-VITE_LFM_CALLBACK=https://your-production-domain/callback
-```
-
-Set Vite values in `.env.local` before building locally, or in CI build environment variables if CI deploys the Worker.
-
-## 4. Review Worker Config
-
-Worker config lives in:
-
-```text
-apps/api/wrangler.toml
-```
-
-Important production settings:
-
-```toml
-name = "music-widget"
-main = "src/index.ts"
-compatibility_flags = ["nodejs_compat"]
-
-[assets]
-directory = "../web/dist"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/robots.txt", "/sitemap.xml"]
-```
-
-Change `name` if needed before the first deploy.
-
-## 5. Deploy
-
-From the repo root:
-
-```bash
-bun run deploy
-```
-
-This builds `apps/web/dist`, then runs `wrangler deploy` from `apps/api`.
-
-## 6. Add Domain
-
-You can use the default `workers.dev` URL or attach a custom domain in Cloudflare:
-
-1. Open Cloudflare dashboard.
-2. Go to Workers & Pages.
-3. Select the deployed Worker.
-4. Add a custom domain or route.
-5. Update `VITE_LFM_CALLBACK` / Last.fm callback URL to match:
-
-```text
-https://your-domain/callback
-```
-
-Then rebuild and redeploy so the frontend auth link uses the production callback.
-
-## 7. Post-Deploy Smoke Tests
-
-```bash
-curl https://your-domain/api/health
-curl -i "https://your-domain/api/lastfm/recent?user=rj&limit=1"
-curl -i "https://your-domain/api/lastfm/trackInfo?artist=Radiohead&track=Creep"
-```
-
-Expected:
-
-- Health returns `{"ok":true,"redis":"connected"}`.
-- Recent tracks returns `200` for a valid public Last.fm user.
-- A repeat recent-track request returns `x-cache: L1` or `x-cache: REDIS`.
-- Track info returns `200`.
-
-Also manually test:
-
-- `/`
-- `/w#<existing-widget-config>`
-- `/callback?token=<lastfm-token>`
-- Private profile connection flow.
-
-## Troubleshooting
-
-- `500 Server missing Last.fm credentials`: set `LFM_API_KEY` and `LFM_SHARED_SECRET` as Worker secrets.
-- `/api/health` says `disabled`: `REDIS_URL` is not configured for the Worker.
-- `/api/health` says `error`: Cloudflare cannot reach Railway Redis. Check TCP Proxy host, port, password, and whether you accidentally used `*.railway.internal`.
-- Recent route returns `400 {"message":"User not found","error":6}`: Last.fm rejected the username.
-- Local Docker requests hang: rebuild the image. The Dockerfile must include Node and CA certificates.
-- Last.fm HTTPS fails in Docker with a certificate error: rebuild the latest Docker image so `ca-certificates` is installed.
-
-## References
-
-- Cloudflare Workers Static Assets routing: https://developers.cloudflare.com/workers/static-assets/routing/worker-script/
-- Cloudflare Workers secrets: https://developers.cloudflare.com/workers/configuration/secrets/
-- Railway Redis: https://docs.railway.com/databases/redis
-- Railway TCP Proxy: https://docs.railway.com/networking/tcp-proxy
+> Private networking note: `${{Redis.REDIS_URL}}` resolves to
+> `redis.railway.internal` (IPv6); `Bun.redis` handles it. If `/api/health` ever
+> reports `error`, fall back to the Redis service's public connection URL.

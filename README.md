@@ -1,51 +1,54 @@
 # Fast Music Last.fm Widget for Streaming
 
-A customizable Last.fm now playing widget for OBS, XSplit, Streamlabs, and other streaming software.
+A customizable Last.fm now-playing widget for OBS, XSplit, Streamlabs, and other
+streaming software — with a visual, drag-and-drop editor.
 
-## Quick Start
+Built as a Bun monorepo: a **SvelteKit** SPA editor + widget, and a **Hono/Bun**
+server, deployed as one **Railway** service. Public Last.fm calls go directly
+from each viewer's browser, so it scales to hundreds of concurrent widgets
+without hitting Last.fm's per-IP rate limits.
 
-1. **Setup Last.fm Scrobbling**: Make sure your music player is scrobbling to Last.fm
-2. **Get Widget URL**: Go to [fast.jamlog.lol](https://fast.jamlog.lol) and customize your widget
-3. **Copy Widget URL**: Click "Copy"
-4. **Add to Streaming Software**:
-   - **OBS**: Add Browser Source → Paste URL
-   - **XSplit**: Add Web Page → Paste URL
-   - **Streamlabs**: Add Browser Source → Paste URL
+## Quick Start (using the hosted app)
 
-## Development Setup
+1. Make sure your music player is **scrobbling to Last.fm**.
+2. Go to [fast.jamlog.lol](https://fast.jamlog.lol), enter your Last.fm username,
+   and design your widget (click elements, drag to move, resize, tweak in the
+   inspector).
+3. Click **Copy widget URL**.
+4. Add it to your streaming software as a **Browser Source** (OBS / Streamlabs)
+   or **Web Page** (XSplit).
+
+Your settings live in the URL hash, so the copied URL carries your whole design.
+Want faster updates? Use the **"Use your own API key"** option in the editor.
+
+## Development
+
+Requires [Bun](https://bun.sh) 1.3+.
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run redis:up   # optional local Redis (Docker)
+bun run dev        # Vite UI :5173 + Hono API :8787
 ```
 
-Visit `http://localhost:3000` to customize your widget.
+Open <http://localhost:5173>. See [`docs/local-development.md`](docs/local-development.md).
 
-## Configuration
+## Docs
 
-All widget settings are stored in the URL hash, so your customizations persist when you copy the widget URL.
-
-## Support
-
-Having issues? Make sure:
-- Your music is scrobbling to Last.fm
-- The widget URL includes your customizations
-- Your streaming software browser source has the correct dimensions
-
----
+- [Architecture](docs/architecture.md) — how it's wired and why it scales.
+- [Local development](docs/local-development.md)
+- [Deployment](docs/deployment.md) — Railway + Redis + domain cutover.
 
 ## License
 
-Permission is hereby granted to use, copy, and modify this software for personal use, including local hosting and streaming integration.
+Permission is hereby granted to use, copy, and modify this software for personal
+use, including local hosting and streaming integration.
 
 **Restrictions:**
 - You may NOT redistribute, publish, or claim this code as your own
 - Commercial redistribution requires explicit permission from the author
 - Contact the author for redistribution rights
 
-**Contributions:**
-- Contributions are welcome and encouraged
-- Contributors will receive appropriate credit
-- By contributing, you agree to these license terms
+**Contributions** are welcome and credited; by contributing you agree to these terms.
 
-[**Email Me For Contact**](mailto:me@lawsonhart.me)
+[**Email me**](mailto:me@lawsonhart.me)
