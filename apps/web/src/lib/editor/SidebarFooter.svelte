@@ -25,6 +25,27 @@
           ? "Offline"
           : "Checking…",
   );
+
+  const lfmDot = $derived(
+    serviceStatus.lastfm === "ok"
+      ? "bg-green-500"
+      : serviceStatus.lastfm === "rate-limited"
+        ? "bg-amber-500"
+        : serviceStatus.lastfm === "unknown"
+          ? "bg-zinc-500"
+          : "bg-red-500",
+  );
+  const lfmLabel = $derived(
+    serviceStatus.lastfm === "ok"
+      ? "Last.fm OK"
+      : serviceStatus.lastfm === "rate-limited"
+        ? "Last.fm busy"
+        : serviceStatus.lastfm === "key-suspended"
+          ? "Last.fm key suspended"
+          : serviceStatus.lastfm === "down"
+            ? "Last.fm down"
+            : "Last.fm …",
+  );
 </script>
 
 <div class="flex items-center justify-between">
@@ -39,7 +60,11 @@
     <span class="opacity-35" title="Usage looks healthy.">ok</span>
   {/if}
 </div>
-<div class="mt-1 opacity-55">
+<div class="mt-1 flex items-center justify-between opacity-70">
+  <span class="flex items-center gap-1.5" title="Last.fm API status">
+    <span class="h-1.5 w-1.5 rounded-full {lfmDot}"></span>
+    <span>{lfmLabel}</span>
+  </span>
   <a href="{repo}/commit/{commit}" target="_blank" rel="noopener noreferrer" class="hover:text-foreground">
     build {commit}
   </a>
