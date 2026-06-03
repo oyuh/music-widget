@@ -1,5 +1,6 @@
-# Local development cache only. The app (Hono + Vite) runs directly on the host
-# via `bun run dev`; this just provides a Redis instance for `bun run dev:server`.
+# Local development backing services. The app (Hono + Vite) runs directly on the
+# host via `bun run dev`; this provides Redis (cache) and Postgres (usage log) for
+# `bun run dev:server`. Data is ephemeral — no volumes are mounted.
 services:
   redis:
     image: redis:7-alpine
@@ -8,6 +9,21 @@ services:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: applem
+    command: ["postgres", "-c", "fsync=off"] # faster; dev data is disposable
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
       timeout: 2s
       retries: 20

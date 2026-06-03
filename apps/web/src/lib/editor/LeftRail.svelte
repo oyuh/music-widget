@@ -3,6 +3,8 @@
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
+  import SetupModal from "$lib/editor/SetupModal.svelte";
+  import { recordWidgetCopy } from "$lib/usage";
 
   interface Props {
     editor: EditorState;
@@ -10,6 +12,7 @@
   let { editor }: Props = $props();
 
   let copied = $state(false);
+  let setupOpen = $state(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   // Recomputes whenever the config changes (exportHash reads it).
@@ -23,6 +26,7 @@
     } catch {
       /* ignore */
     }
+    recordWidgetCopy(editor.config.lfmUser ?? "");
   }
 
   function connect() {
@@ -143,19 +147,18 @@
         onclick={copyShare}
         class="flex-1 rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
       >
-        {copied ? "Copied!" : "Copy widget URL"}
+        {copied ? "Copied!" : "Copy URL"}
       </button>
-      <a
-        href={shareUrl}
-        target="_blank"
-        rel="noopener"
+      <button
+        type="button"
+        onclick={() => (setupOpen = true)}
         class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
       >
-        Open ↗
-      </a>
+        Add to stream →
+      </button>
     </div>
     <p class="text-[11px] leading-snug text-muted-foreground">
-      Add this URL as an OBS Browser Source.
+      Use it as a browser source in OBS, Streamlabs, XSplit and more.
     </p>
   </section>
 
@@ -286,7 +289,7 @@
 
   <!-- Sidebar footer -->
   <footer class="font-pixel mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-    <SidebarFooter />
+    <SidebarFooter lfmUser={editor.config.lfmUser} />
   </footer>
 </div>
 
@@ -358,3 +361,11 @@
     </div>
   </div>
 {/if}
+
+<SetupModal
+  bind:open={setupOpen}
+  url={shareUrl}
+  width={editor.config.layout.w}
+  height={editor.config.layout.h}
+  lfmUser={editor.config.lfmUser}
+/>
