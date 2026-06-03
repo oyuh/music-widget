@@ -7,6 +7,12 @@
   import { NowPlaying } from "$lib/nowplaying.svelte";
   import { resolveApiKey } from "$lib/lastfm-client";
   import { ensureGoogleFonts } from "$lib/fonts";
+  import { isMobileDevice } from "$lib/device";
+  import MobileGate from "$lib/MobileGate.svelte";
+
+  // The editor needs a pointer + a wide screen — gate mobile to a simple page.
+  // (The /w widget route is a separate page and stays usable everywhere.)
+  const mobile = isMobileDevice();
 
   const editor = new EditorState();
   const np = new NowPlaying();
@@ -20,6 +26,7 @@
     );
 
   onMount(() => {
+    if (mobile) return; // no editor on mobile
     editor.load();
     editor.loadPresets();
     editor.initHistory();
@@ -71,17 +78,20 @@
 
   // Live preview from the configured user (falls back to the sample below).
   $effect(() => {
+    if (mobile) return;
     np.setSource(editor.config.lfmUser ?? "", editor.config.sessionKey ?? null, resolveApiKey(editor.config.apiKey));
   });
 
   // Keep Google Fonts in sync with the design.
   $effect(() => {
+    if (mobile) return;
     ensureGoogleFonts(editor.config);
   });
 
   // Autosave to localStorage (debounced).
   let saveTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
+    if (mobile) return;
     JSON.stringify(editor.config); // establish a deep dependency
     editor.dirty = true; // enable undo immediately; cleared when the commit settles
     clearTimeout(saveTimer);
@@ -109,30 +119,34 @@
 </script>
 
 <svelte:head>
-  <title>Music Widget — Editor</title>
+  <title>Last.fm Music Widget</title>
 </svelte:head>
 
-<div class="font-mono-ui grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
-  <aside class="min-h-0 border-r border-border bg-sidebar">
-    <LeftRail {editor} />
-  </aside>
+{#if mobile}
+  <MobileGate />
+{:else}
+  <div class="font-mono-ui grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
+    <aside class="min-h-0 border-r border-border bg-sidebar">
+      <LeftRail {editor} />
+    </aside>
 
-  <main class="min-h-0 overflow-hidden">
-    <Canvas
-      {editor}
-      isLive={hasLive ? np.isLive : true}
-      isPaused={hasLive ? np.isPaused : false}
-      percent={hasLive ? np.percent : 35}
-      progressMs={hasLive ? np.progressMs : 63000}
-      durationMs={hasLive ? np.durationMs : 180000}
-      title={dTitle}
-      artist={dArtist}
-      album={dAlbum}
-      art={dArt}
-    />
-  </main>
+    <main class="min-h-0 overflow-hidden">
+      <Canvas
+        {editor}
+        isLive={hasLive ? np.isLive : true}
+        isPaused={hasLive ? np.isPaused : false}
+        percent={hasLive ? np.percent : 35}
+        progressMs={hasLive ? np.progressMs : 63000}
+        durationMs={hasLive ? np.durationMs : 180000}
+        title={dTitle}
+        artist={dArtist}
+        album={dAlbum}
+        art={dArt}
+      />
+    </main>
 
-  <aside class="min-h-0 border-l border-border bg-sidebar">
-    <Inspector {editor} />
-  </aside>
-</div>
+    <aside class="min-h-0 border-l border-border bg-sidebar">
+      <Inspector {editor} />
+    </aside>
+  </div>
+{/if}
