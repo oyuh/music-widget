@@ -3,7 +3,9 @@ import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
+import { handleContact, handleWidgetLog } from "./analytics";
 import { redisEnabled, redisPing } from "./redis";
+import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk } from "./security";
 import { json, xmlEscape } from "./util";
 import { log } from "./log";
@@ -65,16 +67,28 @@ app.options("/api/*", () => new Response(null, { status: 204 }));
 app.get("/api/ping", () => json({ ok: true }));
 
 app.get("/api/health", async () => {
-  if (!redisEnabled()) return json({ ok: true, redis: "disabled" });
+  // Postgres backs only the optional usage log, so its status is informational
+  // and never changes the response code.
+  let db = "disabled";
+  if (dbEnabled()) {
+    try {
+      db = (await dbPing()) ? "connected" : "unhealthy";
+    } catch {
+      db = "error";
+    }
+  }
+
+  if (!redisEnabled()) return json({ ok: true, redis: "disabled", db });
 
   try {
     const ok = await redisPing();
-    return json({ ok: true, redis: ok ? "connected" : "unhealthy" }, { status: ok ? 200 : 503 });
+    return json({ ok: true, redis: ok ? "connected" : "unhealthy", db }, { status: ok ? 200 : 503 });
   } catch (error) {
     return json(
       {
         ok: false,
         redis: "error",
+        db,
         error: error instanceof Error ? error.message : String(error),
       },
       { status: 503 },
@@ -86,6 +100,8 @@ app.get("/api/lastfm/recent", handleRecent);
 app.get("/api/lastfm/trackInfo", handleTrackInfo);
 app.post("/api/lastfm/session", handleSession);
 app.get("/api/proxy-image", handleProxyImage);
+app.post("/api/log/widget", handleWidgetLog);
+app.post("/api/contact", handleContact);
 
 app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
 
@@ -169,6 +185,7 @@ const port = Number(process.env.PORT) || 8787;
 log("info", "server.start", {
   port,
   redis: redisEnabled() ? "configured" : "disabled",
+  db: dbEnabled() ? "configured" : "disabled",
   webDir: WEB_DIR,
 });
 

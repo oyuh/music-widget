@@ -6,6 +6,7 @@
   import { ensureGoogleFonts } from "$lib/fonts";
   import { NowPlaying } from "$lib/nowplaying.svelte";
   import { resolveApiKey } from "$lib/lastfm-client";
+  import { recordWidgetOpen } from "$lib/usage";
 
   let cfg = $state<WidgetConfig>(defaultConfig);
   const np = new NowPlaying();
@@ -29,6 +30,37 @@
   // Load required Google Fonts.
   $effect(() => {
     ensureGoogleFonts(cfg);
+  });
+
+  // Log this widget open once per page load. Prefer to include the current song,
+  // but don't wait forever — a user who isn't playing anything still counts.
+  let logged = false;
+  $effect(() => {
+    const user = cfg.lfmUser ?? "";
+    if (logged || !user) return;
+
+    const fire = () => {
+      if (logged) return;
+      logged = true;
+      recordWidgetOpen(
+        user,
+        np.track
+          ? {
+              name: np.track.name,
+              artist: np.track.artist?.["#text"],
+              album: np.track.album?.["#text"],
+              isPlaying: np.isLive,
+            }
+          : undefined,
+      );
+    };
+
+    if (np.track) {
+      fire();
+      return;
+    }
+    const t = setTimeout(fire, 4000);
+    return () => clearTimeout(t);
   });
 
   // Transparent page so the widget embeds cleanly as an OBS browser source.

@@ -33,6 +33,24 @@ export async function rateLimitOk(ip: string, reqId: string): Promise<{ ok: bool
   }
 }
 
+/**
+ * Generic fixed-window limiter for a single named action (e.g. usage logging or
+ * the contact form), separate from the global per-IP limit above. `bucket`
+ * scopes the counter (typically a client IP). Fails OPEN when Redis is down.
+ */
+export async function rateLimit(action: string, bucketId: string, max: number, windowSeconds: number): Promise<boolean> {
+  if (!redisEnabled()) return true;
+  try {
+    const window = Math.floor(Date.now() / 1000 / windowSeconds);
+    const key = `rl:${action}:${bucketId}:${window}`;
+    const count = await redisIncr(key);
+    if (count === 1) await redisExpire(key, windowSeconds);
+    return count <= max;
+  } catch {
+    return true; // fail open
+  }
+}
+
 // --- Image proxy host allowlist ------------------------------------------
 // The image proxy must only fetch known album-art CDNs, otherwise it becomes an
 // open proxy / SSRF vector (fetching internal hosts, arbitrary sites, etc.).
