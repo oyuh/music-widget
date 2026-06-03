@@ -29,8 +29,24 @@ In the project: **New → Database → Postgres**. This powers the widget usage 
 song, metadata) and the contact-email form. It's **optional**: with no
 `DATABASE_URL` set, the endpoints no-op / 503 (fail open). Tables are created via
 **Drizzle migrations applied automatically on the server's first write** — no
-manual migration step. When you change `apps/server/src/schema.ts`, run
-`bun run db:generate` and commit the new file in `apps/server/drizzle/`.
+manual migration step needed.
+
+When you change `apps/server/src/schema.ts`, run `bun run db:generate` and commit
+the new file in `apps/server/drizzle/`; it's applied on the next deploy's first
+write.
+
+To apply migrations **manually** (e.g. ahead of a deploy), point `DATABASE_URL`
+at the target and run `bun run db:migrate` (a Bun script using the same migrator
+the server runs — drizzle-kit's CLI can't connect via Bun's SQL driver). For
+Railway prod use the database's **public** connection URL (the private
+`*.railway.internal` host only resolves inside Railway), and pass it inline so it
+doesn't linger in your shell or `.env`:
+
+```powershell
+$env:DATABASE_URL = "postgres://...public-railway-url..."
+bun run db:migrate
+Remove-Item Env:\DATABASE_URL
+```
 
 Query it any time from the Railway Postgres console, e.g.:
 
