@@ -22,6 +22,27 @@ build the SPA → run the server). `railway.json` points at it and uses
 
 In the project: **New → Database → Redis**.
 
+## 2b. Add Postgres (usage log)
+
+In the project: **New → Database → Postgres**. This powers the widget usage log
+(which Last.fm usernames open/copy the overlay, plus device fingerprint, current
+song, metadata) and the contact-email form. It's **optional**: with no
+`DATABASE_URL` set, the endpoints no-op / 503 (fail open). Tables are created via
+**Drizzle migrations applied automatically on the server's first write** — no
+manual migration step. When you change `apps/server/src/schema.ts`, run
+`bun run db:generate` and commit the new file in `apps/server/drizzle/`.
+
+Query it any time from the Railway Postgres console, e.g.:
+
+```sql
+-- most-active widgets (deduped per user+device+event)
+select last_seen_at, event, lfm_user, seen_count, track_name, track_artist
+from widget_events order by last_seen_at desc limit 50;
+
+-- contact emails with their linked Last.fm username (for outage notices)
+select email, lfm_user, updated_at from contacts order by updated_at desc;
+```
+
 ## 3. Set variables on the app service
 
 | Variable | Value | When |
@@ -29,6 +50,7 @@ In the project: **New → Database → Redis**.
 | `LFM_API_KEY` | your Last.fm API key | runtime |
 | `LFM_SHARED_SECRET` | your Last.fm shared secret | runtime (**secret**) |
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` | runtime (private networking) |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | runtime (private networking) — enables the usage log |
 | `VITE_LFM_KEY` | the same Last.fm API key (public) | **build** |
 | `VITE_LFM_CALLBACK` | `https://<your-domain>/callback` | **build** |
 
@@ -57,8 +79,14 @@ In your Last.fm API account, set the **Callback URL** to
 
 ```bash
 curl https://<domain>/api/ping       # {"ok":true}
-curl https://<domain>/api/health     # {"ok":true,"redis":"connected"}
+curl https://<domain>/api/health     # {"ok":true,"redis":"connected","db":"connected"}
 curl -i "https://<domain>/api/lastfm/recent?user=rj&limit=1"  # 200 (fallback path)
+curl -i -X POST https://<domain>/api/log/widget \
+  -H 'content-type: application/json' \
+  -d '{"event":"open","lfmUser":"rj","fp":"test"}'            # 204 (silent)
+curl -i -X POST https://<domain>/api/contact \
+  -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","lfmUser":"rj","fp":"test"}'  # {"ok":true}
 ```
 
 Then in a browser: open `/`, set a username, drag things, **Copy widget URL**,
