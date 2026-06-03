@@ -69,6 +69,25 @@
   }
 
   const pillCls = "rounded border border-border px-1.5 py-0.5 text-[11px] transition hover:bg-muted";
+
+  // ---- BYOK (bring your own Last.fm API key) ----
+  let byokOpen = $state(false);
+  let byokKey = $state("");
+  function openByok() {
+    byokKey = editor.config.apiKey ?? "";
+    byokOpen = true;
+  }
+  function saveByok() {
+    editor.config.apiKey = byokKey.trim() || null;
+    editor.save();
+    byokOpen = false;
+  }
+  function clearByok() {
+    editor.config.apiKey = null;
+    byokKey = "";
+    editor.save();
+    byokOpen = false;
+  }
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
@@ -104,6 +123,15 @@
         Connect for private profile
       </button>
     {/if}
+    <button
+      type="button"
+      onclick={openByok}
+      class="text-left text-[11px] {editor.config.apiKey
+        ? 'text-green-400'
+        : 'text-muted-foreground'} hover:text-foreground"
+    >
+      {editor.config.apiKey ? "✓ Using your own API key · edit" : "Use your own API key (faster) →"}
+    </button>
   </section>
 
   <!-- Share -->
@@ -261,3 +289,72 @@
     <SidebarFooter />
   </footer>
 </div>
+
+{#if byokOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    onclick={() => (byokOpen = false)}
+    role="presentation"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="w-full max-w-md rounded-lg border border-border bg-card p-4 text-card-foreground"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <h2 class="text-base font-semibold tracking-tight">Use your own Last.fm API key</h2>
+      <p class="mt-1 text-xs text-muted-foreground">
+        Optional. Your widget makes requests with your key — faster updates, isolated from everyone else.
+      </p>
+      <ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
+        <li>
+          Open
+          <a class="text-primary underline" href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer"
+            >last.fm/api/account/create</a
+          >
+          (while logged in).
+        </li>
+        <li>Give it any name/description (e.g. "my widget") — no callback URL needed.</li>
+        <li>Copy the <strong>API key</strong> it shows and paste it below.</li>
+      </ol>
+      <input
+        type="text"
+        bind:value={byokKey}
+        placeholder="paste your API key"
+        spellcheck="false"
+        class="mt-3 w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-xs"
+      />
+      <p class="mt-2 text-[11px] text-amber-500/80">
+        Heads up: your key is saved in the widget URL — keep that URL private.
+      </p>
+      <div class="mt-3 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onclick={clearByok}
+          class="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+        >
+          Remove
+        </button>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            onclick={() => (byokOpen = false)}
+            class="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onclick={saveByok}
+            class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}

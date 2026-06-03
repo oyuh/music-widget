@@ -121,12 +121,11 @@ export function generateElementDropShadowCSS(
   return generateDropShadowCSS(effectiveConfig, baseColor);
 }
 
-export async function extractDominantColor(imgUrl: string): Promise<string | null> {
+function extractFrom(src: string, crossOrigin: boolean): Promise<string | null> {
   return new Promise((resolve) => {
     try {
       const img = new Image();
-      // crossOrigin is useful for remote images; blob/data URLs don't need it
-      if (!/^blob:|^data:/i.test(imgUrl)) {
+      if (crossOrigin) {
         img.crossOrigin = 'anonymous';
       }
       img.onload = () => {
@@ -189,15 +188,18 @@ export async function extractDominantColor(imgUrl: string): Promise<string | nul
         }
       };
       img.onerror = () => resolve(null);
-      // If we already have a blob/data URL, use it directly; otherwise go via proxy
-      if (/^blob:|^data:/i.test(imgUrl)) {
-        img.src = imgUrl;
-      } else {
-        const proxied = `/api/proxy-image?url=${encodeURIComponent(imgUrl)}`;
-        img.src = proxied;
-      }
+      img.src = src;
     } catch {
       resolve(null);
     }
   });
+}
+
+export async function extractDominantColor(imgUrl: string): Promise<string | null> {
+  if (/^blob:|^data:/i.test(imgUrl)) return extractFrom(imgUrl, false);
+  // Album-art CDNs are CORS-enabled, so read directly from the user's browser
+  // (no server load); fall back to our proxy only if the direct read fails.
+  const direct = await extractFrom(imgUrl, true);
+  if (direct) return direct;
+  return extractFrom(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`, true);
 }

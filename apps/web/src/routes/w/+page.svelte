@@ -5,6 +5,7 @@
   import { mergeConfigFromHash } from "$lib/config-merge";
   import { ensureGoogleFonts } from "$lib/fonts";
   import { NowPlaying } from "$lib/nowplaying.svelte";
+  import { resolveApiKey } from "$lib/lastfm-client";
 
   let cfg = $state<WidgetConfig>(defaultConfig);
   const np = new NowPlaying();
@@ -19,9 +20,10 @@
     return () => window.removeEventListener("hashchange", read);
   });
 
-  // Drive live polling from the configured user.
+  // Drive live polling from the configured user (direct Last.fm for public,
+  // using a BYOK key when present).
   $effect(() => {
-    np.setSource(cfg.lfmUser ?? "", cfg.sessionKey ?? null);
+    np.setSource(cfg.lfmUser ?? "", cfg.sessionKey ?? null, resolveApiKey(cfg.apiKey));
   });
 
   // Load required Google Fonts.

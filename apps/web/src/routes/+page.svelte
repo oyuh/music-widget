@@ -5,6 +5,7 @@
   import Inspector from "$lib/editor/Inspector.svelte";
   import { EditorState, TEXT_ELEMENTS } from "$lib/editor.svelte";
   import { NowPlaying } from "$lib/nowplaying.svelte";
+  import { resolveApiKey } from "$lib/lastfm-client";
   import { ensureGoogleFonts } from "$lib/fonts";
 
   const editor = new EditorState();
@@ -70,7 +71,7 @@
 
   // Live preview from the configured user (falls back to the sample below).
   $effect(() => {
-    np.setSource(editor.config.lfmUser ?? "", editor.config.sessionKey ?? null);
+    np.setSource(editor.config.lfmUser ?? "", editor.config.sessionKey ?? null, resolveApiKey(editor.config.apiKey));
   });
 
   // Keep Google Fonts in sync with the design.

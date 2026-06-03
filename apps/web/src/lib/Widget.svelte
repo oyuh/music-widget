@@ -47,45 +47,10 @@
 
   const artSrc = $derived((art || "").trim());
 
-  // ---- album art -> proxied blob URL ----
-  let imgUrl = $state("");
-  $effect(() => {
-    const src = artSrc;
-    let active = true;
-    let obj: string | null = null;
-    (async () => {
-      if (!src) {
-        imgUrl = "";
-        return;
-      }
-      // data:/blob: URLs (editor sample art) are already local — use directly.
-      if (/^(data|blob):/i.test(src)) {
-        imgUrl = src;
-        return;
-      }
-      try {
-        const r = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
-        if (!r.ok) {
-          if (active) imgUrl = "";
-          return;
-        }
-        const b = await r.blob();
-        const u = URL.createObjectURL(b);
-        if (!active) {
-          URL.revokeObjectURL(u);
-          return;
-        }
-        obj = u;
-        imgUrl = u;
-      } catch {
-        if (active) imgUrl = "";
-      }
-    })();
-    return () => {
-      active = false;
-      if (obj) URL.revokeObjectURL(obj);
-    };
-  });
+  // ---- album art ----
+  // CDNs serve art directly to the browser (no server proxy needed for display);
+  // color extraction reads it directly too, with the proxy only as a fallback.
+  let imgUrl = $derived(artSrc);
 
   // ---- auto-from-art colors ----
   let computedText = $state<Record<TextEl, string>>({

@@ -1,4 +1,4 @@
-import { serviceStatus } from "./status.svelte";
+import { fetchRecent, fetchTrackInfo } from "./lastfm-client";
 
 export type LfmTrack = {
   name: string;
@@ -11,11 +11,13 @@ export type LfmTrack = {
   date?: { uts: string };
 };
 
+// Client-side calls hit Last.fm from each user's own IP, so these can be
+// snappier than the old shared-proxy intervals without risking rate limits.
 const INTERVALS = {
-  FAST: 3000,
-  NORMAL: 6000,
-  SLOW: 12000,
-  IDLE: 24000,
+  FAST: 2500,
+  NORMAL: 5000,
+  SLOW: 10000,
+  IDLE: 20000,
 } as const;
 
 const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keypress", "scroll", "touchstart", "click", "focus"];
@@ -41,6 +43,7 @@ export class NowPlaying {
   // ---- non-reactive bookkeeping ----
   #username = "";
   #sessionKey: string | null = null;
+  #apiKey = "";
   #started = false;
 
   #lastId = "";
@@ -76,10 +79,17 @@ export class NowPlaying {
   isPositionEstimated = $derived(this.#estimatedStartOffset > 0);
 
   /** (Re)point at a user; restarts polling when the source changes. */
-  setSource(username: string, sessionKey: string | null = null) {
-    if (this.#started && username === this.#username && sessionKey === this.#sessionKey) return;
+  setSource(username: string, sessionKey: string | null = null, apiKey = "") {
+    if (
+      this.#started &&
+      username === this.#username &&
+      sessionKey === this.#sessionKey &&
+      apiKey === this.#apiKey
+    )
+      return;
     this.#username = username;
     this.#sessionKey = sessionKey;
+    this.#apiKey = apiKey;
     this.#restart();
   }
 
@@ -140,12 +150,6 @@ export class NowPlaying {
     }
   }
 
-  #recentUrl(limit: number) {
-    const u = encodeURIComponent(this.#username);
-    const base = `/api/lastfm/recent?user=${u}&limit=${limit}`;
-    return this.#sessionKey ? `${base}&sk=${encodeURIComponent(this.#sessionKey)}` : base;
-  }
-
   async #fetchNow() {
     try {
       const now = Date.now();
@@ -154,17 +158,16 @@ export class NowPlaying {
         return;
       }
 
-      const res = await fetch(this.#recentUrl(1), {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache, no-store, must-revalidate", Pragma: "no-cache" },
-      });
-      if (res.status === 429) serviceStatus.markRateLimited();
-      if (!res.ok) {
+      const data = (await fetchRecent({
+        user: this.#username,
+        limit: 1,
+        apiKey: this.#apiKey,
+        sessionKey: this.#sessionKey,
+      })) as Record<string, any>;
+      if (data.error) {
         this.#consecutiveErrors++;
-        throw new Error(`nowPlaying ${res.status}`);
+        throw new Error(data.message || `Last.fm error ${data.error}`);
       }
-      const data = await res.json();
-      if (data.error) throw new Error(data.message || `Last.fm error ${data.error}`);
 
       const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
       this.#lastUpdate = now;
@@ -238,11 +241,12 @@ export class NowPlaying {
 
   async #fetchDuration(tr: LfmTrack) {
     try {
-      const a = encodeURIComponent(tr.artist["#text"]);
-      const t = encodeURIComponent(tr.name);
-      let url = `/api/lastfm/trackInfo?artist=${a}&track=${t}`;
-      if (this.#sessionKey) url += `&sk=${encodeURIComponent(this.#sessionKey)}`;
-      const info = await (await fetch(url)).json();
+      const info = (await fetchTrackInfo({
+        artist: tr.artist["#text"],
+        track: tr.name,
+        apiKey: this.#apiKey,
+        sessionKey: this.#sessionKey,
+      })) as Record<string, any>;
       const dur = Number(info?.track?.duration ?? 0);
       this.durationMs = dur > 0 ? dur : null;
     } catch {
@@ -290,9 +294,12 @@ export class NowPlaying {
 
   async #estimatePosition(track: LfmTrack): Promise<number> {
     try {
-      const res = await fetch(this.#recentUrl(10), { cache: "no-store" });
-      if (!res.ok) return 0;
-      const data = await res.json();
+      const data = (await fetchRecent({
+        user: this.#username,
+        limit: 10,
+        apiKey: this.#apiKey,
+        sessionKey: this.#sessionKey,
+      })) as Record<string, any>;
       const recent: LfmTrack[] = data?.recenttracks?.track || [];
 
       let foundRecentMatch = false;
