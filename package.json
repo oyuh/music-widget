@@ -11,6 +11,7 @@
     "build:web": "bun run --filter @music-widget/web build",
     "start": "bun apps/server/src/index.ts",
     "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun test",
     "redis:up": "docker compose -f docker-compose.dev.yml up -d",
     "redis:down": "docker compose -f docker-compose.dev.yml down"
   },
