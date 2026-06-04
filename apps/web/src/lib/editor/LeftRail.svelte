@@ -2,9 +2,16 @@
   import { ELEMENTS, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
+  import Collapsible from "$lib/ui/Collapsible.svelte";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
   import SetupModal from "$lib/editor/SetupModal.svelte";
   import { recordWidgetCopy } from "$lib/usage";
+
+  // Collapsible sections (collapsed by default to declutter; the Last.fm,
+  // Share, Elements and status sections always stay open).
+  let importOpen = $state(false);
+  let presetsOpen = $state(false);
+  let myPresetsOpen = $state(false);
 
   interface Props {
     editor: EditorState;
@@ -163,8 +170,7 @@
   </section>
 
   <!-- Import -->
-  <section class="flex flex-col gap-2">
-    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Import</div>
+  <Collapsible title="Import" bind:open={importOpen}>
     <input
       type="text"
       bind:value={importText}
@@ -184,11 +190,10 @@
     {#if importMsg}
       <p class="text-[11px] {importOk ? 'text-green-400' : 'text-destructive'}">{importMsg}</p>
     {/if}
-  </section>
+  </Collapsible>
 
   <!-- Presets -->
-  <section class="flex flex-col gap-2">
-    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Presets</div>
+  <Collapsible title="Presets" bind:open={presetsOpen}>
     <div class="grid grid-cols-2 gap-2">
       {#each PRESETS as p (p.name)}
         <button
@@ -207,14 +212,10 @@
     >
       Reset to default
     </button>
-  </section>
+  </Collapsible>
 
   <!-- Saved presets -->
-  <section class="flex flex-col gap-2">
-    <div class="flex items-center justify-between">
-      <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">My Presets</div>
-      <div class="text-[11px] text-muted-foreground">{editor.customPresets.length}/10</div>
-    </div>
+  <Collapsible title="My Presets" bind:open={myPresetsOpen} badge="{editor.customPresets.length}/10">
     <div class="flex gap-2">
       <input
         type="text"
@@ -267,7 +268,7 @@
     {#if editor.customPresets.length === 0}
       <p class="text-[11px] text-muted-foreground">Save the current look to reuse it later.</p>
     {/if}
-  </section>
+  </Collapsible>
 
   <!-- Element list -->
   <section class="flex flex-col gap-1">
