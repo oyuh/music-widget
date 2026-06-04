@@ -1,5 +1,86 @@
 // src/utils/config.ts
+
+// ---- v2 element-based layout (additive; legacy renderer ignores these) ----
+// `version` rides along in the encoded base64 so the renderer/editor know which
+// engine a design uses: absent/1 => legacy grid, 2 => v2 free-positioned.
+export const V2_ELEMENT_IDS = [
+  "background",
+  "art",
+  "title",
+  "artist",
+  "album",
+  "progress",
+  "duration",
+] as const;
+export type V2ElementId = (typeof V2_ELEMENT_IDS)[number];
+export const V2_TEXT_IDS = ["title", "artist", "album", "duration"] as const;
+export type V2TextId = (typeof V2_TEXT_IDS)[number];
+
+/** Which edge of an element an axis anchors against. */
+export type V2Edge = "start" | "center" | "end";
+
+/** An anchored relationship for one axis: this element's edge tracks another's. */
+export type V2Snap = {
+  to: V2ElementId; // anchor element
+  myEdge: V2Edge; // which edge of THIS element snaps
+  toEdge: V2Edge; // to which edge of the anchor element
+  offset: number; // px gap captured at drop time
+} | null;
+
+export type V2Shadow = {
+  enabled: boolean;
+  blur: number;
+  intensity: number; // 0-100 opacity %
+  offsetX: number;
+  offsetY: number;
+  useOppositeColor: boolean;
+  customColor?: string;
+};
+
+export type V2Scroll = {
+  enabled: boolean; // scroll when content overflows the box width
+  direction: "left" | "right" | "bounce";
+  speedPxPerSec: number;
+  gapPx: number;
+};
+
+/** Background fill mode (background element only). */
+export type V2Fill = "none" | "color" | "accent" | "art";
+
+export type V2Element = {
+  visible: boolean;
+  x: number; // free position (px) from the widget's top-left
+  y: number;
+  w: number | null; // px width; null = auto (content)
+  h: number | null; // px height; null = auto (content)
+  z: number; // stacking order
+  color: string; // text color / progress fill / bg color; "accent" => album/accent color
+  fill: V2Fill; // background element only: none/solid color/accent/blurred album art
+  fillOpacity: number; // background only: 0-100 opacity for the accent / album-art fill
+  anchor: "left" | "center" | "right"; // text horizontal anchor (ignored by non-text)
+  shadow: V2Shadow;
+  scroll: V2Scroll; // text elements only (ignored otherwise)
+  snapX: V2Snap; // null = free; set => overrides x (anchored relationship)
+  snapY: V2Snap; // null = free; set => overrides y
+  radius: number; // corner radius (art / background)
+  // Typography reuses theme.textSize/textStyle/textTransform/textFont[id].
+};
+
+export type V2SwitchAnim = {
+  type: "none" | "fade" | "slide";
+  direction: "up" | "down" | "left" | "right";
+  durationMs: number;
+  easing: string; // svelte/easing function name
+};
+
+export type WidgetV2 = {
+  elements: Record<V2ElementId, V2Element>;
+  switchAnim: V2SwitchAnim;
+};
+
 export type WidgetConfig = {
+  version?: 1 | 2; // absent/1 => legacy grid; 2 => v2 free layout
+  v2?: WidgetV2; // populated when version === 2
   lfmUser: string;
   sessionKey?: string | null; // Last.fm session key for private profile access
   apiKey?: string | null; // optional BYOK Last.fm API key — used client-side for faster, isolated requests
@@ -301,4 +382,209 @@ export function getUsedFonts(config: WidgetConfig): string[] {
   }
 
   return Array.from(fonts);
+}
+
+// ---- v2 migration ----
+
+export const DEFAULT_SWITCH_ANIM: V2SwitchAnim = {
+  type: "fade",
+  direction: "up",
+  durationMs: 350,
+  easing: "cubicOut",
+};
+
+/** Default per-axis snap is "none" (free position). */
+export function isV2(c: WidgetConfig | null | undefined): c is WidgetConfig & { v2: WidgetV2 } {
+  return !!c && c.version === 2 && !!c.v2;
+}
+
+/**
+ * Build a v2 element-based layout from a legacy (grid) config, reproducing the
+ * legacy look as closely as a free-positioned layout can. Carries over per-text
+ * color/size/shadow/scroll so an upgraded design renders almost identically.
+ * Returns a NEW config with version:2 + v2 set; legacy fields are preserved so
+ * the design degrades gracefully if the version flag is ever lost.
+ */
+export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
+  const L = cfg.layout;
+  const T = cfg.theme;
+  const pad = 12;
+  const gap = 12;
+  const ts = T.textSize ?? { title: 16, artist: 14, album: 12, meta: 12, duration: 11 };
+  const off = L.textOffset ?? {
+    title: { x: 0, y: 0 },
+    artist: { x: 0, y: 0 },
+    album: { x: 0, y: 0 },
+    meta: { x: 0, y: 0 },
+    duration: { x: 0, y: 0 },
+  };
+  const showArt = L.showArt;
+  const artSize = L.artSize;
+
+  // Art box + text-column geometry from the legacy art position.
+  let artX = pad;
+  let artY = pad;
+  let colX = pad;
+  let colW = L.w - pad * 2;
+  if (!showArt) {
+    colX = pad;
+    colW = L.w - pad * 2;
+  } else if (L.artPosition === "right") {
+    artX = L.w - pad - artSize;
+    artY = Math.max(pad, Math.round((L.h - artSize) / 2));
+    colX = pad;
+    colW = L.w - artSize - gap - pad * 2;
+  } else if (L.artPosition === "top") {
+    artX = Math.round((L.w - artSize) / 2);
+    artY = pad;
+    colX = pad;
+    colW = L.w - pad * 2;
+  } else {
+    // left (default)
+    artX = pad;
+    artY = Math.max(pad, Math.round((L.h - artSize) / 2));
+    colX = pad + artSize + gap;
+    colW = L.w - artSize - gap - pad * 2;
+  }
+
+  const lineH = (id: V2TextId) => Math.round((ts[id] ?? 12) * 1.4) + (L.textGap ?? 2);
+  const oppositeAlign = L.align === "right" ? "right" : L.align === "center" ? "center" : "left";
+
+  // Per-element drop shadow carried from the legacy global + per-text settings.
+  const ds = T.dropShadow;
+  const shadowFor = (target: "text" | "albumArt" | "progressBar" | "background", textId?: V2TextId): V2Shadow | undefined => {
+    if (!ds) return undefined;
+    const targetOn = ds.targets?.[target] ?? false;
+    const per = textId ? ds.perText?.[textId] : undefined;
+    return {
+      enabled: !!ds.enabled && targetOn && (per?.enabled ?? true),
+      blur: per?.blur ?? ds.blur,
+      intensity: per?.intensity ?? ds.intensity,
+      offsetX: per?.offsetX ?? ds.offsetX,
+      offsetY: per?.offsetY ?? ds.offsetY,
+      useOppositeColor: per?.useOppositeColor ?? ds.useOppositeColor,
+      customColor: per?.customColor ?? ds.customColor,
+    };
+  };
+
+  const baseSpeed = cfg.marquee?.speedPxPerSec ?? 24;
+  const baseGap = cfg.marquee?.gapPx ?? 32;
+  const noScroll = (): V2Scroll => ({ enabled: false, direction: "left", speedPxPerSec: baseSpeed, gapPx: baseGap });
+  const defaultShadow = (): V2Shadow => ({
+    enabled: false,
+    blur: ds?.blur ?? 4,
+    intensity: ds?.intensity ?? 50,
+    offsetX: ds?.offsetX ?? 2,
+    offsetY: ds?.offsetY ?? 2,
+    useOppositeColor: ds?.useOppositeColor ?? true,
+    customColor: ds?.customColor ?? "#000000",
+  });
+
+  const scrollFor = (id: V2TextId): V2Scroll => ({
+    enabled: true,
+    direction: L.align === "right" ? "right" : "left",
+    speedPxPerSec: cfg.marquee?.perText?.[id as "title" | "artist" | "album"]?.speedPxPerSec ?? baseSpeed,
+    gapPx: cfg.marquee?.perText?.[id as "title" | "artist" | "album"]?.gapPx ?? baseGap,
+  });
+
+  const makeText = (id: V2TextId, x: number, y: number, visible: boolean, z: number): V2Element => ({
+    visible,
+    x: Math.round(x + (off[id]?.x ?? 0)),
+    y: Math.round(y + (off[id]?.y ?? 0)),
+    w: null,
+    h: null,
+    z,
+    color: T.text[id] ?? "#ffffff",
+    fill: "color",
+    fillOpacity: 100,
+    anchor: oppositeAlign,
+    shadow: shadowFor("text", id) ?? defaultShadow(),
+    scroll: scrollFor(id),
+    snapX: null,
+    snapY: null,
+    radius: 0,
+  });
+
+  // Stack title / artist / album down the text column.
+  const colTop = showArt && L.artPosition === "top" ? artY + artSize + gap : pad + 4;
+  let y = colTop;
+  const title = makeText("title", colX, y, cfg.fields.title, 2);
+  y += lineH("title");
+  const artist = makeText("artist", colX, y, cfg.fields.artist, 3);
+  y += lineH("artist");
+  const album = makeText("album", colX, y, cfg.fields.album, 4);
+  if (cfg.fields.album) y += lineH("album");
+
+  // Progress bar below the text rows.
+  const progOff = L.progressOffset ?? { x: 0, y: 0 };
+  const progW = L.progressWidth && L.progressWidth > 0 ? L.progressWidth : colW;
+  const progY = y + 6;
+  const progress: V2Element = {
+    visible: cfg.fields.progress,
+    x: Math.round(colX + (progOff.x ?? 0)),
+    y: Math.round(progY + (progOff.y ?? 0)),
+    w: Math.max(20, Math.round(progW)),
+    h: 6,
+    z: 5,
+    color: "accent",
+    fill: "color",
+    fillOpacity: 100,
+    anchor: "left",
+    shadow: shadowFor("progressBar") ?? defaultShadow(),
+    scroll: noScroll(),
+    radius: 4,
+    snapX: null,
+    snapY: null,
+  };
+
+  // Duration text under the progress bar.
+  const duration = makeText("duration", colX, progY + 14, cfg.fields.duration ?? false, 6);
+
+  const elements: Record<V2ElementId, V2Element> = {
+    background: {
+      visible: true,
+      x: 0,
+      y: 0,
+      w: L.w,
+      h: L.h,
+      z: 0,
+      color: T.bg,
+      fill: (T.bgEnabled ?? true) ? "color" : "none",
+      fillOpacity: 100,
+      anchor: "left",
+      radius: L.backgroundRadius ?? 16,
+      shadow: shadowFor("background") ?? defaultShadow(),
+      scroll: noScroll(),
+      snapX: null,
+      snapY: null,
+    },
+    art: {
+      visible: showArt,
+      x: Math.round(artX),
+      y: Math.round(artY),
+      w: artSize,
+      h: artSize,
+      z: 1,
+      color: "#ffffff",
+      fill: "color",
+      fillOpacity: 100,
+      anchor: "left",
+      radius: L.artRadius ?? 12,
+      shadow: shadowFor("albumArt") ?? defaultShadow(),
+      scroll: noScroll(),
+      snapX: null,
+      snapY: null,
+    },
+    title,
+    artist,
+    album,
+    progress,
+    duration,
+  };
+
+  return {
+    ...cfg,
+    version: 2,
+    v2: { elements, switchAnim: { ...DEFAULT_SWITCH_ANIM } },
+  };
 }
