@@ -10,10 +10,10 @@
   const canSend = $derived(isValidEmail(email) && !sending);
 
   const resultMsg: Record<ContactResult, string> = {
-    ok: "Got it — we'll email you. See you on desktop!",
+    ok: "Got it , we'll email you. See you on desktop!",
     invalid: "Enter a valid email address.",
-    rate: "Too many tries — give it a few minutes.",
-    error: "Couldn't save — try again later.",
+    rate: "Too many tries , give it a few minutes.",
+    error: "Couldn't save , try again later.",
   };
 
   async function send() {
@@ -29,7 +29,7 @@
 <div class="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-background px-6 py-12 text-foreground">
   <div class="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-xl">
     <div class="font-pixel text-xs tracking-wide text-muted-foreground uppercase">fast.Jamlog.lol</div>
-    <h1 class="mt-2 text-xl font-semibold tracking-tight">Desktop only — for now</h1>
+    <h1 class="mt-2 text-xl font-semibold tracking-tight">Desktop only , for now</h1>
     <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
       The widget editor needs a mouse and a wider screen, so it only works on a computer. Drop your email
       and we'll remind you to set it up when you're back at your desk (we'll only email about that and outages).

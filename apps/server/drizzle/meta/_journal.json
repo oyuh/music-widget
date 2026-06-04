@@ -15,6 +15,13 @@
       "when": 1780559845765,
       "tag": "0001_misty_joystick",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780610162185,
+      "tag": "0002_feedback",
+      "breakpoints": true
     }
   ]
 }

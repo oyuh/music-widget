@@ -311,7 +311,7 @@
     >
       <h2 class="text-base font-semibold tracking-tight">Use your own Last.fm API key</h2>
       <p class="mt-1 text-xs text-muted-foreground">
-        Optional. Your widget makes requests with your key — faster updates, isolated from everyone else.
+        Optional. Your widget makes requests with your key , faster updates, isolated from everyone else.
       </p>
       <ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
         <li>
@@ -321,7 +321,7 @@
           >
           (while logged in).
         </li>
-        <li>Give it any name/description (e.g. "my widget") — no callback URL needed.</li>
+        <li>Give it any name/description (e.g. "my widget") , no callback URL needed.</li>
         <li>Copy the <strong>API key</strong> it shows and paste it below.</li>
       </ol>
       <input
@@ -332,7 +332,7 @@
         class="mt-3 w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-xs"
       />
       <p class="mt-2 text-[11px] text-amber-500/80">
-        Heads up: your key is saved in the widget URL — keep that URL private.
+        Heads up: your key is saved in the widget URL , keep that URL private.
       </p>
       <div class="mt-3 flex items-center justify-between gap-2">
         <button

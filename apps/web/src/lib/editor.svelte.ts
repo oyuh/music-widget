@@ -28,7 +28,7 @@ export type TextElementId = (typeof TEXT_ELEMENTS)[number];
 const STORAGE_KEY = "mw:config";
 
 /**
- * A fully-defaulted, deeply-cloned config — always in v2 form. JSON round-tripping
+ * A fully-defaulted, deeply-cloned config , always in v2 form. JSON round-tripping
  * strips any Svelte state proxies from the input (structuredClone throws on those)
  * and ensures the result shares no references with defaultConfig. Legacy configs
  * (no version flag) are upgraded to v2 so the editor only ever edits v2.

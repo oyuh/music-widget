@@ -1,5 +1,5 @@
 // Fire-and-forget visitor logging. We record which Last.fm usernames actually
-// use the site (plus a rough device fingerprint), so we can see real usage — not
+// use the site (plus a rough device fingerprint), so we can see real usage , not
 // what they're listening to. Strictly best-effort: it never throws and never
 // blocks the UI, and a username is required (anonymous visits are skipped).
 
@@ -9,7 +9,7 @@ let cachedFp: string | null = null;
 
 /**
  * A lightweight, stable-ish browser fingerprint. NOT for security or precise
- * identification — just enough to roughly distinguish devices in the log. It's a
+ * identification , just enough to roughly distinguish devices in the log. It's a
  * hash of a few stable signals, so it stays the same across reloads on a device.
  */
 export function browserFingerprint(): string {
@@ -57,7 +57,7 @@ function send(lfmUser: string) {
       }).catch(() => {});
     }
   } catch {
-    /* ignore — logging must never affect the widget */
+    /* ignore , logging must never affect the widget */
   }
 }
 
@@ -107,7 +107,110 @@ export async function submitContact(email: string, lfmUser: string): Promise<Con
   }
 }
 
-// cyrb53 — a tiny, fast, dependency-free 53-bit string hash. Good enough to turn
+export type FeedbackResult = "ok" | "empty" | "needEmail" | "invalid" | "rate" | "error";
+
+export interface FeedbackPayload {
+  name?: string;
+  email?: string;
+  handle?: string;
+  platform?: string;
+  good?: string;
+  bad?: string;
+  /** Opt into outage/event email alerts (also registers them as a contact). */
+  subscribe: boolean;
+  /** Their Last.fm username from the editor, if known. */
+  lfmUser?: string;
+}
+
+/**
+ * Submit feedback from the editor's modal. Validates locally first , needs at
+ * least one filled field, and a valid email when opting into alerts , then posts
+ * to /api/feedback (which also wires up the alert opt-in and recovers the
+ * username from the device fingerprint when it wasn't supplied). Returns a status
+ * the form can show.
+ */
+export async function submitFeedback(p: FeedbackPayload): Promise<FeedbackResult> {
+  if (typeof window === "undefined") return "error";
+
+  const trim = (v?: string) => (v ?? "").trim();
+  const email = trim(p.email);
+  const fields = {
+    name: trim(p.name),
+    email,
+    handle: trim(p.handle),
+    platform: trim(p.platform),
+    good: trim(p.good),
+    bad: trim(p.bad),
+  };
+
+  // Nothing to say , don't bother the server.
+  if (!fields.name && !fields.email && !fields.handle && !fields.good && !fields.bad) return "empty";
+  // Alerts need a deliverable address.
+  if (p.subscribe && !isValidEmail(email)) return "needEmail";
+
+  try {
+    const r = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: fields.name || null,
+        email: fields.email || null,
+        handle: fields.handle || null,
+        platform: fields.platform || null,
+        good: fields.good || null,
+        bad: fields.bad || null,
+        subscribe: p.subscribe,
+        lfmUser: trim(p.lfmUser) || null,
+        fp: browserFingerprint(),
+      }),
+    });
+    if (r.status === 429) return "rate";
+    if (r.status === 400) return "invalid";
+    if (!r.ok) return "error";
+    return "ok";
+  } catch {
+    return "error";
+  }
+}
+
+// ---- "Recently gave feedback" flag --------------------------------------
+// After someone submits feedback we hide the sidebar button for a week so we
+// don't nag them. Stored as a single timestamp in localStorage; treated as
+// expired (and cleared) once it's older than the window, so the entry never
+// lingers beyond 7 days.
+const FEEDBACK_SENT_KEY = "mw:feedbackSentAt";
+const FEEDBACK_HIDE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** Record that feedback was just sent, so the button hides for a week. */
+export function markFeedbackSent(): void {
+  try {
+    localStorage.setItem(FEEDBACK_SENT_KEY, String(Date.now()));
+  } catch {
+    /* private mode / storage disabled , no big deal */
+  }
+}
+
+/**
+ * True if feedback was sent within the last 7 days (so the button stays hidden).
+ * Self-healing: a missing, malformed, or expired entry returns false and is
+ * removed, so storage is only ever valid for the 7-day window.
+ */
+export function feedbackRecentlySent(): boolean {
+  try {
+    const raw = localStorage.getItem(FEEDBACK_SENT_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts) || Date.now() - ts > FEEDBACK_HIDE_MS) {
+      localStorage.removeItem(FEEDBACK_SENT_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// cyrb53 , a tiny, fast, dependency-free 53-bit string hash. Good enough to turn
 // the fingerprint signals into a short opaque id; not cryptographic.
 function cyrb53(str: string, seed = 0): string {
   let h1 = 0xdeadbeef ^ seed;

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { serviceStatus } from "$lib/status.svelte";
-  import { submitContact, isValidEmail, type ContactResult } from "$lib/usage";
+  import FeedbackModal from "$lib/editor/FeedbackModal.svelte";
+  import { feedbackRecentlySent } from "$lib/usage";
 
   interface Props {
     lfmUser?: string;
@@ -11,29 +12,15 @@
   const commit = __APP_COMMIT__;
   const repo = "https://github.com/oyuh/applem-util";
 
-  onMount(() => serviceStatus.start());
+  let feedbackOpen = $state(false);
+  // Hide the button for a week after someone submits (checked on mount because
+  // localStorage isn't available during the static prerender). See $lib/usage.
+  let feedbackHidden = $state(false);
 
-  // ---- Contact form ----
-  let email = $state("");
-  let sending = $state(false);
-  let result = $state<ContactResult | null>(null);
-  const canSend = $derived(isValidEmail(email) && !sending);
-
-  const resultMsg: Record<ContactResult, string> = {
-    ok: "Thanks! We'll only email about outages.",
-    invalid: "Enter a valid email address.",
-    rate: "Too many tries — give it a few minutes.",
-    error: "Couldn't save — try again later.",
-  };
-
-  async function send() {
-    if (!canSend) return;
-    sending = true;
-    result = null;
-    result = await submitContact(email, lfmUser);
-    sending = false;
-    if (result === "ok") email = "";
-  }
+  onMount(() => {
+    feedbackHidden = feedbackRecentlySent();
+    return serviceStatus.start();
+  });
 
   const dotColor = $derived(
     serviceStatus.state === "operational"
@@ -76,33 +63,20 @@
   );
 </script>
 
-<!-- Contact: email us so we can warn you about outages (linked to your username). -->
-<section class="mb-3 flex flex-col gap-1.5 border-b border-border pb-3">
-  <div class="font-medium text-foreground/80">Contact</div>
-  <p class="leading-snug opacity-70">Get more info about my services and the uptime of this service!</p>
-  <div class="flex gap-1.5">
-    <input
-      type="email"
-      bind:value={email}
-      onkeydown={(e) => e.key === "Enter" && send()}
-      placeholder="you@email.com"
-      autocomplete="email"
-      spellcheck="false"
-      class="min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2 py-1 text-[11px] text-foreground"
-    />
-    <button
-      type="button"
-      onclick={send}
-      disabled={!canSend}
-      class="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-40"
-    >
-      {sending ? "…" : "Notify me"}
-    </button>
-  </div>
-  {#if result}
-    <p class="text-[11px] {result === 'ok' ? 'text-green-400' : 'text-amber-500'}">{resultMsg[result]}</p>
-  {/if}
-</section>
+<!-- Feedback: opens a modal for free-form notes + an optional alert opt-in.
+     Hidden for a week after a submission (feedbackHidden). -->
+{#if !feedbackHidden}
+  <button
+    type="button"
+    onclick={() => (feedbackOpen = true)}
+    class="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-foreground/90 transition hover:bg-muted"
+  >
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1 16.1-3.8Z" />
+    </svg>
+    Give feedback!
+  </button>
+{/if}
 
 <div class="flex items-center justify-between">
   <span class="flex items-center gap-1.5">
@@ -111,7 +85,7 @@
   </span>
   <!-- Subtle abuse indicator: low-key when healthy, amber when throttled. -->
   {#if serviceStatus.rateLimited}
-    <span class="text-amber-500/80" title="You're being rate-limited — ease off for a moment.">throttled</span>
+    <span class="text-amber-500/80" title="You're being rate-limited , ease off for a moment.">throttled</span>
   {:else}
     <span class="opacity-35" title="Usage looks healthy.">ok</span>
   {/if}
@@ -125,3 +99,5 @@
     build {commit}
   </a>
 </div>
+
+<FeedbackModal bind:open={feedbackOpen} {lfmUser} onSubmitted={() => (feedbackHidden = true)} />

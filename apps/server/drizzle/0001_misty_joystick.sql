@@ -1,6 +1,6 @@
 DROP INDEX "widget_events_identity_idx";--> statement-breakpoint
--- Collapse pre-existing duplicate (lfm_user, fingerprint) rows — e.g. the old
--- separate "open" and "copy" rows for the same person — into one visitor before
+-- Collapse pre-existing duplicate (lfm_user, fingerprint) rows e.g. the old
+-- separate "open" and "copy" rows for the same person into one visitor before
 -- the new uniqueness is enforced. The most-recently-seen row survives and
 -- inherits the group's combined seen_count so visit totals aren't lost.
 UPDATE "widget_events" AS keep

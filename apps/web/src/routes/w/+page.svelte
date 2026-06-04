@@ -32,7 +32,7 @@
     ensureGoogleFonts(cfg);
   });
 
-  // Record this visitor once per page load — just who's using the site.
+  // Record this visitor once per page load , just who's using the site.
   let logged = false;
   $effect(() => {
     const user = cfg.lfmUser ?? "";
@@ -72,7 +72,7 @@
 </script>
 
 <svelte:head>
-  <title>{cfg.lfmUser ? `${title} — ${artist}` : "Widget"}</title>
+  <title>{cfg.lfmUser ? `${title} , ${artist}` : "Widget"}</title>
 </svelte:head>
 
 <Widget

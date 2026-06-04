@@ -53,7 +53,7 @@
   // ---- accent color ----
   // When "auto from art" is on, the accent is the album's dominant color;
   // otherwise it's the configured accent. Only elements whose color is "accent"
-  // follow it — every other element keeps its own explicit color.
+  // follow it , every other element keeps its own explicit color.
   let computedAccent = $state("#1db954");
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
