@@ -1,4 +1,13 @@
-import { decodeConfig, defaultConfig, type WidgetConfig } from "./config";
+import {
+  decodeConfig,
+  defaultConfig,
+  migrateToV2,
+  V2_ELEMENT_IDS,
+  type V2Element,
+  type V2ElementId,
+  type WidgetConfig,
+  type WidgetV2,
+} from "./config";
 
 /**
  * Deep-merge a partial config (from a /w#hash or storage) onto the defaults so
@@ -9,7 +18,7 @@ export function mergeConfig(partial: Partial<WidgetConfig> | null | undefined): 
   const p = partial ?? {};
   const d = defaultConfig;
 
-  return {
+  const result: WidgetConfig = {
     ...d,
     ...p,
     theme: {
@@ -72,6 +81,36 @@ export function mergeConfig(partial: Partial<WidgetConfig> | null | undefined): 
       perText: p.marquee?.perText ?? d.marquee?.perText,
     },
     fields: { ...d.fields, ...p.fields },
+  };
+
+  // v2 designs carry an element-based layout. Build a baseline from the merged
+  // legacy fields (so missing pieces are sensible) and overlay the partial v2.
+  if (p.version === 2) {
+    return { ...result, ...mergeV2(result, p.v2) };
+  }
+  return result;
+}
+
+/** Deep-merge a partial v2 block onto a baseline derived from the legacy fields. */
+function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<WidgetConfig, "version" | "v2"> {
+  const base = migrateToV2(legacyMerged).v2!;
+  const elements = {} as Record<V2ElementId, V2Element>;
+  for (const id of V2_ELEMENT_IDS) {
+    const b = base.elements[id];
+    const e: Partial<V2Element> = pv?.elements?.[id] ?? {};
+    elements[id] = {
+      ...b,
+      ...e,
+      shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
+      scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
+      // snapX/snapY can legitimately be null; preserve an explicit value.
+      snapX: e.snapX !== undefined ? e.snapX : b.snapX,
+      snapY: e.snapY !== undefined ? e.snapY : b.snapY,
+    };
+  }
+  return {
+    version: 2,
+    v2: { elements, switchAnim: { ...base.switchAnim, ...(pv?.switchAnim ?? {}) } },
   };
 }
 

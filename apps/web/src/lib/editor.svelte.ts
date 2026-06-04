@@ -1,4 +1,13 @@
-import { decodeConfig, defaultConfig, encodeConfig, type WidgetConfig } from "./config";
+import {
+  decodeConfig,
+  defaultConfig,
+  encodeConfig,
+  migrateToV2,
+  type V2Element,
+  type V2Snap,
+  type WidgetConfig,
+  type WidgetV2,
+} from "./config";
 import { mergeConfig } from "./config-merge";
 
 export type ElementId = "background" | "art" | "title" | "artist" | "album" | "progress" | "duration";
@@ -19,13 +28,16 @@ export type TextElementId = (typeof TEXT_ELEMENTS)[number];
 const STORAGE_KEY = "mw:config";
 
 /**
- * A fully-defaulted, deeply-cloned config. JSON round-tripping strips any Svelte
- * state proxies from the input (structuredClone throws on those) and ensures the
- * result shares no references with defaultConfig.
+ * A fully-defaulted, deeply-cloned config — always in v2 form. JSON round-tripping
+ * strips any Svelte state proxies from the input (structuredClone throws on those)
+ * and ensures the result shares no references with defaultConfig. Legacy configs
+ * (no version flag) are upgraded to v2 so the editor only ever edits v2.
  */
 export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfig {
   const input = partial ? (JSON.parse(JSON.stringify(partial)) as Partial<WidgetConfig>) : undefined;
-  return JSON.parse(JSON.stringify(mergeConfig(input))) as WidgetConfig;
+  const merged = mergeConfig(input);
+  const v2 = merged.version === 2 && merged.v2 ? merged : migrateToV2(merged);
+  return JSON.parse(JSON.stringify(v2)) as WidgetConfig;
 }
 
 export class EditorState {
@@ -90,6 +102,38 @@ export class EditorState {
 
   select(id: ElementId | null) {
     this.selected = id;
+  }
+
+  // ---- v2 element helpers ----
+  get v2(): WidgetV2 {
+    return this.config.v2!;
+  }
+
+  /** The v2 element record for an id (config is always v2 in the editor). */
+  el(id: ElementId): V2Element {
+    return this.config.v2!.elements[id];
+  }
+
+  /** Patch a v2 element in place (reactive). */
+  updateEl(id: ElementId, patch: Partial<V2Element>) {
+    Object.assign(this.config.v2!.elements[id], patch);
+  }
+
+  /** Set or clear an axis snap. Setting null = free position on that axis. */
+  setSnap(id: ElementId, axis: "x" | "y", snap: V2Snap) {
+    const el = this.config.v2!.elements[id];
+    if (axis === "x") el.snapX = snap;
+    else el.snapY = snap;
+  }
+
+  clearSnap(id: ElementId, axis: "x" | "y") {
+    this.setSnap(id, axis, null);
+  }
+
+  /** Flip a dimension between auto (null) and a fixed px value. */
+  toggleAuto(id: ElementId, dim: "w" | "h") {
+    const el = this.config.v2!.elements[id];
+    el[dim] = el[dim] === null ? (dim === "w" ? 160 : 40) : null;
   }
 
   exportHash() {

@@ -139,6 +139,35 @@
   }
 }
 
+/* Bounce: travel the overflow distance and (via animation-direction:alternate)
+   come back, with a short hold at each end. */
+@keyframes marquee-bounce {
+  0%,
+  12% {
+    transform: translate3d(0, 0, 0);
+  }
+  88%,
+  100% {
+    transform: translate3d(calc(-1 * var(--scroll-distance, 0px)), 0, 0);
+  }
+}
+
+/* Small checkerboard behind a color swatch so transparency is visible. */
+.cc-checker {
+  background-image:
+    linear-gradient(45deg, #5a5a5a 25%, transparent 25%),
+    linear-gradient(-45deg, #5a5a5a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #5a5a5a 75%),
+    linear-gradient(-45deg, transparent 75%, #5a5a5a 75%);
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+  background-color: #8a8a8a;
+}
+
 .text-center .marquee {
   text-align: center;
 }

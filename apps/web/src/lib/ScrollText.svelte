@@ -8,6 +8,11 @@
     speedPxPerSec?: number;
     minWidthToScroll?: number;
     gapPx?: number;
+    /**
+     * Scroll direction. "auto" (default) derives left/right from the parent's
+     * text-align (legacy behavior). v2 passes an explicit "left"/"right"/"bounce".
+     */
+    direction?: "auto" | "left" | "right" | "bounce";
     /** Element id used by the editor for hit-testing/selection. */
     dataEl?: string;
   }
@@ -20,6 +25,7 @@
     speedPxPerSec = 24,
     minWidthToScroll,
     gapPx = 32,
+    direction = "auto",
     dataEl,
   }: Props = $props();
 
@@ -29,13 +35,14 @@
   let animate = $state(false);
   let duration = $state(10);
   let scrollDistance = $state(0);
-  let isRightAligned = $state(false);
+  let effectiveMode = $state<"left" | "right" | "bounce">("left");
 
   function measure() {
     if (!outer || !item) return;
 
     const parent = outer.parentElement;
-    isRightAligned = parent ? window.getComputedStyle(parent).textAlign === "right" : false;
+    const isRightAligned = parent ? window.getComputedStyle(parent).textAlign === "right" : false;
+    const mode = direction === "auto" ? (isRightAligned ? "right" : "left") : direction;
 
     const widthConstraint = typeof minWidthToScroll === "number" ? outer.clientWidth <= minWidthToScroll : false;
     const contentWidth = item.scrollWidth;
@@ -43,10 +50,13 @@
     const overflow = !!text && (widthConstraint || contentWidth > outerWidth + 2);
 
     if (overflow) {
-      const distance = contentWidth + gapPx;
       const safeSpeed = Math.max(0.1, Math.abs(speedPxPerSec || 0));
+      // Bounce travels only the overflow distance (back and forth); loop modes
+      // travel the full content + gap for a seamless wrap.
+      const distance = mode === "bounce" ? Math.max(0, contentWidth - outerWidth) : contentWidth + gapPx;
       scrollDistance = distance;
       duration = Math.max(0.5, distance / safeSpeed);
+      effectiveMode = mode;
       animate = true;
     } else {
       animate = false;
@@ -60,6 +70,7 @@
     void speedPxPerSec;
     void minWidthToScroll;
     void gapPx;
+    void direction;
     if (!outer || !item) return;
 
     const initial = window.setTimeout(measure, 50);
@@ -77,12 +88,19 @@
     };
   });
 
-  const animationName = $derived(isRightAligned ? "marquee-scroll-right" : "marquee-scroll-left");
+  const animationName = $derived(
+    effectiveMode === "bounce"
+      ? "marquee-bounce"
+      : effectiveMode === "right"
+        ? "marquee-scroll-right"
+        : "marquee-scroll-left",
+  );
+  const isBounce = $derived(animate && effectiveMode === "bounce");
   const wrapperStyle = $derived(
     [
       "display:inline-flex",
-      animate ? `gap:${gapPx}px` : "",
-      animate ? `animation:${animationName} ${duration.toFixed(2)}s linear infinite` : "",
+      animate && !isBounce ? `gap:${gapPx}px` : "",
+      animate ? `animation:${animationName} ${duration.toFixed(2)}s linear infinite${isBounce ? " alternate" : ""}` : "",
       animate ? "will-change:transform" : "",
       `--scroll-distance:${scrollDistance}px`,
     ]
@@ -99,6 +117,6 @@
 >
   <div class="marquee__wrapper" style={wrapperStyle}>
     <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">{text}</span>
-    <span class="marquee__item" aria-hidden="true" style="color:{color};white-space:nowrap;display:{animate ? 'inline-block' : 'none'}">{text}</span>
+    <span class="marquee__item" aria-hidden="true" style="color:{color};white-space:nowrap;display:{animate && !isBounce ? 'inline-block' : 'none'}">{text}</span>
   </div>
 </div>
