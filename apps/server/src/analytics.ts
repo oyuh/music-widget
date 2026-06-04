@@ -1,8 +1,10 @@
 import type { Context } from "hono";
+import { timingSafeEqual } from "node:crypto";
 import type { AppEnv } from "./types";
 import { clientIp, rateLimit } from "./security";
-import { dbEnabled, logWidgetEvent, upsertContact, type WidgetEvent } from "./db";
+import { cleanupWidgetVisitors, dbEnabled, recordWidgetVisit, upsertContact, type WidgetVisit } from "./db";
 import { json } from "./util";
+import { log } from "./log";
 
 // Caps on incoming string lengths — these endpoints are unauthenticated, so
 // treat the body as untrusted and never store unbounded values.
@@ -26,23 +28,15 @@ type Meta = { ip: string | null; userAgent: string | null; referer: string | nul
 
 /**
  * Turn an untrusted request body + server-derived metadata into a sanitized
- * WidgetEvent. Pure (no I/O) so it's unit-testable. Defaults the event to
- * "open" and only ever records "open" or "copy".
+ * WidgetVisit. Pure (no I/O) so it's unit-testable. Deliberately captures only
+ * WHO the visitor is — no track / event-type info, that's more than we need.
  */
-export function buildWidgetEvent(body: unknown, meta: Meta): WidgetEvent {
+export function buildWidgetVisit(body: unknown, meta: Meta): WidgetVisit {
   const b = (body ?? {}) as Record<string, unknown>;
-  const track = (b.track ?? {}) as Record<string, unknown>;
-  const isPlaying =
-    typeof b.isPlaying === "boolean" ? b.isPlaying : typeof track.isPlaying === "boolean" ? track.isPlaying : null;
 
   return {
-    event: b.event === "copy" ? "copy" : "open",
     lfmUser: clip(b.lfmUser, MAX_USER) ?? "",
     fingerprint: clip(b.fp, MAX_FP),
-    trackName: clip(track.name, MAX_TEXT),
-    trackArtist: clip(track.artist, MAX_TEXT),
-    trackAlbum: clip(track.album, MAX_TEXT),
-    isPlaying,
     ip: clip(meta.ip, MAX_USER),
     userAgent: clip(meta.userAgent, MAX_TEXT),
     referer: clip(meta.referer, MAX_TEXT),
@@ -50,9 +44,10 @@ export function buildWidgetEvent(body: unknown, meta: Meta): WidgetEvent {
 }
 
 /**
- * POST /api/log/widget — records a widget open/copy. Always answers 204 and
+ * POST /api/log/widget — records a site visitor. Always answers 204 and
  * SILENTLY: malformed bodies, rate-limited callers, and DB errors all return 204
- * so opening/copying the widget is never blocked. Deduped + sanitized downstream.
+ * so opening/copying the widget is never blocked. Deduped + sanitized downstream
+ * (one row per visitor; repeat visits just refresh it).
  */
 export const handleWidgetLog = async (c: Context<AppEnv>) => {
   const noContent = new Response(null, { status: 204 });
@@ -69,16 +64,50 @@ export const handleWidgetLog = async (c: Context<AppEnv>) => {
     return noContent;
   }
 
-  const event = buildWidgetEvent(body, {
+  const visit = buildWidgetVisit(body, {
     ip: clientIp(c),
     userAgent: c.req.header("user-agent") ?? null,
     referer: c.req.header("referer") ?? null,
   });
 
   // Only usernames are interesting — skip anonymous pings.
-  if (event.lfmUser) void logWidgetEvent(event);
+  if (visit.lfmUser) void recordWidgetVisit(visit);
 
   return noContent;
+};
+
+/** Constant-time secret comparison — avoids leaking the secret via timing. */
+function secretMatches(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * POST /api/cron/cleanup — scheduled housekeeping for the visitor log: collapses
+ * any duplicate visitors and prunes stale ones (see cleanupWidgetVisitors).
+ * Protected by the CRON_SECRET env var, sent as `Authorization: Bearer <secret>`
+ * (or an `x-cron-secret` header). Returns 503 when storage / the secret isn't
+ * configured, 401 when the token is missing or wrong.
+ */
+export const handleCronCleanup = async (c: Context<AppEnv>) => {
+  if (!dbEnabled()) return json({ ok: false, error: "Storage is not configured." }, { status: 503 });
+
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return json({ ok: false, error: "Cron is not configured." }, { status: 503 });
+
+  const auth = c.req.header("authorization") ?? "";
+  const provided = (auth.startsWith("Bearer ") ? auth.slice(7) : "") || c.req.header("x-cron-secret") || "";
+  if (!secretMatches(provided, secret)) return json({ ok: false, error: "Unauthorized." }, { status: 401 });
+
+  try {
+    const result = await cleanupWidgetVisitors();
+    log("info", "cron.cleanup", result);
+    return json({ ok: true, ...result });
+  } catch (err) {
+    log("warn", "cron.cleanup_failed", { error: err instanceof Error ? err.message : String(err) });
+    return json({ ok: false, error: "Cleanup failed." }, { status: 500 });
+  }
 };
 
 /**

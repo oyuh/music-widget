@@ -86,7 +86,8 @@ Open <http://localhost:5173>. Env is read from the repo-root `.env` (server) and
 |---|---|---|
 | `LFM_API_KEY` / `LFM_SHARED_SECRET` | server | Last.fm credentials (secret) |
 | `REDIS_URL` | server | cache (fail-open; unset = no cache) |
-| `DATABASE_URL` | server | Postgres for usage log + contacts (fail-open; unset = off) |
+| `DATABASE_URL` | server | Postgres for visitor log + contacts (fail-open; unset = off) |
+| `CRON_SECRET` | server | bearer token guarding `POST /api/cron/cleanup` (unset = route off) |
 | `PORT` / `LOG_LEVEL` | server | bind port / log verbosity |
 | `VITE_LFM_KEY` | frontend (build) | public Last.fm key for browser calls |
 | `VITE_LFM_CALLBACK` | frontend (build) | Last.fm auth callback URL |
@@ -97,8 +98,9 @@ Open <http://localhost:5173>. Env is read from the repo-root `.env` (server) and
 - `GET /api/lastfm/recent`, `/trackInfo` — proxy + cache (private/fallback).
 - `POST /api/lastfm/session` — Last.fm token → session key (signed).
 - `GET /api/proxy-image` — album-art proxy fallback (host-allowlisted).
-- `POST /api/log/widget` — silent, fail-open usage log (deduped).
+- `POST /api/log/widget` — silent, fail-open visitor log (one row per visitor).
 - `POST /api/contact` — store a contact email, linked to a Last.fm username.
+- `POST /api/cron/cleanup` — scheduled visitor-log housekeeping (dedupe + prune); needs `CRON_SECRET`.
 - `GET /robots.txt`, `/sitemap.xml`.
 
 ## Deploying (Railway)

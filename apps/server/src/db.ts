@@ -2,7 +2,7 @@ import { drizzle, type BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { fileURLToPath } from "node:url";
-import { contacts, widgetEvents } from "./schema";
+import { contacts, widgetVisitors } from "./schema";
 import { log } from "./log";
 
 // Postgres via Drizzle ORM (on Bun's native SQL client). Backs the optional
@@ -56,26 +56,22 @@ async function ensureMigrated(d: BunSQLDatabase): Promise<void> {
   await migrated;
 }
 
-export type WidgetEvent = {
-  event: string; // "open" | "copy"
-  lfmUser: string; // always present — anonymous events are dropped before here
+export type WidgetVisit = {
+  lfmUser: string; // always present — anonymous visits are dropped before here
   fingerprint: string | null;
-  trackName: string | null;
-  trackArtist: string | null;
-  trackAlbum: string | null;
-  isPlaying: boolean | null;
   ip: string | null;
   userAgent: string | null;
   referer: string | null;
 };
 
 /**
- * Record a usage event. Deduplicated: one row per (lfm_user, fingerprint, event)
- * — a repeat open/copy from the same device bumps seen_count + last_seen_at and
- * refreshes the latest song instead of inserting a duplicate. Best-effort
- * (returns false, never throws).
+ * Record a site visitor. Deduplicated: one row per (lfm_user, fingerprint), so a
+ * repeat visit from the same device bumps seen_count + last_seen_at and refreshes
+ * the ip (in case they changed networks) instead of inserting a duplicate. We
+ * track WHO uses the site, not what they're listening to. Best-effort (returns
+ * false, never throws).
  */
-export async function logWidgetEvent(e: WidgetEvent): Promise<boolean> {
+export async function recordWidgetVisit(v: WidgetVisit): Promise<boolean> {
   const d = getDb();
   if (!d) return false;
 
@@ -85,43 +81,83 @@ export async function logWidgetEvent(e: WidgetEvent): Promise<boolean> {
     await withTimeout(
       () =>
         d
-          .insert(widgetEvents)
+          .insert(widgetVisitors)
           .values({
-            event: e.event,
-            lfmUser: e.lfmUser,
-            fingerprint: e.fingerprint ?? "",
-            trackName: e.trackName,
-            trackArtist: e.trackArtist,
-            trackAlbum: e.trackAlbum,
-            isPlaying: e.isPlaying,
-            ip: e.ip,
-            userAgent: e.userAgent,
-            referer: e.referer,
+            lfmUser: v.lfmUser,
+            fingerprint: v.fingerprint ?? "",
+            ip: v.ip,
+            userAgent: v.userAgent,
+            referer: v.referer,
           })
           .onConflictDoUpdate({
-            target: [widgetEvents.lfmUser, widgetEvents.fingerprint, widgetEvents.event],
+            target: [widgetVisitors.lfmUser, widgetVisitors.fingerprint],
             set: {
-              seenCount: sql`${widgetEvents.seenCount} + 1`,
+              seenCount: sql`${widgetVisitors.seenCount} + 1`,
               lastSeenAt: sql`now()`,
-              trackName: e.trackName,
-              trackArtist: e.trackArtist,
-              trackAlbum: e.trackAlbum,
-              isPlaying: e.isPlaying,
-              ip: e.ip,
-              userAgent: e.userAgent,
-              referer: e.referer,
+              ip: v.ip,
+              userAgent: v.userAgent,
+              referer: v.referer,
             },
           }),
-      "widget upsert",
+      "widget visit upsert",
     );
     return true;
   } catch (err) {
     // Re-run migrations on the next write — self-heals if the schema went missing
     // (e.g. the database was wiped/recreated under a long-lived server).
     migrated = null;
-    log("warn", "db.widget_event_failed", { error: err instanceof Error ? err.message : String(err) });
+    log("warn", "db.widget_visit_failed", { error: err instanceof Error ? err.message : String(err) });
     return false;
   }
+}
+
+export type CleanupResult = { duplicatesRemoved: number; stalePruned: number };
+
+// Visitors not seen in this long are pruned by the cron job — keeps the table to
+// people who actually still use the site.
+const STALE_VISITOR_DAYS = 365;
+
+/**
+ * Scheduled housekeeping for the visitor log (see the cron route in
+ * analytics.ts). The unique index already prevents new duplicates, but this is a
+ * belt-and-braces sweep: it collapses any lingering duplicate
+ * (lfm_user, fingerprint) rows down to the most-recently-seen one, then prunes
+ * visitors not seen in over a year. Returns how many rows each step removed.
+ * Lets errors propagate so the route can surface a failure.
+ */
+export async function cleanupWidgetVisitors(): Promise<CleanupResult> {
+  const d = getDb();
+  if (!d) return { duplicatesRemoved: 0, stalePruned: 0 };
+
+  await ensureMigrated(d);
+
+  const rowCount = (r: unknown) => (Array.isArray(r) ? r.length : 0);
+
+  const dupes = await withTimeout(
+    () =>
+      d.execute(sql`
+        DELETE FROM "widget_events" AS a
+        USING "widget_events" AS b
+        WHERE a."lfm_user" = b."lfm_user"
+          AND a."fingerprint" = b."fingerprint"
+          AND (a."last_seen_at" < b."last_seen_at"
+               OR (a."last_seen_at" = b."last_seen_at" AND a."id" < b."id"))
+        RETURNING a."id"
+      `),
+    "visitor dedupe",
+  );
+
+  const stale = await withTimeout(
+    () =>
+      d.execute(sql`
+        DELETE FROM "widget_events"
+        WHERE "last_seen_at" < now() - make_interval(days => ${STALE_VISITOR_DAYS})
+        RETURNING "id"
+      `),
+    "visitor prune",
+  );
+
+  return { duplicatesRemoved: rowCount(dupes), stalePruned: rowCount(stale) };
 }
 
 export type ContactInput = {
@@ -151,10 +187,10 @@ export async function upsertContact(c: ContactInput): Promise<boolean> {
       const found = await withTimeout(
         () =>
           d
-            .select({ u: widgetEvents.lfmUser })
-            .from(widgetEvents)
-            .where(and(eq(widgetEvents.fingerprint, c.fingerprint!), isNotNull(widgetEvents.lfmUser)))
-            .orderBy(desc(widgetEvents.lastSeenAt))
+            .select({ u: widgetVisitors.lfmUser })
+            .from(widgetVisitors)
+            .where(and(eq(widgetVisitors.fingerprint, c.fingerprint!), isNotNull(widgetVisitors.lfmUser)))
+            .orderBy(desc(widgetVisitors.lastSeenAt))
             .limit(1),
         "contact link",
       );

@@ -1,22 +1,25 @@
-import { bigint, boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
- * Widget usage log. One row per unique (lfm_user, fingerprint, event) so repeated
- * opens/copies from the same device DON'T create duplicate rows — the upsert in
- * db.ts bumps `seen_count` / `last_seen_at` and refreshes the latest song instead.
+ * Widget visitors — WHO uses the site, not what they're doing on it.
+ *
+ * One row per unique visitor, keyed by (lfm_user, fingerprint). The same person
+ * opening or copying the widget any number of times NEVER adds rows: the upsert
+ * in db.ts bumps `seen_count` / `last_seen_at` and refreshes their `ip` (so we
+ * follow them if they move networks) instead of inserting a duplicate.
+ *
+ * Deliberately minimal — we intentionally do NOT store the track they were
+ * listening to or per-click event types; that was more than we need.
  */
-export const widgetEvents = pgTable(
+export const widgetVisitors = pgTable(
+  // Table name kept as "widget_events" so this is an in-place migration of the
+  // existing table rather than a drop/recreate.
   "widget_events",
   {
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-    event: text("event").notNull(), // "open" | "copy"
     lfmUser: text("lfm_user").notNull(),
     // Empty string (not null) when unknown, so the unique index treats it as one bucket.
     fingerprint: text("fingerprint").notNull().default(""),
-    trackName: text("track_name"),
-    trackArtist: text("track_artist"),
-    trackAlbum: text("track_album"),
-    isPlaying: boolean("is_playing"),
     ip: text("ip"),
     userAgent: text("user_agent"),
     referer: text("referer"),
@@ -25,7 +28,7 @@ export const widgetEvents = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("widget_events_identity_idx").on(t.lfmUser, t.fingerprint, t.event),
+    uniqueIndex("widget_events_identity_idx").on(t.lfmUser, t.fingerprint),
     index("widget_events_lfm_user_idx").on(t.lfmUser),
     index("widget_events_last_seen_idx").on(t.lastSeenAt),
   ],
@@ -33,9 +36,9 @@ export const widgetEvents = pgTable(
 
 /**
  * Contact emails captured from the editor's "Contact" form. Linked back to a
- * Last.fm username (either supplied with the email, or recovered from the usage
- * log by matching the same device fingerprint) so an outage email can name the
- * user's widget. Upserted by email — one row per address.
+ * Last.fm username (either supplied with the email, or recovered from the
+ * visitor log by matching the same device fingerprint) so an outage email can
+ * name the user's widget. Upserted by email — one row per address.
  */
 export const contacts = pgTable(
   "contacts",
@@ -52,5 +55,5 @@ export const contacts = pgTable(
   (t) => [index("contacts_lfm_user_idx").on(t.lfmUser), index("contacts_fingerprint_idx").on(t.fingerprint)],
 );
 
-export type WidgetEventRow = typeof widgetEvents.$inferInsert;
+export type WidgetVisitorRow = typeof widgetVisitors.$inferInsert;
 export type ContactRow = typeof contacts.$inferInsert;
