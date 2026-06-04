@@ -1,7 +1,7 @@
-// Fire-and-forget usage logging. We record which Last.fm usernames actually open
-// or copy the widget (plus a rough device fingerprint + the current song) so we
-// can see real usage. Strictly best-effort: it never throws and never blocks the
-// UI, and a username is required (anonymous events are skipped).
+// Fire-and-forget visitor logging. We record which Last.fm usernames actually
+// use the site (plus a rough device fingerprint), so we can see real usage — not
+// what they're listening to. Strictly best-effort: it never throws and never
+// blocks the UI, and a username is required (anonymous visits are skipped).
 
 const ENDPOINT = "/api/log/widget";
 
@@ -36,27 +36,12 @@ export function browserFingerprint(): string {
   return cachedFp;
 }
 
-export type TrackSnapshot = {
-  name?: string | null;
-  artist?: string | null;
-  album?: string | null;
-  isPlaying?: boolean | null;
-};
-
-function send(event: "open" | "copy", lfmUser: string, track?: TrackSnapshot) {
+function send(lfmUser: string) {
   if (typeof window === "undefined") return;
   const user = (lfmUser ?? "").trim();
   if (!user) return; // usernames are the whole point
 
-  const payload = JSON.stringify({
-    event,
-    lfmUser: user,
-    fp: browserFingerprint(),
-    isPlaying: track?.isPlaying ?? null,
-    track: track
-      ? { name: track.name ?? null, artist: track.artist ?? null, album: track.album ?? null }
-      : null,
-  });
+  const payload = JSON.stringify({ lfmUser: user, fp: browserFingerprint() });
 
   try {
     // sendBeacon survives page lifecycle changes (OBS tabs, navigations) and is
@@ -76,14 +61,14 @@ function send(event: "open" | "copy", lfmUser: string, track?: TrackSnapshot) {
   }
 }
 
-/** Record that a widget was opened (the `/w` page loaded for a username). */
-export function recordWidgetOpen(lfmUser: string, track?: TrackSnapshot) {
-  send("open", lfmUser, track);
+/** Record a visitor when the `/w` widget page loads for a username. */
+export function recordWidgetOpen(lfmUser: string) {
+  send(lfmUser);
 }
 
-/** Record that a widget URL was copied from the editor. */
+/** Record a visitor when a widget URL is copied from the editor. */
 export function recordWidgetCopy(lfmUser: string) {
-  send("copy", lfmUser);
+  send(lfmUser);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -3,7 +3,7 @@ import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
-import { handleContact, handleWidgetLog } from "./analytics";
+import { handleContact, handleCronCleanup, handleWidgetLog } from "./analytics";
 import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk } from "./security";
@@ -102,6 +102,7 @@ app.post("/api/lastfm/session", handleSession);
 app.get("/api/proxy-image", handleProxyImage);
 app.post("/api/log/widget", handleWidgetLog);
 app.post("/api/contact", handleContact);
+app.post("/api/cron/cleanup", handleCronCleanup);
 
 app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
 

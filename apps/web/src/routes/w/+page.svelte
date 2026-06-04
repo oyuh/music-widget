@@ -32,35 +32,13 @@
     ensureGoogleFonts(cfg);
   });
 
-  // Log this widget open once per page load. Prefer to include the current song,
-  // but don't wait forever — a user who isn't playing anything still counts.
+  // Record this visitor once per page load — just who's using the site.
   let logged = false;
   $effect(() => {
     const user = cfg.lfmUser ?? "";
     if (logged || !user) return;
-
-    const fire = () => {
-      if (logged) return;
-      logged = true;
-      recordWidgetOpen(
-        user,
-        np.track
-          ? {
-              name: np.track.name,
-              artist: np.track.artist?.["#text"],
-              album: np.track.album?.["#text"],
-              isPlaying: np.isLive,
-            }
-          : undefined,
-      );
-    };
-
-    if (np.track) {
-      fire();
-      return;
-    }
-    const t = setTimeout(fire, 4000);
-    return () => clearTimeout(t);
+    logged = true;
+    recordWidgetOpen(user);
   });
 
   // Transparent page so the widget embeds cleanly as an OBS browser source.
