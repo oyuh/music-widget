@@ -1,6 +1,6 @@
 # Local development backing services. The app (Hono + Vite) runs directly on the
 # host via `bun run dev`; this provides Redis (cache) and Postgres (usage log) for
-# `bun run dev:server`. Data is ephemeral — no volumes are mounted.
+# `bun run dev:server`. Data is ephemeral , no volumes are mounted.
 services:
   redis:
     image: redis:7-alpine

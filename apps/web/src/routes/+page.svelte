@@ -10,7 +10,7 @@
   import { isMobileDevice } from "$lib/device";
   import MobileGate from "$lib/MobileGate.svelte";
 
-  // The editor needs a pointer + a wide screen — gate mobile to a simple page.
+  // The editor needs a pointer + a wide screen , gate mobile to a simple page.
   // (The /w widget route is a separate page and stays usable everywhere.)
   const mobile = isMobileDevice();
 

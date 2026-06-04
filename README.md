@@ -18,7 +18,7 @@ changes. State autosaves to `localStorage` as you go.
 When you're happy with it, the entire config is serialized to JSON, base64url-encoded,
 and stuffed into the widget URL's hash (`/w#<blob>`). The widget page (`/w`) reads that
 hash back, polls Last.fm for the user's current track, and renders. Because everything
-is in the hash, the URL is the document — copy it, share it, paste it into OBS, done.
+is in the hash, the URL is the document , copy it, share it, paste it into OBS, done.
 
 There are two layout engines. The original (`version: 1`) is a fixed grid. The current
 one (`version: 2`) is free positioning: every element has an `x/y/w/h`, a z-index, and
@@ -31,7 +31,7 @@ nothing breaks. See [config.ts](apps/web/src/lib/config.ts) for the full shape.
 
 Last.fm doesn't push, so the widget polls `user.getRecentTracks` and watches the
 `nowplaying` flag. The interval adapts to how active the page is and whether a track
-just changed — 2.5s right after a song change, 5s while something's playing, backing
+just changed , 2.5s right after a song change, 5s while something's playing, backing
 off to 10s and then 20s once the tab has been idle for a couple minutes
 ([nowplaying.svelte.ts](apps/web/src/lib/nowplaying.svelte.ts)). Between polls the
 progress bar is ticked locally from the track's reported duration, with pause detection
@@ -43,7 +43,7 @@ Last.fm rate-limits roughly **5 requests/sec per IP**. If every viewer's widget 
 through our server, all of them would share the server's one IP and get throttled the
 moment a streamer with any audience went live. So public lookups (recent tracks, track
 info) fire **directly from each viewer's browser** to `ws.audioscrobbler.com`
-([lastfm-client.ts](apps/web/src/lib/lastfm-client.ts)) — every viewer spends their own
+([lastfm-client.ts](apps/web/src/lib/lastfm-client.ts)) , every viewer spends their own
 per-IP budget. Album art and color extraction load straight from Last.fm's CDN the same
 way (it sends `Access-Control-Allow-Origin: *`). If a direct call fails on the transport
 level (network/CORS), it falls back to the server proxy.
@@ -57,8 +57,8 @@ server. Those requests always go through `/api/lastfm/*`, which signs them serve
 
 ```
 apps/
-  web/     SvelteKit SPA — editor (/), widget (/w), Last.fm auth callback (/callback)
-  server/  Hono on Bun — /api/*, serves the built SPA, talks to Redis + Postgres
+  web/     SvelteKit SPA , editor (/), widget (/w), Last.fm auth callback (/callback)
+  server/  Hono on Bun , /api/*, serves the built SPA, talks to Redis + Postgres
 ```
 
 - **Web** ([apps/web](apps/web)): SvelteKit with `adapter-static` (it's a pure SPA, CSR
@@ -67,7 +67,7 @@ apps/
   static build and the API on a single port; in dev, Vite serves the UI and proxies
   `/api` to it. Redis (`Bun.redis`) is a small cache in front of the signed/proxied
   Last.fm paths, and Postgres (Drizzle, `drizzle-orm/bun-sql`) backs optional usage
-  analytics and contact emails. Both are **fail-open** — if either is unreachable the
+  analytics and contact emails. Both are **fail-open** , if either is unreachable the
   widget still serves; you just lose caching or logging.
 
 A few details worth knowing about the server:
@@ -86,7 +86,7 @@ You need [Bun](https://bun.sh) 1.3+, and optionally Docker for local Redis/Postg
 
 ```bash
 bun install
-bun run services:up   # Redis + Postgres in Docker (optional — both fail open)
+bun run services:up   # Redis + Postgres in Docker (optional , both fail open)
 bun run dev           # Vite UI on :5173, Hono API on :8787
 ```
 
@@ -106,13 +106,13 @@ Then open <http://localhost:5173>. Config is read from a repo-root `.env` (serve
 ## API
 
 Everything lives under `/api`. The Last.fm routes exist mostly as the fallback and the
-signed path for private profiles — the common case never touches them.
+signed path for private profiles , the common case never touches them.
 
 | Route | Purpose |
 |---|---|
 | `GET /api/ping` | liveness; always 200 while the process is up |
 | `GET /api/health` | reports Redis (and informational Postgres) status; may 503 if Redis is configured but down |
-| `GET /api/lastfm/recent`, `/trackInfo` | signed/cached proxy — used for private profiles and as the browser-direct fallback |
+| `GET /api/lastfm/recent`, `/trackInfo` | signed/cached proxy , used for private profiles and as the browser-direct fallback |
 | `POST /api/lastfm/session` | exchange a Last.fm auth token for a session key (signed) |
 | `GET /api/proxy-image` | album-art fetch fallback; host-allowlisted |
 | `POST /api/log/widget` | fire-and-forget visitor log, one row per visitor (fail-open) |

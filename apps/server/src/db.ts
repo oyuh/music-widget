@@ -2,11 +2,11 @@ import { drizzle, type BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { fileURLToPath } from "node:url";
-import { contacts, widgetVisitors } from "./schema";
+import { contacts, feedback, widgetVisitors } from "./schema";
 import { log } from "./log";
 
 // Postgres via Drizzle ORM (on Bun's native SQL client). Backs the optional
-// widget usage log + contact emails. Modeled on redis.ts: FAILS OPEN — a missing
+// widget usage log + contact emails. Modeled on redis.ts: FAILS OPEN , a missing
 // or unreachable database is logged and ignored, never blocking a request.
 
 const DB_TIMEOUT_MS = 4000;
@@ -29,7 +29,7 @@ function getDb(): BunSQLDatabase | null {
 }
 
 function withTimeout<T>(run: () => Promise<T>, label: string, ms = DB_TIMEOUT_MS): Promise<T> {
-  // Drizzle query builders are LAZY thenables — they re-run the SQL on every
+  // Drizzle query builders are LAZY thenables , they re-run the SQL on every
   // `.then()`. Adopt the query as a real native promise (executed exactly once)
   // before we attach `.catch` and race it, so it can't fire twice.
   const promise = (async () => await run())();
@@ -57,7 +57,7 @@ async function ensureMigrated(d: BunSQLDatabase): Promise<void> {
 }
 
 export type WidgetVisit = {
-  lfmUser: string; // always present — anonymous visits are dropped before here
+  lfmUser: string; // always present , anonymous visits are dropped before here
   fingerprint: string | null;
   ip: string | null;
   userAgent: string | null;
@@ -103,7 +103,7 @@ export async function recordWidgetVisit(v: WidgetVisit): Promise<boolean> {
     );
     return true;
   } catch (err) {
-    // Re-run migrations on the next write — self-heals if the schema went missing
+    // Re-run migrations on the next write , self-heals if the schema went missing
     // (e.g. the database was wiped/recreated under a long-lived server).
     migrated = null;
     log("warn", "db.widget_visit_failed", { error: err instanceof Error ? err.message : String(err) });
@@ -113,7 +113,7 @@ export async function recordWidgetVisit(v: WidgetVisit): Promise<boolean> {
 
 export type CleanupResult = { duplicatesRemoved: number; stalePruned: number };
 
-// Visitors not seen in this long are pruned by the cron job — keeps the table to
+// Visitors not seen in this long are pruned by the cron job , keeps the table to
 // people who actually still use the site.
 const STALE_VISITOR_DAYS = 365;
 
@@ -160,6 +160,27 @@ export async function cleanupWidgetVisitors(): Promise<CleanupResult> {
   return { duplicatesRemoved: rowCount(dupes), stalePruned: rowCount(stale) };
 }
 
+/**
+ * Recover a Last.fm username from the visitor log by matching a device
+ * fingerprint , used to link a contact/feedback submission to the widget the
+ * person actually uses when they didn't type their username. Returns the most
+ * recently seen match, or null. Assumes migrations have already run.
+ */
+async function recoverLfmUser(d: BunSQLDatabase, fingerprint: string | null): Promise<string | null> {
+  if (!fingerprint) return null;
+  const found = await withTimeout(
+    () =>
+      d
+        .select({ u: widgetVisitors.lfmUser })
+        .from(widgetVisitors)
+        .where(and(eq(widgetVisitors.fingerprint, fingerprint), isNotNull(widgetVisitors.lfmUser)))
+        .orderBy(desc(widgetVisitors.lastSeenAt))
+        .limit(1),
+    "lfm user recovery",
+  );
+  return found[0]?.u ?? null;
+}
+
 export type ContactInput = {
   email: string;
   lfmUser: string | null;
@@ -169,10 +190,10 @@ export type ContactInput = {
 };
 
 /**
- * Save a contact email (upserted by email — no duplicates). Links it to a
+ * Save a contact email (upserted by email , no duplicates). Links it to a
  * Last.fm username: uses the one submitted with the form, or, when absent,
  * recovers it from the usage log by matching the same device fingerprint. On
- * conflict, only fills in fields we now know — never clobbers a known username
+ * conflict, only fills in fields we now know , never clobbers a known username
  * with null.
  */
 export async function upsertContact(c: ContactInput): Promise<boolean> {
@@ -182,20 +203,7 @@ export async function upsertContact(c: ContactInput): Promise<boolean> {
   try {
     await ensureMigrated(d);
 
-    let lfmUser = c.lfmUser;
-    if (!lfmUser && c.fingerprint) {
-      const found = await withTimeout(
-        () =>
-          d
-            .select({ u: widgetVisitors.lfmUser })
-            .from(widgetVisitors)
-            .where(and(eq(widgetVisitors.fingerprint, c.fingerprint!), isNotNull(widgetVisitors.lfmUser)))
-            .orderBy(desc(widgetVisitors.lastSeenAt))
-            .limit(1),
-        "contact link",
-      );
-      lfmUser = found[0]?.u ?? null;
-    }
+    const lfmUser = c.lfmUser ?? (await recoverLfmUser(d, c.fingerprint));
 
     await withTimeout(
       () =>
@@ -225,6 +233,59 @@ export async function upsertContact(c: ContactInput): Promise<boolean> {
   } catch (err) {
     migrated = null; // self-heal a missing schema on the next write
     log("warn", "db.contact_failed", { error: err instanceof Error ? err.message : String(err) });
+    return false;
+  }
+}
+
+export type FeedbackInput = {
+  name: string | null;
+  email: string | null;
+  handle: string | null;
+  platform: string | null;
+  good: string | null;
+  bad: string | null;
+  subscribed: boolean;
+  lfmUser: string | null;
+  fingerprint: string | null;
+  ip: string | null;
+  userAgent: string | null;
+};
+
+/**
+ * Save a feedback submission (append-only , one row per submit). When the user
+ * didn't type a Last.fm username, recover it from the visitor log by
+ * fingerprint, same as contacts. Best-effort (returns false, never throws).
+ */
+export async function insertFeedback(f: FeedbackInput): Promise<boolean> {
+  const d = getDb();
+  if (!d) return false;
+
+  try {
+    await ensureMigrated(d);
+
+    const lfmUser = f.lfmUser ?? (await recoverLfmUser(d, f.fingerprint));
+
+    await withTimeout(
+      () =>
+        d.insert(feedback).values({
+          name: f.name,
+          email: f.email,
+          handle: f.handle,
+          platform: f.platform,
+          good: f.good,
+          bad: f.bad,
+          subscribed: f.subscribed,
+          lfmUser,
+          fingerprint: f.fingerprint,
+          ip: f.ip,
+          userAgent: f.userAgent,
+        }),
+      "feedback insert",
+    );
+    return true;
+  } catch (err) {
+    migrated = null; // self-heal a missing schema on the next write
+    log("warn", "db.feedback_failed", { error: err instanceof Error ? err.message : String(err) });
     return false;
   }
 }

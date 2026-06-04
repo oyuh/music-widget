@@ -3,7 +3,7 @@
 // Each element has a free (x, y) coordinate OR a per-axis snap relationship that
 // anchors one of its edges to another element's edge. Because an anchor's
 // resolved edge depends on the anchor's (possibly auto) size, a snapped element
-// re-flows automatically when its anchor resizes — e.g. snapping the duration's
+// re-flows automatically when its anchor resizes , e.g. snapping the duration's
 // left edge to the artist's right edge makes the duration track the artist width.
 //
 // Sizes are position-independent, so there is no feedback loop between sizes and

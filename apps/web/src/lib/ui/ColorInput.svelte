@@ -27,7 +27,7 @@
   let popY = $state(0);
 
   const isAccent = $derived(value === "accent");
-  // Safe CSS for the swatch — falls back to the rainbow for non-color values
+  // Safe CSS for the swatch , falls back to the rainbow for non-color values
   // (e.g. the editor backdrop's "checker").
   const swatchBg = $derived(isAccent || !/^(#|rgb|hsl)/.test(value || "") ? ACCENT_SWATCH : value);
 

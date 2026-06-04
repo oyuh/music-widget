@@ -83,7 +83,7 @@ export type WidgetConfig = {
   v2?: WidgetV2; // populated when version === 2
   lfmUser: string;
   sessionKey?: string | null; // Last.fm session key for private profile access
-  apiKey?: string | null; // optional BYOK Last.fm API key — used client-side for faster, isolated requests
+  apiKey?: string | null; // optional BYOK Last.fm API key , used client-side for faster, isolated requests
   // Accent to use when auto-from-art has no color or extraction fails
   fallbackAccent?: string;
   theme: {

@@ -95,7 +95,7 @@
         <div>
           <h2 class="text-base font-semibold tracking-tight">Add the widget to your stream</h2>
           <p class="mt-0.5 text-xs text-muted-foreground">
-            It's a browser source — paste the URL into your streaming software.
+            It's a browser source , paste the URL into your streaming software.
           </p>
         </div>
         <button
@@ -160,7 +160,7 @@
         </ol>
 
         <p class="text-[11px] text-muted-foreground">
-          Edited your design? Re-copy the URL — it changes whenever your settings do, so update the source to
+          Edited your design? Re-copy the URL , it changes whenever your settings do, so update the source to
           see the new look.
         </p>
       </div>

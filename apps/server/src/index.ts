@@ -1,9 +1,10 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
-import { handleContact, handleCronCleanup, handleWidgetLog } from "./analytics";
+import { handleContact, handleCronCleanup, handleFeedback, handleWidgetLog } from "./analytics";
 import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk } from "./security";
@@ -23,6 +24,17 @@ function getOrigin(c: { req: { header: (name: string) => string | undefined; url
   return `${url.protocol}//${url.host}`;
 }
 
+// Reject oversized request bodies before anything reads them. Every API body
+// here is small JSON (a few KB at most), so a large payload is junk or an
+// attempt to exhaust memory. GETs carry no body, so this only bites POSTs.
+app.use(
+  "/api/*",
+  bodyLimit({
+    maxSize: 32 * 1024, // 32 KB
+    onError: (c) => json({ error: "Request body too large." }, { status: 413 }),
+  }),
+);
+
 // Request id, timing, and top-level error handling for the API surface.
 app.use("/api/*", async (c, next) => {
   const reqId =
@@ -39,7 +51,7 @@ app.use("/api/*", async (c, next) => {
     const limit = await rateLimitOk(clientIp(c), reqId);
     if (!limit.ok) {
       c.res = json(
-        { error: "Too many requests — slow down for a moment." },
+        { error: "Too many requests, slow down for a moment." },
         { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
       );
       return;
@@ -62,7 +74,7 @@ app.use("/api/*", async (c, next) => {
 
 app.options("/api/*", () => new Response(null, { status: 204 }));
 
-// Liveness probe — always 200 while the process is up (used by Railway's
+// Liveness probe , always 200 while the process is up (used by Railway's
 // healthcheck). /api/health additionally reports Redis status and may 503.
 app.get("/api/ping", () => json({ ok: true }));
 
@@ -102,6 +114,7 @@ app.post("/api/lastfm/session", handleSession);
 app.get("/api/proxy-image", handleProxyImage);
 app.post("/api/log/widget", handleWidgetLog);
 app.post("/api/contact", handleContact);
+app.post("/api/feedback", handleFeedback);
 app.post("/api/cron/cleanup", handleCronCleanup);
 
 app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
