@@ -3,7 +3,7 @@
   import LeftRail from "$lib/editor/LeftRail.svelte";
   import Canvas from "$lib/editor/Canvas.svelte";
   import Inspector from "$lib/editor/Inspector.svelte";
-  import { EditorState, TEXT_ELEMENTS } from "$lib/editor.svelte";
+  import { EditorState } from "$lib/editor.svelte";
   import { NowPlaying } from "$lib/nowplaying.svelte";
   import { resolveApiKey } from "$lib/lastfm-client";
   import { ensureGoogleFonts } from "$lib/fonts";
@@ -35,27 +35,24 @@
       const target = e.target as HTMLElement;
       const isTextField =
         (target instanceof HTMLInputElement &&
-          ["text", "search", "url", "email", "password", "number", "tel"].includes(target.type)) ||
+          ["text", "search", "url", "email", "password", "number", "tel", "range"].includes(target.type)) ||
         target instanceof HTMLTextAreaElement ||
         target.isContentEditable;
-      if (isTextField) return; // let text fields keep their native keys
+      if (isTextField) return; // let inputs (incl. focused sliders) keep their native keys
 
-      // Arrow keys nudge the selected movable element (Shift = bigger step).
+      // Arrow keys nudge the selected element (Shift = bigger step). When an
+      // axis is snapped, the nudge adjusts the snap offset so the anchored
+      // relationship is preserved.
       if (e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const sel = editor.selected;
-        let off: { x: number; y: number } | undefined;
-        if (sel && (TEXT_ELEMENTS as readonly string[]).includes(sel)) {
-          off = editor.config.layout.textOffset?.[sel as "title" | "artist" | "album" | "duration"];
-        } else if (sel === "progress") {
-          off = editor.config.layout.progressOffset;
-        }
-        if (!off) return;
+        if (!sel || sel === "background" || !editor.config.v2) return;
         e.preventDefault();
+        const el = editor.config.v2.elements[sel];
         const step = e.shiftKey ? 10 : 1;
-        if (e.key === "ArrowUp") off.y -= step;
-        else if (e.key === "ArrowDown") off.y += step;
-        else if (e.key === "ArrowLeft") off.x -= step;
-        else if (e.key === "ArrowRight") off.x += step;
+        if (e.key === "ArrowUp") el.snapY ? (el.snapY.offset -= step) : (el.y -= step);
+        else if (e.key === "ArrowDown") el.snapY ? (el.snapY.offset += step) : (el.y += step);
+        else if (e.key === "ArrowLeft") el.snapX ? (el.snapX.offset -= step) : (el.x -= step);
+        else if (e.key === "ArrowRight") el.snapX ? (el.snapX.offset += step) : (el.x += step);
         editor.save();
         return;
       }
