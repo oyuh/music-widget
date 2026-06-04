@@ -1,144 +1,156 @@
-# Fast Music — Last.fm Now-Playing Widget for Streaming
+# Last.fm Music Widget
 
-A customizable Last.fm "now playing" overlay for **OBS, Streamlabs, XSplit**, and
-any software with a browser source — built around a visual, drag-and-drop editor.
-Design your widget in the browser, copy a URL, and paste it into your scene.
+A now-playing widget for Last.fm, meant to sit in a stream as an OBS/Streamlabs/XSplit
+browser source. You build the overlay in a drag-and-drop editor, copy the resulting
+URL, and drop it into your scene. The whole design lives in the URL, so there's no
+account and nothing to save on a server.
 
-**Live:** [fast.jamlog.lol](https://fast.jamlog.lol)
+Live at **[fast.jamlog.lol](https://fast.jamlog.lol)**.
 
-## Features
+## What it actually does
 
-- **Visual editor** — click elements, drag to reposition, resize with handles,
-  nudge with arrow keys, and tweak everything (fonts, colors, sizes, drop
-  shadows, layout, progress bar) in a contextual inspector. Autosaves locally.
-- **Portable design** — your entire design is encoded in the widget URL's hash,
-  so the copied URL carries everything. Import/export and reusable presets too.
-- **Scales to hundreds of viewers** — public Last.fm calls go **directly from
-  each viewer's browser**, so every widget spends its own per-IP rate budget
-  instead of funneling through one server IP (see *How it works* below).
-- **Bring your own API key (BYOK)** for faster, fully isolated updates.
-- **Private profiles** — connect via Last.fm auth to show a hidden listening
-  profile (signed server-side).
-- **Live progress** with smart polling, pause detection, and position estimation.
-- **Transparent, OBS-ready** — no background, drops straight onto a scene.
-- **"Add to stream" guide** — a built-in modal with per-platform browser-source
-  setup steps and the recommended source size.
-- **Desktop-only editor** — phones get a friendly gate (the editor needs a
-  pointer + wide screen); the widget URL itself works anywhere, including OBS.
-- **Service + Last.fm status** shown in the editor footer.
+The editor (`/`) is a canvas where you place and style the pieces of the widget:
+album art, title, artist, album, a progress bar, and an elapsed/remaining duration
+readout. You can drag elements around, resize them, snap them to each other, set
+per-element fonts/colors/shadows, and pick a switch animation for when the track
+changes. State autosaves to `localStorage` as you go.
 
-## How it works (and why it scales)
+When you're happy with it, the entire config is serialized to JSON, base64url-encoded,
+and stuffed into the widget URL's hash (`/w#<blob>`). The widget page (`/w`) reads that
+hash back, polls Last.fm for the user's current track, and renders. Because everything
+is in the hash, the URL is the document — copy it, share it, paste it into OBS, done.
 
-Last.fm rate-limits **~5 requests/sec per IP**. If every viewer's widget fetched
-through the server, all of them would share the server's single IP and get
-throttled. Instead:
+There are two layout engines. The original (`version: 1`) is a fixed grid. The current
+one (`version: 2`) is free positioning: every element has an `x/y/w/h`, a z-index, and
+optional snap relationships to other elements. The `version` flag in the encoded config
+decides which renderer (`WidgetLegacy.svelte` / `WidgetV2.svelte`) runs, and there's a
+`migrateToV2` step that converts an old grid design into the equivalent free layout so
+nothing breaks. See [config.ts](apps/web/src/lib/config.ts) for the full shape.
 
-- **Public** recent-tracks / track-info calls go **straight from the viewer's
-  browser** to Last.fm (`apps/web/src/lib/lastfm-client.ts`). Album art + color
-  extraction load from Last.fm's CDN directly (both send `Access-Control-Allow-Origin: *`).
-  A network/CORS failure falls back to the server proxy.
-- **Private** profiles must be signed with the Last.fm shared secret, which never
-  leaves the server — those go through `/api/lastfm/*`.
-- The server adds a small Redis cache (fail-open) and lenient per-IP rate
-  limiting in front of the proxy/signed paths.
+### Polling and progress
 
-## Tech stack
+Last.fm doesn't push, so the widget polls `user.getRecentTracks` and watches the
+`nowplaying` flag. The interval adapts to how active the page is and whether a track
+just changed — 2.5s right after a song change, 5s while something's playing, backing
+off to 10s and then 20s once the tab has been idle for a couple minutes
+([nowplaying.svelte.ts](apps/web/src/lib/nowplaying.svelte.ts)). Between polls the
+progress bar is ticked locally from the track's reported duration, with pause detection
+and a resume-position estimate so the bar doesn't sit frozen or jump around.
 
-- **Bun** monorepo (1.3+).
-- **Frontend** (`apps/web`): SvelteKit SPA (`adapter-static`, CSR), Svelte 5
-  runes, Tailwind v4.
-- **Backend** (`apps/server`): Hono on Bun — serves the built SPA and `/api/*` on
-  one port.
-- **Redis** cache (`Bun.redis`) and **Postgres** via **Drizzle ORM**
-  (`drizzle-orm/bun-sql`) for optional usage analytics + contact emails. Both are
-  **fail-open** — if they're unreachable, the widget still serves.
-- **Railway** for hosting (one app service + Redis + Postgres plugins).
+### Why public calls go straight from the browser
+
+Last.fm rate-limits roughly **5 requests/sec per IP**. If every viewer's widget fetched
+through our server, all of them would share the server's one IP and get throttled the
+moment a streamer with any audience went live. So public lookups (recent tracks, track
+info) fire **directly from each viewer's browser** to `ws.audioscrobbler.com`
+([lastfm-client.ts](apps/web/src/lib/lastfm-client.ts)) — every viewer spends their own
+per-IP budget. Album art and color extraction load straight from Last.fm's CDN the same
+way (it sends `Access-Control-Allow-Origin: *`). If a direct call fails on the transport
+level (network/CORS), it falls back to the server proxy.
+
+Private profiles are the exception. A hidden listening profile has to be requested with
+a signed call, and the signature needs the Last.fm shared secret, which never leaves the
+server. Those requests always go through `/api/lastfm/*`, which signs them server-side
+([lastfm.ts](apps/server/src/lastfm.ts)).
+
+## Layout
 
 ```
 apps/
-  web/     SvelteKit SPA — editor (/), widget (/w), auth callback (/callback)
-  server/  Hono + Bun — API, static SPA host, Redis, Postgres (Drizzle)
+  web/     SvelteKit SPA — editor (/), widget (/w), Last.fm auth callback (/callback)
+  server/  Hono on Bun — /api/*, serves the built SPA, talks to Redis + Postgres
 ```
 
-## Quick start (hosted app)
+- **Web** ([apps/web](apps/web)): SvelteKit with `adapter-static` (it's a pure SPA, CSR
+  only), Svelte 5 runes, Tailwind v4.
+- **Server** ([apps/server](apps/server)): Hono on Bun. In production it serves both the
+  static build and the API on a single port; in dev, Vite serves the UI and proxies
+  `/api` to it. Redis (`Bun.redis`) is a small cache in front of the signed/proxied
+  Last.fm paths, and Postgres (Drizzle, `drizzle-orm/bun-sql`) backs optional usage
+  analytics and contact emails. Both are **fail-open** — if either is unreachable the
+  widget still serves; you just lose caching or logging.
 
-1. Make sure your player is **scrobbling to Last.fm**.
-2. Open [fast.jamlog.lol](https://fast.jamlog.lol), enter your username, and
-   design the widget.
-3. Click **Copy URL**, then **Add to stream** for per-platform instructions.
-4. In OBS/Streamlabs add a **Browser Source** (XSplit: **Web Page**), paste the
-   URL, and set the size shown in the modal.
+A few details worth knowing about the server:
 
-## Local development
+- The proxy cache is short on purpose: recent-tracks responses live for 3s, track-info
+  for 24h.
+- There's a lenient per-IP rate limit (60 requests / 10s, ~360/min) that normal polling
+  never comes near; it only trips on abusive bursts, and it fails open when Redis is down
+  ([security.ts](apps/server/src/security.ts)).
+- The image proxy is host-allowlisted (Last.fm/Spotify/Apple/etc. CDNs only) so it can't
+  be turned into an open SSRF proxy.
 
-Requires [Bun](https://bun.sh) 1.3+ and (optionally) Docker for Redis/Postgres.
+## Running it locally
+
+You need [Bun](https://bun.sh) 1.3+, and optionally Docker for local Redis/Postgres.
 
 ```bash
 bun install
-bun run services:up   # local Redis + Postgres via Docker (optional)
+bun run services:up   # Redis + Postgres in Docker (optional — both fail open)
 bun run dev           # Vite UI on :5173, Hono API on :8787
 ```
 
-Open <http://localhost:5173>. Env is read from the repo-root `.env` (server) and
+Then open <http://localhost:5173>. Config is read from a repo-root `.env` (server) and
 `.env.local` (frontend `VITE_*`); copy [`.env.example`](.env.example) to start.
 
-| Variable | Where | Purpose |
+| Variable | Side | Purpose |
 |---|---|---|
-| `LFM_API_KEY` / `LFM_SHARED_SECRET` | server | Last.fm credentials (secret) |
-| `REDIS_URL` | server | cache (fail-open; unset = no cache) |
-| `DATABASE_URL` | server | Postgres for visitor log + contacts (fail-open; unset = off) |
-| `CRON_SECRET` | server | bearer token guarding `POST /api/cron/cleanup` (unset = route off) |
+| `LFM_API_KEY` / `LFM_SHARED_SECRET` | server | Last.fm credentials (the secret signs private/proxied calls) |
+| `REDIS_URL` | server | cache + rate-limit store; unset = no cache, no limiting |
+| `DATABASE_URL` | server | Postgres for the visitor log + contacts; unset = off |
+| `CRON_SECRET` | server | bearer token guarding `POST /api/cron/cleanup`; unset = route disabled |
 | `PORT` / `LOG_LEVEL` | server | bind port / log verbosity |
-| `VITE_LFM_KEY` | frontend (build) | public Last.fm key for browser calls |
+| `VITE_LFM_KEY` | frontend (build) | public Last.fm key used for the browser-direct calls |
 | `VITE_LFM_CALLBACK` | frontend (build) | Last.fm auth callback URL |
 
 ## API
 
-- `GET /api/ping` / `GET /api/health` — liveness / dependency status.
-- `GET /api/lastfm/recent`, `/trackInfo` — proxy + cache (private/fallback).
-- `POST /api/lastfm/session` — Last.fm token → session key (signed).
-- `GET /api/proxy-image` — album-art proxy fallback (host-allowlisted).
-- `POST /api/log/widget` — silent, fail-open visitor log (one row per visitor).
-- `POST /api/contact` — store a contact email, linked to a Last.fm username.
-- `POST /api/cron/cleanup` — scheduled visitor-log housekeeping (dedupe + prune); needs `CRON_SECRET`.
-- `GET /robots.txt`, `/sitemap.xml`.
+Everything lives under `/api`. The Last.fm routes exist mostly as the fallback and the
+signed path for private profiles — the common case never touches them.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/ping` | liveness; always 200 while the process is up |
+| `GET /api/health` | reports Redis (and informational Postgres) status; may 503 if Redis is configured but down |
+| `GET /api/lastfm/recent`, `/trackInfo` | signed/cached proxy — used for private profiles and as the browser-direct fallback |
+| `POST /api/lastfm/session` | exchange a Last.fm auth token for a session key (signed) |
+| `GET /api/proxy-image` | album-art fetch fallback; host-allowlisted |
+| `POST /api/log/widget` | fire-and-forget visitor log, one row per visitor (fail-open) |
+| `POST /api/contact` | store a contact email against a Last.fm username |
+| `POST /api/cron/cleanup` | visitor-log housekeeping (dedupe + prune); requires `CRON_SECRET` |
+| `GET /robots.txt`, `/sitemap.xml` | the usual |
 
 ## Deploying (Railway)
 
-Deploys as **one service** (the `Dockerfile` builds the SPA and runs the Hono
-server) plus **Redis** and **Postgres** plugins.
+It ships as one service plus the Redis and Postgres plugins. The `Dockerfile` builds the
+SPA and starts the Hono server, which serves both.
 
-1. Point Railway at the repo; add **Redis** and **Postgres** plugins.
-2. Set service variables: `LFM_API_KEY`, `LFM_SHARED_SECRET`,
-   `REDIS_URL=${{Redis.REDIS_URL}}`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
-   and the build-time `VITE_LFM_KEY` / `VITE_LFM_CALLBACK=https://<domain>/callback`.
-3. Deploy. Postgres tables are created by **Drizzle migrations applied
-   automatically on the server's first write** — no manual step.
+1. Point Railway at the repo and add the **Redis** and **Postgres** plugins.
+2. Set the service variables: `LFM_API_KEY`, `LFM_SHARED_SECRET`,
+   `REDIS_URL=${{Redis.REDIS_URL}}`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, plus the
+   build-time `VITE_LFM_KEY` and `VITE_LFM_CALLBACK=https://<domain>/callback`.
+3. Deploy. Drizzle migrations are applied on the server's first write, so there's no
+   manual migrate step.
 
-After changing `apps/server/src/schema.ts`, run `bun run db:generate` and commit
-the new file in `apps/server/drizzle/`. To apply migrations manually, point
-`DATABASE_URL` at the target and run `bun run db:migrate`.
+After changing [`apps/server/src/schema.ts`](apps/server/src/schema.ts), run
+`bun run db:generate` and commit the generated file under `apps/server/drizzle/`. To
+apply migrations by hand, point `DATABASE_URL` at the target and run `bun run db:migrate`.
 
 ## Scripts
 
 | Script | Does |
 |---|---|
-| `bun run dev` | Vite UI + Hono API (with proxy) |
+| `bun run dev` | Vite UI + Hono API together (Vite proxies `/api`) |
 | `bun run build` | build the SvelteKit SPA |
 | `bun test` | unit tests |
-| `bun run services:up` / `services:down` | local Redis + Postgres (Docker) |
+| `bun run services:up` / `services:down` | local Redis + Postgres in Docker |
 | `bun run db:generate` / `db:migrate` | generate / apply Drizzle migrations |
 
 ## License
 
-Permission is granted to use, copy, and modify this software for personal use,
-including local hosting and streaming integration.
+You may use, copy, and modify this for personal use, including self-hosting and
+streaming. You may **not** redistribute, republish, or pass it off as your own;
+commercial redistribution needs explicit permission. Contributions are welcome and
+credited, and contributing means you agree to these terms.
 
-**Restrictions:**
-- You may NOT redistribute, publish, or claim this code as your own.
-- Commercial redistribution requires explicit permission from the author.
-- Contact the author for redistribution rights.
-
-**Contributions** are welcome and credited; by contributing you agree to these terms.
-
-[**Email me**](mailto:me@lawsonhart.me)
+Questions or redistribution requests: [me@lawsonhart.me](mailto:me@lawsonhart.me).
