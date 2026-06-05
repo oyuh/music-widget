@@ -12,6 +12,7 @@
   import { resolveLayout, elementShadowCSS, type Measured } from "./v2-layout";
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
+  import { untrack } from "svelte";
 
   type TextId = "title" | "artist" | "album" | "duration";
   const TEXT_IDS: TextId[] = ["title", "artist", "album", "duration"];
@@ -54,7 +55,10 @@
   // When "auto from art" is on, the accent is the album's dominant color;
   // otherwise it's the configured accent. Only elements whose color is "accent"
   // follow it , every other element keeps its own explicit color.
-  let computedAccent = $state("#1db954");
+  // Seed from the user's fallback/accent (not a hardcoded green) so there's no
+  // green flash before the first extraction resolves, and a failed fetch lands on
+  // the configured fallback instead.
+  let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
 
@@ -84,7 +88,9 @@
         computedAccent = color;
         lastExtractedColor = color;
         lastImageUrl = source;
-      } else if (source !== lastImageUrl) {
+      } else {
+        // Extraction failed (art couldn't be fetched / read) , use the configured
+        // fallback color instead of leaving a stale or default-green accent.
         computedAccent = fallbackAccent;
         lastExtractedColor = null;
         lastImageUrl = source;
@@ -120,7 +126,8 @@
       const toHex = (n: number) => n.toString(16).padStart(2, "0");
       computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     } catch {
-      /* ignore */
+      // Couldn't read the pixels (e.g. tainted canvas) , fall back to the user color.
+      computedAccent = cfg.fallbackAccent || cfg.theme.accent;
     }
   }
 
@@ -177,7 +184,9 @@
   const boldWeight: Record<TextId, number> = { title: 700, artist: 600, album: 600, duration: 700 };
   const defaultSize: Record<TextId, number> = { title: 16, artist: 14, album: 12, duration: 11 };
 
-  function textCss(id: TextId, color: string): string {
+  // `includeShadow` is false in "escape" mode, where the shadow is rendered as a
+  // drop-shadow filter on the (unclipped) wrapper instead of a clipped text-shadow.
+  function textCss(id: TextId, color: string, includeShadow = true): string {
     const t = cfg.theme;
     const st = t.textStyle?.[id];
     const deco = `${st?.underline ? "underline " : ""}${st?.strike ? " line-through" : ""}`.trim();
@@ -190,7 +199,7 @@
       `color:${color}`,
     ];
     const sh = elementShadowCSS(v2.elements[id].shadow, color);
-    if (sh) parts.push(`text-shadow:${sh}`);
+    if (includeShadow && sh) parts.push(`text-shadow:${sh}`);
     return parts.join(";");
   }
 
@@ -327,22 +336,39 @@
             {@const el = v2.elements[id]}
             {@const color = resolveColor(el.color)}
             {@const anchor = el.anchor === "center" ? "center" : el.anchor === "right" ? "right" : "left"}
+            {@const fixed = el.w != null}
+            <!-- "escape" lets the *shadow* spill past the box while the *text* stays
+                 clipped: render it as a drop-shadow filter on the unclipped wrapper
+                 (drop-shadow isn't clipped by the element's own overflow) and drop
+                 the text-shadow. Auto-width text never overflows, so it's left
+                 unclipped and just uses a normal text-shadow. -->
+            {@const escape = !!el.shadow?.enabled && !!el.shadow?.escape}
+            {@const shadowCss = elementShadowCSS(el.shadow, color)}
             <div
               data-el={id}
               use:measure={id}
-              style="{posStyle(id)};text-align:{anchor};{el.w != null ? 'overflow:hidden;' : ''}"
+              style="{posStyle(id)};text-align:{anchor};{escape && shadowCss
+                ? `overflow:visible;filter:drop-shadow(${shadowCss})`
+                : fixed
+                  ? 'overflow:hidden'
+                  : ''}"
             >
               {#if el.scroll?.enabled}
                 <ScrollText
                   text={textContent(id)}
                   {color}
-                  style={textCss(id, color)}
+                  style={textCss(id, color, !escape)}
                   direction={el.scroll.direction}
                   speedPxPerSec={el.scroll.speedPxPerSec}
                   gapPx={el.scroll.gapPx}
+                  forceClip={escape}
                 />
               {:else}
-                <div style="{textCss(id, color)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                <div
+                  style="{textCss(id, color, !escape)};white-space:nowrap;{escape || fixed
+                    ? 'overflow:hidden;text-overflow:ellipsis'
+                    : 'overflow:visible'}"
+                >
                   {textContent(id)}
                 </div>
               {/if}

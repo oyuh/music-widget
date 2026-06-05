@@ -15,6 +15,12 @@
     direction?: "auto" | "left" | "right" | "bounce";
     /** Element id used by the editor for hit-testing/selection. */
     dataEl?: string;
+    /**
+     * Force the box to stay clipped even when the text fits. Used by "escape"
+     * shadow mode, where the shadow is drawn as a drop-shadow filter on the parent
+     * and the text itself must stay clipped to its box.
+     */
+    forceClip?: boolean;
   }
 
   let {
@@ -27,6 +33,7 @@
     gapPx = 32,
     direction = "auto",
     dataEl,
+    forceClip = false,
   }: Props = $props();
 
   let outer = $state<HTMLDivElement | null>(null);
@@ -96,6 +103,10 @@
         : "marquee-scroll-left",
   );
   const isBounce = $derived(animate && effectiveMode === "bounce");
+  // Clip while actually scrolling, or whenever asked to (escape mode). When the
+  // text fits and we're not forcing a clip, leaving it unclipped lets a normal
+  // text-shadow render fully instead of being cut off at the box edge.
+  const clipScroll = $derived(animate || forceClip);
   const wrapperStyle = $derived(
     [
       "display:inline-flex",
@@ -113,7 +124,7 @@
   bind:this={outer}
   data-el={dataEl}
   class="marquee {animate ? 'marquee--animate' : ''} {className}"
-  style="min-width:0;position:relative;{style}"
+  style="min-width:0;position:relative;overflow:{clipScroll ? 'hidden' : 'visible'};{style}"
 >
   <div class="marquee__wrapper" style={wrapperStyle}>
     <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">{text}</span>

@@ -12,6 +12,7 @@
     generateElementDropShadowCSS,
     getReadableTextOn,
   } from "./colors";
+  import { untrack } from "svelte";
 
   type TextEl = "title" | "artist" | "album" | "meta" | "duration";
 
@@ -60,7 +61,9 @@
     meta: "#ffffff",
     duration: "#ffffff",
   });
-  let computedAccent = $state("#1db954");
+  // Seed from the user's fallback/accent (not a hardcoded green) so a failed art
+  // fetch lands on the configured fallback instead of a green flash.
+  let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
 
@@ -98,7 +101,9 @@
         computedAccent = color;
         lastExtractedColor = color;
         lastImageUrl = source;
-      } else if (source !== lastImageUrl) {
+      } else {
+        // Extraction failed (art couldn't be fetched / read) , use the configured
+        // fallback color instead of leaving a stale or default-green accent.
         computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
         computedAccent = fallbackAccent;
         lastExtractedColor = null;
@@ -138,7 +143,8 @@
       computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
       computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     } catch {
-      /* ignore */
+      // Couldn't read the pixels (e.g. tainted canvas) , fall back to the user color.
+      computedAccent = cfg.fallbackAccent || cfg.theme.accent;
     }
   }
 

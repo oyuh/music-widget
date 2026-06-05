@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InfoTip from "./InfoTip.svelte";
   interface Props {
     value?: number;
     min?: number;
@@ -6,8 +7,10 @@
     step?: number;
     label?: string;
     suffix?: string;
+    hint?: string;
+    diagram?: string;
   }
-  let { value = $bindable(0), min = 0, max = 100, step = 1, label = "", suffix = "" }: Props = $props();
+  let { value = $bindable(0), min = 0, max = 100, step = 1, label = "", suffix = "", hint = "", diagram = "" }: Props = $props();
 
   const pct = $derived(max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0);
 
@@ -29,7 +32,10 @@
 <label class="block">
   {#if label || suffix}
     <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-      <span class="text-muted-foreground">{label}</span>
+      <span class="flex items-center gap-1 text-muted-foreground">
+        {label}
+        {#if hint}<InfoTip text={hint} diagram={diagram || undefined} {label} />{/if}
+      </span>
       <div class="flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 focus-within:ring-1 focus-within:ring-primary">
         <input
           type="number"

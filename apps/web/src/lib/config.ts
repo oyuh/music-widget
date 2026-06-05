@@ -35,6 +35,10 @@ export type V2Shadow = {
   offsetY: number;
   useOppositeColor: boolean;
   customColor?: string;
+  // When true, the shadow is allowed to spill past the element's own box instead
+  // of being clipped by it , i.e. the shadow extends as far as its blur/offset want.
+  // Optional => absent/false keeps the existing clipped behavior (backward compatible).
+  escape?: boolean;
 };
 
 export type V2Scroll = {
@@ -464,6 +468,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
       offsetY: per?.offsetY ?? ds.offsetY,
       useOppositeColor: per?.useOppositeColor ?? ds.useOppositeColor,
       customColor: per?.customColor ?? ds.customColor,
+      escape: false,
     };
   };
 
@@ -478,6 +483,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     offsetY: ds?.offsetY ?? 2,
     useOppositeColor: ds?.useOppositeColor ?? true,
     customColor: ds?.customColor ?? "#000000",
+    escape: false,
   });
 
   const scrollFor = (id: V2TextId): V2Scroll => ({
