@@ -5,11 +5,12 @@
     formatDurationText,
     getTextFont,
     V2_ELEMENT_IDS,
+    type V2Element,
     type V2ElementId,
     type WidgetConfig,
   } from "./config";
   import { extractDominantColor, hexToRgb } from "./colors";
-  import { resolveLayout, elementShadowCSS, type Measured } from "./v2-layout";
+  import { resolveLayout, elementShadowCSS, type Box, type Measured } from "./v2-layout";
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
   import { untrack } from "svelte";
@@ -61,6 +62,9 @@
   let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
+  // True when "auto from art" is on but no color could be read from the art , in
+  // that state elements set to "accent" use their per-element fallback color.
+  let accentFailed = $state(false);
 
   $effect(() => {
     const auto = cfg.theme.autoFromArt;
@@ -70,13 +74,16 @@
 
     (async () => {
       if (!auto) {
+        // Not deriving from art , the configured accent is intentional, not a failure.
         computedAccent = cfg.theme.accent;
+        accentFailed = false;
         lastExtractedColor = null;
         lastImageUrl = "";
         return;
       }
       if (!source) {
         computedAccent = fallbackAccent;
+        accentFailed = true;
         lastExtractedColor = null;
         lastImageUrl = "";
         return;
@@ -86,12 +93,14 @@
       if (cancelled) return;
       if (color) {
         computedAccent = color;
+        accentFailed = false;
         lastExtractedColor = color;
         lastImageUrl = source;
       } else {
         // Extraction failed (art couldn't be fetched / read) , use the configured
         // fallback color instead of leaving a stale or default-green accent.
         computedAccent = fallbackAccent;
+        accentFailed = true;
         lastExtractedColor = null;
         lastImageUrl = source;
       }
@@ -101,6 +110,42 @@
       cancelled = true;
     };
   });
+
+  // Whether the art image actually loads. We probe the URL with a SEPARATE off-DOM
+  // Image (NOT the displayed <img>) so detection is decoupled from rendering: the
+  // displayed <img>'s `error` also fires when the {#key} song-switch tears down an
+  // in-flight image, which used to hide perfectly good art. The `cancelled` guard
+  // drops a stale probe's result once the song (URL) changes.
+  type ArtState = "loading" | "ok" | "failed";
+  let artState = $state<ArtState>("loading");
+  $effect(() => {
+    const url = imgUrl;
+    if (!url) {
+      artState = "failed";
+      return;
+    }
+    artState = "loading";
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (!cancelled) artState = "ok";
+    };
+    probe.onerror = () => {
+      if (!cancelled) artState = "failed";
+    };
+    probe.src = url;
+    // Already cached? onload may not fire , resolve synchronously.
+    if (probe.complete && probe.naturalWidth > 0) artState = "ok";
+    return () => {
+      cancelled = true;
+    };
+  });
+  // Render the art while it's loading or good; only hide it on a confirmed failure.
+  const showArt = $derived(artState !== "failed");
+  // When the art is gone (no URL OR a URL that won't load) we re-anchor anything snapped
+  // to it to a WIDGET edge, so text flushes hard left/right instead of floating where the
+  // art used to be. Applies in the editor too so you can preview it.
+  const artGone = $derived(v2.elements.art.visible && artState === "failed");
 
   function onArtLoad(e: Event) {
     if (!cfg.theme.autoFromArt) return;
@@ -125,15 +170,55 @@
       const [r, g, b] = best.split(",").map(Number);
       const toHex = (n: number) => n.toString(16).padStart(2, "0");
       computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      accentFailed = false;
     } catch {
-      // Couldn't read the pixels (e.g. tainted canvas) , fall back to the user color.
-      computedAccent = cfg.fallbackAccent || cfg.theme.accent;
+      // Cross-origin art taints the canvas here; that's expected , the $effect above
+      // reads the color via a crossorigin request (Last.fm art sends CORS headers),
+      // so leave its result alone instead of forcing the fallback.
     }
   }
 
   // ---- layout resolution (snap-aware) ----
   let measured = $state<Measured>({});
-  const boxes = $derived(resolveLayout(v2, measured));
+
+  // Which widget side an element flushes to when the art is gone. Uses the cues the
+  // design carries: the SCROLL direction (left/right), else WHICH art edge it snapped to
+  // (sat to the art's right => flush left), else the side the art was hugging.
+  function goneSide(el: V2Element, artNearLeft: boolean): "left" | "right" {
+    const dir = el.scroll?.enabled ? el.scroll.direction : undefined;
+    if (dir === "left") return "left";
+    if (dir === "right") return "right";
+    if (el.snapX?.to === "art") return el.snapX.toEdge === "start" ? "right" : "left";
+    return artNearLeft ? "left" : "right";
+  }
+  // When the art is gone, pull every element that sat on the art's far side over to the
+  // matching WIDGET edge, so text/progress flush hard to one side instead of floating in
+  // the gap the art left behind. We adjust the RESOLVED boxes, so it works whether an
+  // element was snapped to the art OR free-positioned beside it. Elements land at the very
+  // edge (free) or the very edge plus their own snap offset (snapped).
+  const boxes = $derived.by(() => {
+    const raw = resolveLayout(v2, measured);
+    if (!artGone) return raw;
+    const art = raw.art;
+    const widgetW = raw.background.w || 0;
+    const artCenter = art.x + art.w / 2;
+    const artNearLeft = art.x <= widgetW - (art.x + art.w);
+    const out = { ...raw } as Record<V2ElementId, Box>;
+    for (const id of V2_ELEMENT_IDS) {
+      if (id === "art" || id === "background") continue;
+      const el = v2.elements[id];
+      if (!el.visible) continue;
+      const b = raw[id];
+      const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
+      if (!onFarSide) continue;
+      const off = el.snapX?.to === "art" ? Math.abs(el.snapX.offset ?? 0) : 0;
+      out[id] = {
+        ...b,
+        x: goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off,
+      };
+    }
+    return out;
+  });
 
   // Action: report an element's natural box size so auto-sized + snapped
   // elements resolve correctly. Only writes when the size actually changes
@@ -157,14 +242,18 @@
   const wouldHide = $derived(isEffectivelyPaused && pausedTransparent);
 
   // ---- helpers ----
-  function resolveColor(c: string | undefined): string {
-    return c === "accent" ? computedAccent : (c ?? "#ffffff");
+  /** Resolve the live accent color, honoring a per-element fallback on failure. */
+  function accentColor(fallbackColor?: string): string {
+    return accentFailed && fallbackColor ? fallbackColor : computedAccent;
+  }
+  function resolveColor(c: string | undefined, fallbackColor?: string): string {
+    return c === "accent" ? accentColor(fallbackColor) : (c ?? "#ffffff");
   }
 
   // ---- background fill ----
   const bgFill = $derived(v2.elements.background.fill ?? "color");
   const bgFillOpacity = $derived((v2.elements.background.fillOpacity ?? 100) / 100);
-  const bgArt = $derived(bgFill === "art" && !!imgUrl);
+  const bgArt = $derived(bgFill === "art" && showArt);
 
   /** Apply an opacity to a solid color (hex or "accent"). */
   function withOpacity(color: string, opacity: number): string {
@@ -177,8 +266,8 @@
     wouldHide || bgFill === "none" || bgFill === "art"
       ? "transparent"
       : bgFill === "accent"
-        ? withOpacity(computedAccent, bgFillOpacity)
-        : resolveColor(v2.elements.background.color),
+        ? withOpacity(accentColor(v2.elements.background.fallbackColor), bgFillOpacity)
+        : resolveColor(v2.elements.background.color, v2.elements.background.fallbackColor),
   );
 
   const boldWeight: Record<TextId, number> = { title: 700, artist: 600, album: 600, duration: 700 };
@@ -236,7 +325,7 @@
   const containerStyle = $derived.by(() => {
     const el = v2.elements.background;
     const b = boxes.background;
-    const shBase = bgFill === "accent" ? computedAccent : resolveColor(el.color);
+    const shBase = bgFill === "accent" ? accentColor(el.fallbackColor) : resolveColor(el.color, el.fallbackColor);
     const sh = elementShadowCSS(el.shadow, shBase);
     return [
       "position:relative",
@@ -297,7 +386,7 @@
       <div class="v2-layer" in:switchIn style="position:absolute;inset:0;pointer-events:none">
         {#each childIds as id (id)}
           {#if id === "art"}
-            {#if imgUrl}
+            {#if showArt}
               <div data-el="art" use:measure={"art"} style={posStyle("art")}>
                 <img
                   src={imgUrl}
@@ -319,22 +408,21 @@
               </div>
             {/if}
           {:else if id === "progress"}
-            {@const sh = elementShadowCSS(v2.elements.progress.shadow, resolveColor(v2.elements.progress.color))}
+            {@const progColor = resolveColor(v2.elements.progress.color, v2.elements.progress.fallbackColor)}
+            {@const sh = elementShadowCSS(v2.elements.progress.shadow, progColor)}
             <div data-el="progress" use:measure={"progress"} style={posStyle("progress")}>
               <div
                 style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements.progress.radius ??
                   4}px;overflow:hidden;{sh ? `box-shadow:${sh}` : ''}"
               >
                 <div
-                  style="height:100%;width:{Math.max(0, Math.min(100, percent))}%;background:{resolveColor(
-                    v2.elements.progress.color,
-                  )};transition:width 120ms linear"
+                  style="height:100%;width:{Math.max(0, Math.min(100, percent))}%;background:{progColor};transition:width 120ms linear"
                 ></div>
               </div>
             </div>
           {:else if isText(id)}
             {@const el = v2.elements[id]}
-            {@const color = resolveColor(el.color)}
+            {@const color = resolveColor(el.color, el.fallbackColor)}
             {@const anchor = el.anchor === "center" ? "center" : el.anchor === "right" ? "right" : "left"}
             {@const fixed = el.w != null}
             <!-- "escape" lets the *shadow* spill past the box while the *text* stays

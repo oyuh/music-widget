@@ -77,7 +77,7 @@
   <div
     use:portal
     role="tooltip"
-    class="pointer-events-none fixed z-[120] w-[248px] rounded-lg border border-border bg-card p-2.5 text-card-foreground shadow-xl"
+    class="font-mono-ui pointer-events-none fixed z-[120] w-[248px] rounded-lg border border-border bg-card p-2.5 text-card-foreground shadow-xl"
     style="left:{x}px;top:{y}px"
   >
     {#if svg}

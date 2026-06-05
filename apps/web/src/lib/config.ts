@@ -59,6 +59,10 @@ export type V2Element = {
   h: number | null; // px height; null = auto (content)
   z: number; // stacking order
   color: string; // text color / progress fill / bg color; "accent" => album/accent color
+  // Per-element fallback used when color is "accent" and the album-art accent
+  // can't be fetched/read. Optional => undefined falls back to the global
+  // theme fallback (cfg.fallbackAccent). Keeps old configs byte-compatible.
+  fallbackColor?: string;
   fill: V2Fill; // background element only: none/solid color/accent/blurred album art
   fillOpacity: number; // background only: 0-100 opacity for the accent / album-art fill
   anchor: "left" | "center" | "right"; // text horizontal anchor (ignored by non-text)
@@ -412,6 +416,9 @@ export function isV2(c: WidgetConfig | null | undefined): c is WidgetConfig & { 
 export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
   const L = cfg.layout;
   const T = cfg.theme;
+  // Default per-element accent fallback , seeded from the global fallback so
+  // existing designs look identical until a per-element color is chosen.
+  const fbColor = cfg.fallbackAccent ?? T.accent ?? "#1db954";
   const pad = 12;
   const gap = 12;
   const ts = T.textSize ?? { title: 16, artist: 14, album: 12, meta: 12, duration: 11 };
@@ -501,6 +508,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     h: null,
     z,
     color: T.text[id] ?? "#ffffff",
+    fallbackColor: fbColor,
     fill: "color",
     fillOpacity: 100,
     anchor: oppositeAlign,
@@ -533,6 +541,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     h: 6,
     z: 5,
     color: "accent",
+    fallbackColor: fbColor,
     fill: "color",
     fillOpacity: 100,
     anchor: "left",
@@ -555,6 +564,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
       h: L.h,
       z: 0,
       color: T.bg,
+      fallbackColor: fbColor,
       fill: (T.bgEnabled ?? true) ? "color" : "none",
       fillOpacity: 100,
       anchor: "left",
@@ -572,6 +582,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
       h: artSize,
       z: 1,
       color: "#ffffff",
+      fallbackColor: fbColor,
       fill: "color",
       fillOpacity: 100,
       anchor: "left",

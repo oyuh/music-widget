@@ -46,8 +46,14 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
-  <div class="text-base font-semibold tracking-tight">
+  <div class="flex items-center gap-1.5 text-base font-semibold tracking-tight">
     {sel ? labelOf[sel] : "Widget"}
+    {#if sel === "progress" || sel === "duration"}
+      <InfoTip
+        text="Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate."
+        label={labelOf[sel]}
+      />
+    {/if}
   </div>
 
   {#if !sel || !E}
@@ -154,6 +160,14 @@
     {#if isTextSel}
       <hr class="border-border" />
       <ColorInput bind:value={E.color} label="Color" allowAccent hint="This text's color. 'auto' follows the accent / album-art color." diagram="auto-color" />
+      {#if E.color === "accent"}
+        <ColorInput
+          bind:value={E.fallbackColor!}
+          label="Fallback color"
+          hint="Used for this text when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          diagram="fallback"
+        />
+      {/if}
       <Segmented
         bind:value={E.anchor}
         label="Anchor"
@@ -265,6 +279,14 @@
     {:else if isProgress}
       <hr class="border-border" />
       <ColorInput bind:value={E.color} label="Fill color" allowAccent hint="The played portion's color. 'auto' follows the accent / album-art color." diagram="auto-color" />
+      {#if E.color === "accent"}
+        <ColorInput
+          bind:value={E.fallbackColor!}
+          label="Fallback color"
+          hint="Used for the bar when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          diagram="fallback"
+        />
+      {/if}
       <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" />
     {/if}
 
@@ -311,6 +333,12 @@
         <ColorInput bind:value={E.color} label="Background color" allowAlpha />
       {:else if E.fill === "accent"}
         <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" />
+        <ColorInput
+          bind:value={E.fallbackColor!}
+          label="Fallback color"
+          hint="The background's accent-fill color when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          diagram="fallback"
+        />
       {:else if E.fill === "art"}
         <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" diagram="fill-art" hint="A blurred album cover, scaled to the widget width, fills the background." />
       {/if}
@@ -318,15 +346,7 @@
 
       <hr class="border-border" />
       <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
-      <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song." diagram="auto-color" />
-      {#if cfg.theme.autoFromArt}
-        <ColorInput
-          bind:value={cfg.fallbackAccent!}
-          label="Fallback accent"
-          hint="Used as the accent when the album art can't be fetched or no color can be read from it , instead of defaulting to green."
-          diagram="fallback"
-        />
-      {/if}
+      <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />
 
       <hr class="border-border" />
       <label class="block">
