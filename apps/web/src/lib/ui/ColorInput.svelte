@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InfoTip from "./InfoTip.svelte";
   interface Props {
     value?: string;
     label?: string;
@@ -8,6 +9,8 @@
     allowAlpha?: boolean;
     /** Swatch-only: hide the hex field + accent button (e.g. a toolbar swatch). */
     compact?: boolean;
+    hint?: string;
+    diagram?: string;
   }
   let {
     value = $bindable("#ffffff"),
@@ -15,6 +18,8 @@
     allowAccent = false,
     allowAlpha = false,
     compact = false,
+    hint = "",
+    diagram = "",
   }: Props = $props();
 
   const ACCENT_SWATCH = "linear-gradient(135deg,#ff4d4d,#ffd24d,#4dff77,#4dd2ff,#4d7bff,#d24dff)";
@@ -194,7 +199,12 @@
 </script>
 
 <div class={compact ? "inline-flex items-center" : "block"} bind:this={root}>
-  {#if label && !compact}<div class="mb-1 text-xs text-muted-foreground">{label}</div>{/if}
+  {#if label && !compact}
+    <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+      {label}
+      {#if hint}<InfoTip text={hint} diagram={diagram || undefined} {label} />{/if}
+    </div>
+  {/if}
   <div class="flex items-center gap-2">
     <button
       type="button"
