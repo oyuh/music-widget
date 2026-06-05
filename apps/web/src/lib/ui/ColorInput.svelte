@@ -245,7 +245,7 @@
     <div
       bind:this={popEl}
       use:portal
-      class="fixed z-[100] w-[232px] rounded-lg border border-border bg-card p-3 shadow-xl"
+      class="font-mono-ui fixed z-[100] w-[232px] rounded-lg border border-border bg-card p-3 shadow-xl"
       style="left:{popX}px;top:{popY}px"
     >
       {#if isAccent}

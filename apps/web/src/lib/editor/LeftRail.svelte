@@ -3,7 +3,13 @@
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
+  import InfoTip from "$lib/ui/InfoTip.svelte";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
+
+  // Progress / duration ride on Last.fm, which doesn't report exact playback
+  // position , so they're estimates. Surfaced as a tooltip in a few places.
+  const LASTFM_TIMING_HINT =
+    "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
   import SetupModal from "$lib/editor/SetupModal.svelte";
   import { recordWidgetCopy } from "$lib/usage";
 
@@ -274,17 +280,22 @@
   <section class="flex flex-col gap-1">
     <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Elements</div>
     {#each ELEMENTS as el (el.id)}
-      <button
-        type="button"
-        onclick={() => editor.select(el.id)}
-        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
-        el.id
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-muted'}"
-      >
-        <span class="w-4 text-center opacity-70">{el.icon}</span>
-        <span>{el.label}</span>
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          onclick={() => editor.select(el.id)}
+          class="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
+          el.id
+            ? 'bg-primary text-primary-foreground'
+            : 'hover:bg-muted'}"
+        >
+          <span class="w-4 text-center opacity-70">{el.icon}</span>
+          <span>{el.label}</span>
+        </button>
+        {#if el.id === "progress" || el.id === "duration"}
+          <InfoTip text={LASTFM_TIMING_HINT} label={el.label} />
+        {/if}
+      </div>
     {/each}
   </section>
 
