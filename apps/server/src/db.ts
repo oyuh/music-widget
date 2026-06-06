@@ -290,6 +290,31 @@ export async function insertFeedback(f: FeedbackInput): Promise<boolean> {
   }
 }
 
+/**
+ * Count how many distinct Last.fm users have ever used the site. Each row in
+ * widget_events is already one unique (lfm_user, fingerprint) visitor, so we
+ * count distinct lfm_user to collapse the same person across devices into one.
+ * Read-only and best-effort: returns null on any failure (caller keeps its last
+ * known value) and never throws.
+ */
+export async function countWidgetUsers(): Promise<number | null> {
+  const d = getDb();
+  if (!d) return null;
+
+  try {
+    await ensureMigrated(d);
+    const rows = (await withTimeout(
+      () => d.execute(sql`select count(distinct "lfm_user")::int as n from "widget_events"`),
+      "user count",
+    )) as Array<{ n: number }>;
+    return rows?.[0]?.n ?? 0;
+  } catch (err) {
+    migrated = null; // self-heal a missing schema on the next call
+    log("warn", "db.user_count_failed", { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
+}
+
 export async function dbPing(): Promise<boolean> {
   const d = getDb();
   if (!d) return false;

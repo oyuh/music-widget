@@ -173,6 +173,26 @@ export async function submitFeedback(p: FeedbackPayload): Promise<FeedbackResult
   }
 }
 
+/**
+ * How many distinct Last.fm users have used the site. Fetched once on load: the
+ * server computes this in a background task and keeps it in memory, so this route
+ * just pulls the pre-computed number , nothing to poll, no DB hit. Returns null
+ * on any failure so the caller can just hide the line rather than show a broken
+ * number.
+ */
+export async function fetchSiteUserCount(): Promise<number | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const r = await fetch("/api/site-stats");
+    if (!r.ok) return null;
+    const d = (await r.json()) as { users?: unknown };
+    const n = typeof d.users === "number" ? d.users : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- "Recently gave feedback" flag --------------------------------------
 // After someone submits feedback we hide the sidebar button for a week so we
 // don't nag them. Stored as a single timestamp in localStorage; treated as

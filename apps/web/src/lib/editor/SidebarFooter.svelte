@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { serviceStatus } from "$lib/status.svelte";
   import FeedbackModal from "$lib/editor/FeedbackModal.svelte";
-  import { feedbackRecentlySent } from "$lib/usage";
+  import { feedbackRecentlySent, fetchSiteUserCount } from "$lib/usage";
 
   interface Props {
     lfmUser?: string;
@@ -16,9 +16,13 @@
   // Hide the button for a week after someone submits (checked on mount because
   // localStorage isn't available during the static prerender). See $lib/usage.
   let feedbackHidden = $state(false);
+  // Distinct-user count, fetched once on load (server keeps it warm in memory,
+  // so there's nothing to poll). null until it arrives / on failure , hidden then.
+  let userCount = $state<number | null>(null);
 
   onMount(() => {
     feedbackHidden = feedbackRecentlySent();
+    void fetchSiteUserCount().then((n) => (userCount = n));
     return serviceStatus.start();
   });
 
@@ -76,6 +80,19 @@
     </svg>
     Give feedback!
   </button>
+{/if}
+
+<!-- Usage count: how many people have built a widget here. Hidden until the
+     count loads (and when storage is off, so it never shows a bare "0"). -->
+{#if userCount !== null}
+  <div class="mb-2 flex items-center gap-1.5 text-foreground/80" title="Distinct Last.fm users who've used the widget">
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+    <span><span class="text-foreground">{userCount.toLocaleString()}</span> people use this</span>
+  </div>
 {/if}
 
 <div class="flex items-center justify-between">
