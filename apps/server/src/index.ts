@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
 import { handleContact, handleCronCleanup, handleFeedback, handleWidgetLog } from "./analytics";
+import { handleSiteStats, startStatsRefresh } from "./stats";
 import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk } from "./security";
@@ -116,6 +117,7 @@ app.post("/api/log/widget", handleWidgetLog);
 app.post("/api/contact", handleContact);
 app.post("/api/feedback", handleFeedback);
 app.post("/api/cron/cleanup", handleCronCleanup);
+app.get("/api/site-stats", handleSiteStats);
 
 app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
 
@@ -195,6 +197,9 @@ app.get("*", async (c) => {
 });
 
 const port = Number(process.env.PORT) || 8787;
+
+// Begin the in-memory usage-count refresh loop (no-op without a database).
+startStatsRefresh();
 
 log("info", "server.start", {
   port,
