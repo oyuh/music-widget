@@ -24,7 +24,10 @@ async function refresh(): Promise<void> {
   if (n != null) {
     cachedUsers = n;
     refreshedAt = Date.now();
+    console.log('Users counted: ', cachedUsers.toString)
+    console.log('Happened ', refreshedAt.toString)
   }
+
 }
 
 /**
@@ -36,6 +39,8 @@ async function refresh(): Promise<void> {
 export function startStatsRefresh(): void {
   if (started || !dbEnabled()) return;
   started = true;
+
+
 
   void refresh(); // warm on boot so the first request already has a value
   const timer = setInterval(() => void refresh(), REFRESH_MS);
