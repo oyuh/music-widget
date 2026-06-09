@@ -33,6 +33,16 @@
   let wrapperEl = $state<HTMLDivElement | null>(null);
   let selRect = $state<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  // Simulate the paused/stopped state so the pause symbol (and hide-widget behavior)
+  // can be previewed and positioned. The manual toggle is a plain on/off; selecting
+  // the pause element forces it on transiently (so you can see/drag it) WITHOUT
+  // latching the toggle, so deselecting returns the preview to the real play state.
+  let simPaused = $state(false);
+  const pauseSelectable = $derived((editor.config.fields.pausedMode ?? "label") === "label");
+  const previewPaused = $derived(
+    isPaused || simPaused || (editor.selected === "pause" && pauseSelectable),
+  );
+
   // Snap guides shown while shift-dragging.
   let guideX = $state<number | null>(null);
   let guideY = $state<number | null>(null);
@@ -301,12 +311,29 @@
     </button>
   </div>
 
+  <!-- Preview the paused state (shows the pause symbol / hide-widget behavior) -->
+  <div class="absolute top-[7.5rem] right-3 z-30 flex items-center rounded-lg border border-border bg-card p-1 shadow-sm">
+    <button
+      onpointerdown={stop}
+      onclick={() => (simPaused = !simPaused)}
+      title="Preview how the widget looks when paused / stopped"
+      class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition {previewPaused
+        ? bdActive
+        : 'text-foreground/70 hover:bg-muted hover:text-foreground'}"
+    >
+      <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+        <rect x="4" y="3" width="3" height="10" rx="1" /><rect x="9" y="3" width="3" height="10" rx="1" />
+      </svg>
+      Paused preview
+    </button>
+  </div>
+
   <div bind:this={zoomAreaEl} class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
     <div bind:this={wrapperEl} class="relative" style="transform:scale({zoom});transform-origin:center">
       <Widget
         cfg={editor.config}
         {isLive}
-        {isPaused}
+        isPaused={previewPaused}
         {percent}
         {progressMs}
         {durationMs}

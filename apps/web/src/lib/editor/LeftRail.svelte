@@ -87,6 +87,10 @@
 
   const pillCls = "rounded border border-border px-1.5 py-0.5 text-[11px] transition hover:bg-muted";
 
+  // The pause symbol only renders in "Show paused" mode, so dim + disable its row
+  // when the widget is set to hide entirely while paused (nothing to style there).
+  const pauseInactive = $derived((editor.config.fields.pausedMode ?? "label") !== "label");
+
   // ---- BYOK (bring your own Last.fm API key) ----
   let byokOpen = $state(false);
   let byokKey = $state("");
@@ -280,14 +284,17 @@
   <section class="flex flex-col gap-1">
     <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Elements</div>
     {#each ELEMENTS as el (el.id)}
+      {@const inactive = el.id === "pause" && pauseInactive}
       <div class="flex items-center gap-1">
         <button
           type="button"
+          disabled={inactive}
+          title={inactive ? "Hidden while paused , the widget is set to hide entirely. Switch to 'Show paused' at the bottom settings of the Background to use it." : undefined}
           onclick={() => editor.select(el.id)}
           class="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
           el.id
             ? 'bg-primary text-primary-foreground'
-            : 'hover:bg-muted'}"
+            : 'hover:bg-muted'} {inactive ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : ''}"
         >
           <span class="w-4 text-center opacity-70">{el.icon}</span>
           <span>{el.label}</span>

@@ -10,7 +10,15 @@ import {
 } from "./config";
 import { mergeConfig } from "./config-merge";
 
-export type ElementId = "background" | "art" | "title" | "artist" | "album" | "progress" | "duration";
+export type ElementId =
+  | "background"
+  | "art"
+  | "title"
+  | "artist"
+  | "album"
+  | "progress"
+  | "duration"
+  | "pause";
 
 export const ELEMENTS: { id: ElementId; label: string; icon: string }[] = [
   { id: "background", label: "Background", icon: "▭" },
@@ -20,6 +28,7 @@ export const ELEMENTS: { id: ElementId; label: string; icon: string }[] = [
   { id: "album", label: "Album", icon: "T" },
   { id: "progress", label: "Progress bar", icon: "▬" },
   { id: "duration", label: "Duration", icon: "⏱" },
+  { id: "pause", label: "Pause symbol", icon: "⏸" },
 ];
 
 export const TEXT_ELEMENTS = ["title", "artist", "album", "duration"] as const;

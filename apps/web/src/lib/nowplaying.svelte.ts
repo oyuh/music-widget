@@ -13,14 +13,21 @@ export type LfmTrack = {
 
 // Client-side calls hit Last.fm from each user's own IP, so these can be
 // snappier than the old shared-proxy intervals without risking rate limits.
+// While something is live we poll briskly so a pause/stop is noticed quickly;
+// when nothing's playing (or the tab is hidden) we back off to save requests.
 const INTERVALS = {
   FAST: 2500,
-  NORMAL: 5000,
+  NORMAL: 4000,
   SLOW: 10000,
   IDLE: 20000,
 } as const;
 
-const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keypress", "scroll", "touchstart", "click", "focus"];
+// How far past a track's own duration its estimated progress may run while still
+// flagged "now playing" before we treat it as paused/stopped. Last.fm reports no
+// playback position, so when a scrobbler holds "now playing" through a pause this
+// overrun is the earliest reliable signal. Small enough to feel responsive, large
+// enough to ride out the brief gap between songs without flashing "paused".
+const OVERRUN_GRACE_MS = 8000;
 
 /**
  * Live "now playing" state for a Last.fm user. Port of the original
@@ -49,17 +56,19 @@ export class NowPlaying {
   #lastId = "";
   #lastUpdate = 0;
   #consecutiveErrors = 0;
-  #lastUserActivity = Date.now();
+  // The last track Last.fm reported as actually playing (nowplaying="true").
+  // Shown on pause/stop instead of recenttracks[0], which Last.fm sometimes gets
+  // wrong, and persisted to localStorage so a cold OBS start while paused is right.
+  #lastLiveTrack: LfmTrack | null = null;
   #lastTrackChange = 0;
   #trackStartTime: number | null = null;
-  #staleProgressCount = 0;
-  #expectedProgress = 0;
+  // uts (seconds) of the most recent scrobble of the CURRENT track we've already
+  // accounted for. A newer self-scrobble means the track looped/was replayed, so
+  // we re-anchor instead of staying stuck "paused". Reset on every track change.
+  #trackScrobbleUts = 0;
 
   #timeout: ReturnType<typeof setTimeout> | null = null;
   #raf: number | null = null;
-  #onActivity = () => {
-    this.#lastUserActivity = Date.now();
-  };
 
   // ---- derived ----
   progressMs = $derived.by(() => {
@@ -95,21 +104,50 @@ export class NowPlaying {
 
   destroy() {
     this.#stopTimers();
-    if (typeof document !== "undefined") {
-      for (const e of ACTIVITY_EVENTS) document.removeEventListener(e, this.#onActivity, true);
-    }
     this.#started = false;
   }
 
   // ---- internals ----
   #restart() {
     this.#stopTimers();
-    if (typeof document !== "undefined" && !this.#started) {
-      for (const e of ACTIVITY_EVENTS) document.addEventListener(e, this.#onActivity, true);
-    }
     this.#started = true;
     this.#lastId = "";
+    this.#hydrateLastLive();
     if (this.#username) this.#fetchNow();
+  }
+
+  #storageKey() {
+    return `mw:lastplayed:${this.#username.toLowerCase()}`;
+  }
+
+  /** Load the remembered last-played track for the current user from localStorage. */
+  #hydrateLastLive() {
+    this.#lastLiveTrack = null;
+    if (typeof localStorage === "undefined" || !this.#username) return;
+    try {
+      const raw = localStorage.getItem(this.#storageKey());
+      if (!raw) return;
+      const t = JSON.parse(raw) as LfmTrack;
+      this.#lastLiveTrack = t;
+      // Show it immediately (as paused) so a cold start while nothing is playing
+      // lands on the correct song instead of a dash or Last.fm's stale "recent".
+      this.track = t;
+      this.isLive = false;
+      this.isPaused = false;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Remember + persist the track Last.fm says is actually playing. */
+  #rememberLive(tr: LfmTrack) {
+    this.#lastLiveTrack = tr;
+    if (typeof localStorage === "undefined" || !this.#username) return;
+    try {
+      localStorage.setItem(this.#storageKey(), JSON.stringify(tr));
+    } catch {
+      /* ignore */
+    }
   }
 
   #stopTimers() {
@@ -120,15 +158,16 @@ export class NowPlaying {
   }
 
   #getOptimalInterval(): number {
-    const now = Date.now();
-    const sinceActivity = now - this.#lastUserActivity;
-    const sinceTrackChange = now - this.#lastTrackChange;
-    if (sinceActivity < 30000) {
-      if (sinceTrackChange < 10000) return INTERVALS.FAST;
-      return this.isLive ? INTERVALS.NORMAL : INTERVALS.SLOW;
+    // Hidden tab (e.g. an inactive editor): nothing to show, back off hard. OBS
+    // browser sources report as visible, so overlays keep the brisk cadence.
+    if (typeof document !== "undefined" && document.hidden) return INTERVALS.IDLE;
+    if (this.isLive) {
+      // Poll quickly while playing so a pause/stop (or track change) is caught fast.
+      const sinceTrackChange = Date.now() - this.#lastTrackChange;
+      return sinceTrackChange < 10000 ? INTERVALS.FAST : INTERVALS.NORMAL;
     }
-    if (sinceActivity < 120000) return INTERVALS.SLOW;
-    return INTERVALS.IDLE;
+    // Nothing playing , a slower steady poll still catches playback starting.
+    return INTERVALS.SLOW;
   }
 
   #scheduleNext() {
@@ -158,9 +197,11 @@ export class NowPlaying {
         return;
       }
 
+      // Fetch a few entries (not just [0]) so we can also see the most recent
+      // scrobble , used to detect a looped/replayed track that's stuck "paused".
       const data = (await fetchRecent({
         user: this.#username,
-        limit: 1,
+        limit: 3,
         apiKey: this.#apiKey,
         sessionKey: this.#sessionKey,
       })) as Record<string, any>;
@@ -169,7 +210,11 @@ export class NowPlaying {
         throw new Error(data.message || `Last.fm error ${data.error}`);
       }
 
-      const tr: LfmTrack | undefined = data?.recenttracks?.track?.[0];
+      // Last.fm returns `track` as an array, but as a bare object when there's only
+      // one entry , normalize so iteration and [0] both work.
+      const rawTracks = data?.recenttracks?.track;
+      const recent: LfmTrack[] = Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : [];
+      const tr: LfmTrack | undefined = recent[0];
       this.#lastUpdate = now;
       this.#consecutiveErrors = 0;
 
@@ -182,6 +227,19 @@ export class NowPlaying {
       const live = tr?.["@attr"]?.nowplaying === "true";
       const trackChanged = id !== this.#lastId;
 
+      // Most recent COMPLETED scrobble of whatever is now playing (the now-playing
+      // entry itself carries no date). A fresh one means the track just played
+      // through again , i.e. it looped or was resumed.
+      let selfScrobbleUts = 0;
+      if (live) {
+        for (const t of recent) {
+          const uts = t.date?.uts ? parseInt(t.date.uts) : 0;
+          if (uts && t.name === tr.name && t.artist?.["#text"] === tr.artist?.["#text"]) {
+            if (uts > selfScrobbleUts) selfScrobbleUts = uts;
+          }
+        }
+      }
+
       if (trackChanged) {
         this.#lastId = id;
         this.#trackStartTime = live ? now : null;
@@ -191,8 +249,7 @@ export class NowPlaying {
         this.#pausedAt = null;
         this.#estimatedStartOffset = 0;
         this.durationMs = null;
-        this.#staleProgressCount = 0;
-        this.#expectedProgress = 0;
+        this.#trackScrobbleUts = 0;
         this.#lastTrackChange = now;
 
         if (live) {
@@ -211,11 +268,36 @@ export class NowPlaying {
             if (offset > 0) this.#estimatedStartOffset = offset;
           })
           .catch(() => {});
+      } else if (
+        live &&
+        this.#trackStartTime &&
+        this.durationMs &&
+        selfScrobbleUts > this.#trackScrobbleUts &&
+        selfScrobbleUts * 1000 > this.#trackStartTime + this.durationMs
+      ) {
+        // Same track still "now playing", but it scrobbled MORE than a full
+        // duration after we started timing it , it looped or was resumed (a single
+        // play scrobbles within one duration, so this can't be the first play).
+        // Re-anchor to the new play so we don't get stuck showing "paused".
+        this.#trackScrobbleUts = selfScrobbleUts;
+        // The replay scrobbled ~halfway through, so back-date the start accordingly.
+        this.#trackStartTime = selfScrobbleUts * 1000 - Math.min(this.durationMs / 2, 240000);
+        this.#startedAt = this.#trackStartTime;
+        this.#totalPausedTime = 0;
+        this.#estimatedStartOffset = 0;
+        this.#pausedAt = null;
+        this.isPaused = false;
       }
 
       this.track = tr;
       this.isLive = live;
       this.#detectPause(tr, live);
+
+      // Keep a copy of whatever is genuinely playing so we can show it on pause.
+      if (live) {
+        this.#lastLiveTrack = tr;
+        if (trackChanged) this.#rememberLive(tr);
+      }
 
       if (!live) {
         this.#startedAt = null;
@@ -225,9 +307,10 @@ export class NowPlaying {
         this.isPaused = false;
         this.#pausedAt = null;
         this.#estimatedStartOffset = 0;
-        this.#staleProgressCount = 0;
-        this.#expectedProgress = 0;
         if (this.#lastId) this.#lastId = "";
+        // Nothing is playing , prefer the last track we actually heard over
+        // recenttracks[0], which Last.fm sometimes reports as the wrong song.
+        if (this.#lastLiveTrack) this.track = this.#lastLiveTrack;
       }
 
       this.#syncTicker();
@@ -254,39 +337,31 @@ export class NowPlaying {
     }
   }
 
+  /**
+   * Decide whether a still-"now playing" track is actually paused/stopped.
+   *
+   * Last.fm exposes no playback position, so the only signal we have is that the
+   * scrobbler keeps a track flagged "now playing" until it would have finished.
+   * When our estimated progress runs past the track's own duration (plus a short
+   * grace for the gap between songs) and Last.fm still hasn't moved on to a new
+   * track, it's paused or stopped. Once flagged we hold that state until the track
+   * changes or the "now playing" flag drops (handled by the callers), so it never
+   * oscillates. Scrobblers that instead clear "now playing" on pause are caught
+   * even sooner, via isLive flipping false on the next (now brisk) poll.
+   */
   #detectPause(track: LfmTrack, isNowPlaying: boolean) {
-    const now = Date.now();
     if (!isNowPlaying) {
       this.isPaused = false;
       this.#pausedAt = null;
       this.#totalPausedTime = 0;
-      this.#staleProgressCount = 0;
-      this.#expectedProgress = 0;
       return;
     }
+    if (this.isPaused) return; // sticky until a track change / not-live reset
     if (!this.#trackStartTime || !this.durationMs || this.durationMs <= 0) return;
 
+    const now = Date.now();
     const expected = now - this.#trackStartTime - this.#totalPausedTime + this.#estimatedStartOffset;
-    const percent = (expected / this.durationMs) * 100;
-    const diff = Math.abs(expected - this.#expectedProgress);
-
-    if (diff < 2000) {
-      this.#staleProgressCount++;
-      if (this.#staleProgressCount >= 3 && !this.isPaused && percent < 95) {
-        this.isPaused = true;
-        this.#pausedAt = now;
-      }
-    } else {
-      this.#staleProgressCount = 0;
-      this.#expectedProgress = expected;
-      if (this.isPaused) {
-        this.isPaused = false;
-        if (this.#pausedAt) this.#totalPausedTime += now - this.#pausedAt;
-        this.#pausedAt = null;
-      }
-    }
-
-    if (expected > this.durationMs + 20000 && !this.isPaused) {
+    if (expected > this.durationMs + OVERRUN_GRACE_MS) {
       this.isPaused = true;
       this.#pausedAt = now;
     }
