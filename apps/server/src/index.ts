@@ -123,7 +123,15 @@ app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
 
 app.get("/robots.txt", (c) => {
   const origin = getOrigin(c);
-  const body = ["User-agent: *", "Allow: /", `Sitemap: ${origin}/sitemap.xml`].join("\n");
+  // /w stays crawlable on purpose: shared widget links must be fetched so the
+  // X-Robots-Tag noindex on them is actually seen.
+  const body = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /api/",
+    "Disallow: /callback",
+    `Sitemap: ${origin}/sitemap.xml`,
+  ].join("\n");
   return new Response(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
@@ -132,17 +140,19 @@ app.get("/robots.txt", (c) => {
   });
 });
 
+// lastmod for the sitemap: the content only changes when a new build deploys,
+// so the process start date is an honest approximation.
+const SITEMAP_LASTMOD = new Date().toISOString().slice(0, 10);
+
 app.get("/sitemap.xml", (c) => {
   const origin = getOrigin(c);
-  const urls = [
-    { loc: `${origin}/`, priority: 1.0 },
-    { loc: `${origin}/w`, priority: 0.8 },
-  ];
+  // Only the editor home page; /w and /callback are noindexed app-state pages.
+  const urls = [{ loc: `${origin}/`, priority: 1.0 }];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
       (url) =>
-        `  <url>\n    <loc>${xmlEscape(url.loc)}</loc>\n    <changefreq>daily</changefreq>\n    <priority>${url.priority.toFixed(1)}</priority>\n  </url>`,
+        `  <url>\n    <loc>${xmlEscape(url.loc)}</loc>\n    <lastmod>${SITEMAP_LASTMOD}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${url.priority.toFixed(1)}</priority>\n  </url>`,
     )
     .join("\n")}\n</urlset>`;
 
@@ -169,6 +179,19 @@ function safeJoin(root: string, requestPath: string) {
   return join(root, rel);
 }
 
+// The widget/callback pages get index.html with the `<!-- editor-only -->`
+// blocks removed (SEO meta, JSON-LD, editor fonts, noscript copy — see
+// apps/web/src/app.html). Stripped once and cached for the process lifetime;
+// the file only changes when a new build deploys.
+let leanIndexCache: string | null = null;
+async function leanIndexHtml(index: ReturnType<typeof Bun.file>) {
+  if (leanIndexCache === null) {
+    const html = await index.text();
+    leanIndexCache = html.replace(/<!-- editor-only -->[\s\S]*?<!-- \/editor-only -->/g, "");
+  }
+  return leanIndexCache;
+}
+
 app.get("*", async (c) => {
   const { pathname } = new URL(c.req.url);
 
@@ -188,9 +211,20 @@ app.get("*", async (c) => {
   // SPA fallback: hand every unmatched route to the client router.
   const index = Bun.file(INDEX_HTML);
   if (await index.exists()) {
-    return new Response(index, {
-      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
-    });
+    // The widget (/w) and auth callback are app-state pages with no standalone
+    // content: keep them out of search results so only the editor (/) ranks,
+    // and serve them the lean shell so the OBS widget loads as fast as possible.
+    const appPage = pathname === "/w" || pathname === "/callback" || pathname.startsWith("/callback/");
+    const headers = {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-cache",
+    };
+    if (appPage) {
+      return new Response(await leanIndexHtml(index), {
+        headers: { ...headers, "X-Robots-Tag": "noindex" },
+      });
+    }
+    return new Response(index, { headers });
   }
 
   return c.text("Build not found. Run `bun run build:web` first.", 404);

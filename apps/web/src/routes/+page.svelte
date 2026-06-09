@@ -9,6 +9,7 @@
   import { ensureGoogleFonts } from "$lib/fonts";
   import { isMobileDevice } from "$lib/device";
   import MobileGate from "$lib/MobileGate.svelte";
+  import { KEYWORDS_META } from "$lib/keywords";
 
   // The editor needs a pointer + a wide screen , gate mobile to a simple page.
   // (The /w widget route is a separate page and stays usable everywhere.)
@@ -116,8 +117,19 @@
 </script>
 
 <svelte:head>
-  <title>Last.fm Music Widget</title>
+  <title>Last.fm Now Playing Widget — Free Music Overlay for OBS & Twitch</title>
+  <meta name="keywords" content={KEYWORDS_META} />
 </svelte:head>
+
+<!-- Screen-reader / crawler copy: the editor UI itself has almost no indexable
+     text, so this gives the page a semantic h1 + summary without altering the visuals. -->
+<h1 class="sr-only">Last.fm Now Playing Widget — free music overlay for OBS, Twitch and YouTube streams</h1>
+<p class="sr-only">
+  Build a now-playing widget in a drag-and-drop editor and show the song you're listening to on
+  stream. Works as an OBS, Streamlabs or XSplit browser source, with album art, artist, title and a
+  live progress bar. Powered by Last.fm — scrobble from Spotify, Apple Music, YouTube Music and
+  more. Free, no account, no watermark.
+</p>
 
 {#if mobile}
   <MobileGate />

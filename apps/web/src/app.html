@@ -2,17 +2,137 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Last.fm Now Playing Widget — Free Music Overlay for OBS & Twitch</title>
+    <link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+
+    <!-- Everything between editor-only markers is for the indexable editor page:
+         SEO meta, structured data, and the editor UI fonts. The server strips
+         these blocks when serving /w and /callback so the OBS widget page loads
+         as little as possible (see the SPA fallback in apps/server/src/index.ts;
+         dev always gets the full head since Vite serves this file directly). -->
+    <!-- editor-only -->
+    <meta
+      name="description"
+      content="Free now-playing widget for streamers. Show the song you're listening to on Twitch, YouTube or Kick with an OBS browser source — powered by Last.fm, works with Spotify and Apple Music via scrobbling. No account, no watermark."
+    />
+    <meta
+      name="keywords"
+      content="now playing widget, music overlay, obs music widget, twitch now playing, last.fm widget, stream overlay, spotify now playing obs, song display for stream, obs browser source music, free stream widget"
+    />
+    <meta name="author" content="Lawson Hart" />
+    <link rel="canonical" href="https://fast.jamlog.lol/" />
+    <meta name="theme-color" content="#0a0a0a" />
+
+    <!-- Open Graph (Discord, Facebook, Slack, iMessage…) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Last.fm Music Widget" />
+    <meta property="og:url" content="https://fast.jamlog.lol/" />
+    <meta property="og:title" content="Last.fm Now Playing Widget — Free Music Overlay for OBS & Twitch" />
+    <meta
+      property="og:description"
+      content="Design a now-playing overlay in your browser, copy one URL, paste it into OBS. Shows your current song live on stream via Last.fm — free, no account, no watermark."
+    />
+    <meta property="og:image" content="https://fast.jamlog.lol/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Last.fm now-playing widget editor for stream overlays" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Last.fm Now Playing Widget — Free Music Overlay for OBS & Twitch" />
+    <meta
+      name="twitter:description"
+      content="Show what song you're listening to on stream. Drag-and-drop editor, one URL, drop it into OBS as a browser source. Free, no account."
+    />
+    <meta name="twitter:image" content="https://fast.jamlog.lol/og.png" />
+
+    <!-- Editor UI fonts; the widget page loads its own fonts from the config. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "Last.fm Music Widget",
+            "url": "https://fast.jamlog.lol/",
+            "description": "Free now-playing widget builder for streamers. Design a music overlay in a drag-and-drop editor and drop it into OBS, Streamlabs or XSplit as a browser source. Shows the song you're currently listening to via Last.fm.",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript",
+            "image": "https://fast.jamlog.lol/og.png",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": "Drag-and-drop overlay editor, album art with auto color theming, song title and artist display, progress bar, track-change animations, Google Fonts, OBS browser source URL, no account required",
+            "author": { "@type": "Person", "name": "Lawson Hart", "url": "https://lawsonhart.me/" }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I show what song I'm listening to on my stream?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Design your widget in the editor at fast.jamlog.lol, enter your Last.fm username, copy the widget URL, and add it to OBS (or Streamlabs/XSplit) as a browser source. It updates live as your music changes."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work with Spotify, Apple Music, or YouTube Music?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — connect your music app to a free Last.fm account (scrobbling). Last.fm supports Spotify, Apple Music, YouTube Music, Tidal, foobar2000 and most other players, and the widget reads your now-playing track from Last.fm."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the music widget free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Completely free. No account, no sign-up, no watermark. Your whole design is encoded in the widget URL, so there is nothing to save on a server."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which streaming software is supported?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Anything with a browser source: OBS Studio, Streamlabs Desktop, XSplit, vMix, Prism Live and more. It works for Twitch, YouTube, Kick, TikTok Live or any platform you stream to."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <!-- /editor-only -->
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" class="antialiased">
+    <!-- editor-only -->
+    <noscript>
+      <main style="max-width: 42rem; margin: 4rem auto; padding: 0 1rem; font-family: system-ui, sans-serif">
+        <h1>Last.fm Now Playing Widget for OBS, Twitch &amp; YouTube</h1>
+        <p>
+          A free now-playing music overlay for streamers. Build your widget in a drag-and-drop
+          editor — album art, song title, artist, progress bar — then copy one URL and paste it
+          into OBS, Streamlabs or XSplit as a browser source. It shows the song you're listening
+          to live on stream via Last.fm, which scrobbles from Spotify, Apple Music, YouTube Music
+          and most other players. No account, no watermark, nothing to install.
+        </p>
+        <p>This editor needs JavaScript enabled to run.</p>
+      </main>
+    </noscript>
+    <!-- /editor-only -->
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>
