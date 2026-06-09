@@ -11,6 +11,7 @@ export const V2_ELEMENT_IDS = [
   "album",
   "progress",
   "duration",
+  "pause",
 ] as const;
 export type V2ElementId = (typeof V2_ELEMENT_IDS)[number];
 export const V2_TEXT_IDS = ["title", "artist", "album", "duration"] as const;
@@ -555,6 +556,29 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
   // Duration text under the progress bar.
   const duration = makeText("duration", colX, progY + 14, cfg.fields.duration ?? false, 6);
 
+  // Pause symbol: centered on the album art and anchored to it (center/center) so
+  // it tracks the art if it moves or resizes. Only rendered when paused/stopped;
+  // when the art is hidden or fails to load the renderer re-homes it after the title.
+  const pauseSize = 28;
+  const pause: V2Element = {
+    visible: true,
+    x: Math.round(artX + artSize / 2 - pauseSize / 2),
+    y: Math.round(artY + artSize / 2 - pauseSize / 2),
+    w: pauseSize,
+    h: pauseSize,
+    z: 7,
+    color: "#ffffff",
+    fallbackColor: fbColor,
+    fill: "color",
+    fillOpacity: 100,
+    anchor: "left",
+    radius: 0,
+    shadow: defaultShadow(),
+    scroll: noScroll(),
+    snapX: showArt ? { to: "art", myEdge: "center", toEdge: "center", offset: 0 } : null,
+    snapY: showArt ? { to: "art", myEdge: "center", toEdge: "center", offset: 0 } : null,
+  };
+
   const elements: Record<V2ElementId, V2Element> = {
     background: {
       visible: true,
@@ -597,6 +621,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     album,
     progress,
     duration,
+    pause,
   };
 
   return {

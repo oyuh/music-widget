@@ -22,6 +22,7 @@
   const isBg = $derived(sel === "background");
   const isArt = $derived(sel === "art");
   const isProgress = $derived(sel === "progress");
+  const isPause = $derived(sel === "pause");
 
   const labelOf: Record<ElementId, string> = {
     background: "Background & widget",
@@ -31,6 +32,7 @@
     album: "Album",
     progress: "Progress bar",
     duration: "Duration",
+    pause: "Pause symbol",
   };
 
   const EASINGS = ["linear", "sineOut", "cubicOut", "quintOut", "backOut", "elasticOut"];
@@ -119,6 +121,11 @@
       <div class="grid grid-cols-2 gap-2">
         <Slider bind:value={E.w as number} min={16} max={900} label="Width" suffix="px" />
         <Slider bind:value={E.h as number} min={2} max={60} label="Height" suffix="px" />
+      </div>
+    {:else if isPause}
+      <div class="grid grid-cols-2 gap-2">
+        <Slider bind:value={E.w as number} min={8} max={200} label="Width" suffix="px" />
+        <Slider bind:value={E.h as number} min={8} max={200} label="Height" suffix="px" />
       </div>
     {:else if isTextSel}
       <div class="grid grid-cols-2 gap-3">
@@ -288,6 +295,21 @@
         />
       {/if}
       <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" />
+    {:else if isPause}
+      <hr class="border-border" />
+      <ColorInput bind:value={E.color} label="Color" allowAccent hint="The pause bars' color. 'auto' follows the accent / album-art color." diagram="auto-color" />
+      {#if E.color === "accent"}
+        <ColorInput
+          bind:value={E.fallbackColor!}
+          label="Fallback color"
+          hint="Used when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          diagram="fallback"
+        />
+      {/if}
+      <p class="text-[11px] leading-snug text-muted-foreground">
+        Shown only while paused / stopped. Drag it on the canvas to position it (turn on
+        <b>Paused preview</b> to see it). When the album art is hidden or fails to load, it falls back to sitting after the title.
+      </p>
     {/if}
 
     <!-- ===== Drop shadow (every element) ===== -->
@@ -400,7 +422,7 @@
       {/if}
 
       <hr class="border-border" />
-      {@render header("When paused", "What the widget does when nothing is playing: show a paused label, or hide entirely.", "")}
+      {@render header("When paused", "What the widget does when nothing is playing: show the pause symbol, or hide the whole widget.", "")}
       <Segmented
         bind:value={cfg.fields.pausedMode!}
         options={[
@@ -408,7 +430,16 @@
           { value: "transparent", label: "Hide widget" },
         ]}
       />
-      <input type="text" bind:value={cfg.fields.pausedText} placeholder="Paused" class={inputCls} />
+      {#if (cfg.fields.pausedMode ?? "label") === "label"}
+        <p class="text-[11px] leading-snug text-muted-foreground">
+          Select the <b>Pause symbol</b> element to change its color, size and position. The widget keeps
+          showing the last song you actually played.
+        </p>
+      {:else}
+        <p class="text-[11px] leading-snug text-muted-foreground">
+          The whole widget hides while nothing is playing.
+        </p>
+      {/if}
     {/if}
   {/if}
 </div>

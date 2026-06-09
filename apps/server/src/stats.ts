@@ -24,8 +24,8 @@ async function refresh(): Promise<void> {
   if (n != null) {
     cachedUsers = n;
     refreshedAt = Date.now();
-    console.log('Users counted: ', cachedUsers.toString)
-    console.log('Happened ', refreshedAt.toString)
+    console.log('Users counted: ', cachedUsers)
+    console.log('Happened ', refreshedAt)
   }
 
 }

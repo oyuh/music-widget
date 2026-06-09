@@ -198,24 +198,40 @@
   // edge (free) or the very edge plus their own snap offset (snapped).
   const boxes = $derived.by(() => {
     const raw = resolveLayout(v2, measured);
-    if (!artGone) return raw;
-    const art = raw.art;
-    const widgetW = raw.background.w || 0;
-    const artCenter = art.x + art.w / 2;
-    const artNearLeft = art.x <= widgetW - (art.x + art.w);
-    const out = { ...raw } as Record<V2ElementId, Box>;
-    for (const id of V2_ELEMENT_IDS) {
-      if (id === "art" || id === "background") continue;
-      const el = v2.elements[id];
-      if (!el.visible) continue;
-      const b = raw[id];
-      const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
-      if (!onFarSide) continue;
-      const off = el.snapX?.to === "art" ? Math.abs(el.snapX.offset ?? 0) : 0;
-      out[id] = {
-        ...b,
-        x: goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off,
-      };
+    let out: Record<V2ElementId, Box> = raw;
+    if (artGone) {
+      const art = raw.art;
+      const widgetW = raw.background.w || 0;
+      const artCenter = art.x + art.w / 2;
+      const artNearLeft = art.x <= widgetW - (art.x + art.w);
+      out = { ...raw } as Record<V2ElementId, Box>;
+      for (const id of V2_ELEMENT_IDS) {
+        if (id === "art" || id === "background") continue;
+        const el = v2.elements[id];
+        if (!el.visible) continue;
+        const b = raw[id];
+        const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
+        if (!onFarSide) continue;
+        const off = el.snapX?.to === "art" ? Math.abs(el.snapX.offset ?? 0) : 0;
+        out[id] = {
+          ...b,
+          x: goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off,
+        };
+      }
+    }
+
+    // Pause symbol fallback: when it rides the album art but the art is hidden or
+    // failed to load, sit it just after the title so it isn't stranded in empty space.
+    const pauseEl = v2.elements.pause;
+    if (pauseEl?.visible) {
+      const artUnavailable = !v2.elements.art.visible || artState === "failed";
+      const anchoredToArt = pauseEl.snapX?.to === "art" || pauseEl.snapY?.to === "art";
+      if (artUnavailable && anchoredToArt && v2.elements.title.visible) {
+        if (out === raw) out = { ...raw } as Record<V2ElementId, Box>;
+        const t = out.title;
+        const p = out.pause;
+        out.pause = { ...p, x: Math.round(t.x + t.w + 8), y: Math.round(t.y + t.h / 2 - p.h / 2) };
+      }
     }
     return out;
   });
@@ -240,6 +256,10 @@
   const pausedTransparent = $derived((cfg.fields.pausedMode ?? "label") === "transparent");
   const isEffectivelyPaused = $derived(!isLive || isPaused);
   const wouldHide = $derived(isEffectivelyPaused && pausedTransparent);
+  // The pause symbol only shows while paused/stopped, and only in "Show paused" mode.
+  const showPauseSymbol = $derived(
+    isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "label" && v2.elements.pause?.visible,
+  );
 
   // ---- helpers ----
   /** Resolve the live accent color, honoring a per-element fallback on failure. */
@@ -263,7 +283,7 @@
   }
 
   const containerBg = $derived(
-    wouldHide || bgFill === "none" || bgFill === "art"
+    (!preview && wouldHide) || bgFill === "none" || bgFill === "art"
       ? "transparent"
       : bgFill === "accent"
         ? withOpacity(accentColor(v2.elements.background.fallbackColor), bgFillOpacity)
@@ -397,14 +417,22 @@
                     ? `box-shadow:${elementShadowCSS(v2.elements.art.shadow, '#000000')}`
                     : ''}"
                 />
-                {#if isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "label"}
-                  <div
-                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;gap:2px"
-                  >
-                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
-                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
-                  </div>
-                {/if}
+              </div>
+            {/if}
+          {:else if id === "pause"}
+            {#if showPauseSymbol}
+              {@const pColor = resolveColor(v2.elements.pause.color, v2.elements.pause.fallbackColor)}
+              {@const pSh = elementShadowCSS(v2.elements.pause.shadow, pColor)}
+              {@const pW = boxes.pause.w || 24}
+              {@const barW = Math.max(2, Math.round(pW * 0.3))}
+              {@const barGap = Math.max(2, Math.round(pW * 0.16))}
+              <div data-el="pause" use:measure={"pause"} style={posStyle("pause")}>
+                <div
+                  style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:{barGap}px"
+                >
+                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh}` : ''}"></div>
+                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh}` : ''}"></div>
+                </div>
               </div>
             {/if}
           {:else if id === "progress"}
