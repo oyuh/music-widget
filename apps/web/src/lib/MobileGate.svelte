@@ -1,8 +1,9 @@
 <script lang="ts">
   import { submitContact, isValidEmail, type ContactResult } from "$lib/usage";
 
-  const repo = "https://github.com/oyuh/applem-util";
-  const personalSite = "https://github.com/oyuh";
+  const year = new Date().getFullYear();
+  const source = "https://github.com/oyuh/music-widget";
+  const about = "https://lawsonhart.me/";
 
   let email = $state("");
   let sending = $state(false);
@@ -10,7 +11,7 @@
   const canSend = $derived(isValidEmail(email) && !sending);
 
   const resultMsg: Record<ContactResult, string> = {
-    ok: "Got it , we'll email you. See you on desktop!",
+    ok: "Got it , I'll email you. See you on desktop!",
     invalid: "Enter a valid email address.",
     rate: "Too many tries , give it a few minutes.",
     error: "Couldn't save , try again later.",
@@ -26,49 +27,85 @@
   }
 </script>
 
-<div class="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-background px-6 py-12 text-foreground">
-  <div class="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-xl">
-    <div class="font-pixel text-xs tracking-wide text-muted-foreground uppercase">fast.Jamlog.lol</div>
-    <h1 class="mt-2 text-xl font-semibold tracking-tight">Desktop only , for now</h1>
-    <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-      The widget editor needs a mouse and a wider screen, so it only works on a computer. Drop your email
-      and we'll remind you to set it up when you're back at your desk (we'll only email about that and outages).
-    </p>
-
-    <div class="mt-4 flex flex-col gap-2">
-      <div class="flex gap-2">
-        <input
-          type="email"
-          bind:value={email}
-          onkeydown={(e) => e.key === "Enter" && send()}
-          placeholder="you@email.com"
-          autocomplete="email"
-          spellcheck="false"
-          class="min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-3 py-2 text-sm text-foreground"
-        />
-        <button
-          type="button"
-          onclick={send}
-          disabled={!canSend}
-          class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-        >
-          {sending ? "…" : "Email me"}
-        </button>
-      </div>
-      {#if result}
-        <p class="text-xs {result === 'ok' ? 'text-green-400' : 'text-amber-500'}">{resultMsg[result]}</p>
-      {/if}
+<main class="flex min-h-[100dvh] w-full items-center justify-center px-4 py-10">
+  <div class="w-full max-w-xl text-card-foreground">
+    <!-- header -->
+    <div class="flex items-center justify-between px-6 py-4">
+      <span class="font-pixel text-lg tracking-tight">fast.jamlog.lol</span>
+      <span class="inline-flex items-center gap-2 font-mono-ui text-xs text-muted-foreground">
+        <span class="size-2 animate-pulse rounded-full bg-amber-500"></span>
+        desktop only
+      </span>
     </div>
 
-    <div class="mt-5 flex items-center gap-4 border-t border-border pt-4 text-sm">
-      <a href={repo} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground">
-        View source ↗
-      </a>
-      <a href={personalSite} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground">
-        My site ↗
-      </a>
+    <!-- body -->
+    <div class="space-y-6 px-6 py-8">
+      <p class="font-mono-ui text-sm leading-relaxed text-muted-foreground">
+        The widget editor needs a mouse and a wider screen, so it only runs on a computer.
+        Drop your email and I'll remind you to set it up when you're back at your desk
+        (only about that and outages , nothing else).
+      </p>
+
+      <!-- email capture -->
+      <div class="space-y-2">
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="email"
+            bind:value={email}
+            onkeydown={(e) => e.key === "Enter" && send()}
+            placeholder="you@email.com"
+            autocomplete="email"
+            spellcheck="false"
+            class="min-w-0 flex-1 rounded-lg border border-border bg-input px-4 py-3 font-mono-ui text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onclick={send}
+            disabled={!canSend}
+            class="group inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 font-mono-ui text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+          >
+            {sending ? "sending…" : "email me"}
+            <span class="transition-transform group-hover:translate-x-0.5">→</span>
+          </button>
+        </div>
+        {#if result}
+          <p class="font-mono-ui text-xs {result === 'ok' ? 'text-green-400' : 'text-amber-500'}">
+            {resultMsg[result]}
+          </p>
+        {/if}
+      </div>
+
+      <!-- links -->
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <a
+          href={about}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="group inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 font-mono-ui text-sm text-foreground transition-colors hover:bg-accent"
+        >
+          learn about me!
+          <span class="transition-transform group-hover:translate-x-0.5">→</span>
+        </a>
+        <a
+          href={source}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 font-mono-ui text-sm text-foreground transition-colors hover:bg-accent"
+        >
+          the source
+        </a>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div class="px-6 py-4">
+      <p class="font-mono-ui text-[11px] leading-relaxed text-muted-foreground">
+        <span class="text-foreground">Last.fm now-playing overlay.</span>
+        Build your widget on a desktop, then drop it into OBS or your stream.
+      </p>
+      <p class="mt-3 font-mono-ui text-[11px] text-muted-foreground">
+        © {year} Lawson Hart · made with ❤︎
+      </p>
     </div>
   </div>
-
-  <p class="font-pixel text-[11px] text-muted-foreground">Last.fm now-playing overlay</p>
-</div>
+</main>
