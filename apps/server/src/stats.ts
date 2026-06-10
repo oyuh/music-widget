@@ -25,7 +25,7 @@ async function refresh(): Promise<void> {
     cachedUsers = n;
     refreshedAt = Date.now();
     console.log('Users counted: ', cachedUsers)
-    console.log('Happened ', refreshedAt)
+    console.log('Happened ', new Date(refreshedAt).toLocaleString())
   }
 
 }
