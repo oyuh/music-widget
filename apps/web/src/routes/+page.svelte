@@ -101,10 +101,24 @@
   // Manual show/hide still works in between selection changes. untrack keeps
   // the panel state out of this effect's dependencies, so only the selection
   // changing reruns it (a width drag must not re-trigger it).
+  //
+  // Opening waits for pointer release: selecting an element also starts a drag,
+  // and the panel sliding open mid-drag reflows the canvas under the cursor.
+  // The cleanup drops a still-pending listener if the selection changes again
+  // (or clears) before the button is released.
   $effect(() => {
     if (mobile) return;
-    const open = !!editor.selected;
-    untrack(() => setPanelOpen("right", open));
+    if (!editor.selected) {
+      untrack(() => setPanelOpen("right", false));
+      return;
+    }
+    const onUp = () => untrack(() => setPanelOpen("right", !!editor.selected));
+    window.addEventListener("pointerup", onUp, { once: true });
+    window.addEventListener("pointercancel", onUp, { once: true });
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   });
 
   // Colorful placeholder art so the canvas (and auto-from-art) has something
