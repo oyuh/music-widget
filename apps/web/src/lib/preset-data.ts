@@ -240,8 +240,8 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           },
           "title": {
             "visible": true,
-            "x": 91,
-            "y": 28,
+            "x": 80,
+            "y": 27,
             "w": 307,
             "h": 43,
             "z": 2,
@@ -266,26 +266,31 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
+            "snapX": {
+              "to": "art",
+              "myEdge": "start",
+              "toEdge": "end",
+              "offset": 10
+            },
             "snapY": null,
             "radius": 0
           },
           "artist": {
             "visible": true,
-            "x": 92,
-            "y": 71,
+            "x": 91,
+            "y": 70,
             "w": null,
             "h": null,
             "z": 3,
             "color": "accent",
-            "fallbackColor": "#1db954",
+            "fallbackColor": "#ffffff",
             "fill": "color",
             "fillOpacity": 100,
             "anchor": "left",
             "shadow": {
-              "enabled": false,
+              "enabled": true,
               "blur": 19,
-              "intensity": 15,
+              "intensity": 27,
               "offsetX": 2,
               "offsetY": 2,
               "useOppositeColor": true,
@@ -298,8 +303,18 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
-            "snapY": null,
+            "snapX": {
+              "to": "title",
+              "myEdge": "start",
+              "toEdge": "start",
+              "offset": 0
+            },
+            "snapY": {
+              "to": "art",
+              "myEdge": "end",
+              "toEdge": "end",
+              "offset": 0
+            },
             "radius": 0
           },
           "album": {
@@ -442,14 +457,14 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           }
         },
         "switchAnim": {
-          "type": "fade",
-          "direction": "up",
-          "durationMs": 350,
+          "type": "slide",
+          "direction": "left",
+          "durationMs": 450,
           "easing": "cubicOut"
         }
       },
-      "sessionKey": null,
-      "apiKey": null
+      "apiKey": null,
+      "sessionKey": null
     }
   },
   {
@@ -459,7 +474,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
       "fallbackAccent": "#1db954",
       "theme": {
         "bg": "#797777",
-        "accent": "#1db954",
+        "accent": "#ffffff",
         "autoFromArt": true,
         "autoTargets": {
           "title": false,
@@ -476,7 +491,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           "duration": "accent"
         },
         "textSize": {
-          "title": 42,
+          "title": 47,
           "artist": 22,
           "album": 17,
           "meta": 12,
@@ -516,15 +531,16 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
         },
         "textTransform": {
           "title": "none",
-          "artist": "none",
+          "artist": "uppercase",
           "album": "none",
           "meta": "none",
           "duration": "none"
         },
         "textFont": {
-          "title": "Poppins",
-          "artist": "Poppins",
-          "duration": "Nunito"
+          "title": "Montserrat",
+          "artist": "Montserrat",
+          "album": "Montserrat",
+          "duration": "Montserrat"
         },
         "dropShadow": {
           "enabled": false,
@@ -634,9 +650,9 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "color": "#797777",
             "fallbackColor": "#1db954",
             "fill": "art",
-            "fillOpacity": 100,
+            "fillOpacity": 22,
             "anchor": "left",
-            "radius": 0,
+            "radius": 25,
             "shadow": {
               "enabled": false,
               "blur": 4,
@@ -658,7 +674,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           },
           "art": {
             "visible": true,
-            "x": 8,
+            "x": 12,
             "y": 10,
             "w": 110,
             "h": 110,
@@ -668,9 +684,9 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "fill": "color",
             "fillOpacity": 100,
             "anchor": "left",
-            "radius": 9,
+            "radius": 18,
             "shadow": {
-              "enabled": true,
+              "enabled": false,
               "blur": 4,
               "intensity": 50,
               "offsetX": 2,
@@ -686,21 +702,16 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "gapPx": 32
             },
             "snapX": null,
-            "snapY": {
-              "to": "background",
-              "myEdge": "center",
-              "toEdge": "center",
-              "offset": 0
-            }
+            "snapY": null
           },
           "title": {
             "visible": true,
-            "x": 127,
-            "y": 2,
-            "w": 383,
-            "h": 58,
+            "x": 122,
+            "y": 0,
+            "w": 372,
+            "h": 60,
             "z": 2,
-            "color": "accent",
+            "color": "#ffffff",
             "fallbackColor": "#1db954",
             "fill": "color",
             "fillOpacity": 100,
@@ -721,18 +732,28 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
-            "snapY": null,
+            "snapX": {
+              "to": "art",
+              "myEdge": "start",
+              "toEdge": "end",
+              "offset": 10
+            },
+            "snapY": {
+              "to": "artist",
+              "myEdge": "end",
+              "toEdge": "start",
+              "offset": 1
+            },
             "radius": 0
           },
           "artist": {
             "visible": true,
             "x": 132,
-            "y": 48,
+            "y": 60,
             "w": 378,
             "h": null,
             "z": 3,
-            "color": "accent",
+            "color": "#ffffff",
             "fallbackColor": "#1db954",
             "fill": "color",
             "fillOpacity": 100,
@@ -753,14 +774,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
+            "snapX": {
+              "to": "title",
+              "myEdge": "start",
+              "toEdge": "start",
+              "offset": 0
+            },
             "snapY": null,
             "radius": 0
           },
           "album": {
             "visible": true,
-            "x": 129,
-            "y": 74,
+            "x": 132,
+            "y": 91,
             "w": 382,
             "h": 23,
             "z": 4,
@@ -785,21 +811,26 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
+            "snapX": {
+              "to": "title",
+              "myEdge": "start",
+              "toEdge": "start",
+              "offset": 0
+            },
             "snapY": null,
             "radius": 0
           },
           "progress": {
-            "visible": false,
-            "x": 96,
-            "y": 89,
-            "w": 202,
-            "h": 6,
-            "z": 5,
-            "color": "accent",
+            "visible": true,
+            "x": 0,
+            "y": 0,
+            "w": 517,
+            "h": 129,
+            "z": 0,
+            "color": "#000000",
             "fallbackColor": "#1db954",
             "fill": "color",
-            "fillOpacity": 100,
+            "fillOpacity": 20,
             "anchor": "left",
             "shadow": {
               "enabled": false,
@@ -817,18 +848,18 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "radius": 4,
+            "radius": 21,
             "snapX": null,
             "snapY": null
           },
           "duration": {
             "visible": true,
-            "x": 128,
-            "y": 97,
-            "w": 382,
-            "h": null,
+            "x": 474,
+            "y": 106,
+            "w": 86,
+            "h": 24,
             "z": 6,
-            "color": "accent",
+            "color": "#ffffff",
             "fallbackColor": "#1db954",
             "fill": "color",
             "fillOpacity": 100,
@@ -849,14 +880,24 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
-            "snapY": null,
+            "snapX": {
+              "to": "progress",
+              "myEdge": "center",
+              "toEdge": "end",
+              "offset": -41
+            },
+            "snapY": {
+              "to": "background",
+              "myEdge": "end",
+              "toEdge": "end",
+              "offset": -4
+            },
             "radius": 0
           },
           "pause": {
             "visible": true,
-            "x": 34,
-            "y": 51,
+            "x": 53,
+            "y": 52,
             "w": 28,
             "h": 28,
             "z": 7,
@@ -867,9 +908,9 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "radius": 0,
             "shadow": {
-              "enabled": false,
-              "blur": 4,
-              "intensity": 50,
+              "enabled": true,
+              "blur": 11,
+              "intensity": 82,
               "offsetX": 2,
               "offsetY": 2,
               "useOppositeColor": true,
@@ -882,18 +923,8 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": {
-              "to": "art",
-              "myEdge": "center",
-              "toEdge": "center",
-              "offset": 0
-            },
-            "snapY": {
-              "to": "art",
-              "myEdge": "center",
-              "toEdge": "center",
-              "offset": 0
-            }
+            "snapX": null,
+            "snapY": null
           }
         },
         "switchAnim": {
@@ -903,8 +934,8 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           "easing": "cubicOut"
         }
       },
-      "sessionKey": null,
-      "apiKey": null
+      "apiKey": null,
+      "sessionKey": null
     }
   }
 ];

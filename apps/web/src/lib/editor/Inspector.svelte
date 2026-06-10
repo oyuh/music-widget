@@ -47,7 +47,8 @@
   </div>
 {/snippet}
 
-<div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
+<!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
+<div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm *:shrink-0">
   <div class="flex items-center gap-1.5 text-base font-semibold tracking-tight">
     {sel ? labelOf[sel] : "Widget"}
     {#if sel === "progress" || sel === "duration"}
@@ -295,6 +296,7 @@
         />
       {/if}
       <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" />
+      <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" hint="Fades the whole bar , track and fill together." />
     {:else if isPause}
       <hr class="border-border" />
       <ColorInput bind:value={E.color} label="Color" allowAccent hint="The pause bars' color. 'auto' follows the accent / album-art color." diagram="auto-color" />

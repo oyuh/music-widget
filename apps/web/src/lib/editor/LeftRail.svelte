@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ELEMENTS, type EditorState } from "$lib/editor.svelte";
+  import { ELEMENTS, freshConfig, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
@@ -109,9 +109,44 @@
     editor.save();
     byokOpen = false;
   }
+
+  // ---- Dev tools (local dev server only; stripped from production builds) ----
+  const isDev = import.meta.env.DEV;
+  let devJsonOpen = $state(false);
+  let devJsonText = $state("");
+  let devJsonError = $state("");
+  let devCopied = $state(false);
+
+  async function copyDevJson() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(editor.config, null, 2));
+      devCopied = true;
+      setTimeout(() => (devCopied = false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function openDevJson() {
+    devJsonText = JSON.stringify(editor.config, null, 2);
+    devJsonError = "";
+    devJsonOpen = true;
+  }
+
+  function applyDevJson() {
+    try {
+      // Applied verbatim (no user/session preservation) , dev edits should be literal.
+      editor.config = freshConfig(JSON.parse(devJsonText));
+      editor.save();
+      devJsonOpen = false;
+    } catch (e) {
+      devJsonError = e instanceof Error ? e.message : String(e);
+    }
+  }
 </script>
 
-<div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm">
+<!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
+<div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm *:shrink-0">
   <div>
     <div class="text-base font-semibold tracking-tight">fast.Jamlog.lol</div>
     <div class="text-xs text-muted-foreground">Last.fm now-playing overlay</div>
@@ -201,6 +236,29 @@
       <p class="text-[11px] {importOk ? 'text-green-400' : 'text-destructive'}">{importMsg}</p>
     {/if}
   </Collapsible>
+
+  {#if isDev}
+    <!-- Dev tools (never rendered in production builds) -->
+    <section class="flex flex-col gap-2 rounded-md border border-dashed border-amber-500/40 p-2">
+      <div class="font-pixel text-xs font-medium text-amber-500/80 uppercase">Dev</div>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          onclick={copyDevJson}
+          class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
+        >
+          {devCopied ? "Copied!" : "Copy JSON"}
+        </button>
+        <button
+          type="button"
+          onclick={openDevJson}
+          class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
+        >
+          Edit JSON
+        </button>
+      </div>
+    </section>
+  {/if}
 
   <!-- Presets -->
   <Collapsible title="Presets" bind:open={presetsOpen}>
@@ -376,6 +434,54 @@
             Save
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if isDev && devJsonOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    onclick={() => (devJsonOpen = false)}
+    role="presentation"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-card p-4 text-card-foreground"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <h2 class="text-base font-semibold tracking-tight">Edit config JSON</h2>
+      <p class="mt-1 text-xs text-muted-foreground">
+        Dev only. Applied verbatim through <code>freshConfig</code> (defaults filled, v2-migrated), then saved.
+      </p>
+      <textarea
+        bind:value={devJsonText}
+        spellcheck="false"
+        rows="20"
+        class="mt-3 min-h-0 flex-1 resize-none rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-xs leading-relaxed"
+      ></textarea>
+      {#if devJsonError}
+        <p class="mt-2 text-[11px] text-destructive">{devJsonError}</p>
+      {/if}
+      <div class="mt-3 flex justify-end gap-2">
+        <button
+          type="button"
+          onclick={() => (devJsonOpen = false)}
+          class="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={applyDevJson}
+          class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+        >
+          Apply
+        </button>
       </div>
     </div>
   </div>

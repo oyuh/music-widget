@@ -65,7 +65,7 @@ export type V2Element = {
   // theme fallback (cfg.fallbackAccent). Keeps old configs byte-compatible.
   fallbackColor?: string;
   fill: V2Fill; // background element only: none/solid color/accent/blurred album art
-  fillOpacity: number; // background only: 0-100 opacity for the accent / album-art fill
+  fillOpacity: number; // background: 0-100 opacity for the accent / album-art fill; progress: whole-bar opacity
   anchor: "left" | "center" | "right"; // text horizontal anchor (ignored by non-text)
   shadow: V2Shadow;
   scroll: V2Scroll; // text elements only (ignored otherwise)

@@ -97,10 +97,11 @@
     window.addEventListener("pointerup", end);
   }
 
-  // The inspector follows the selection: nothing selected, nothing to edit.
-  // Manual show/hide still works in between selection changes. untrack keeps
-  // the panel state out of this effect's dependencies, so only the selection
-  // changing reruns it (a width drag must not re-trigger it).
+  // The inspector OPENS to follow a selection but never auto-closes: clicking
+  // off an element keeps the panel up (it falls back to widget-level settings).
+  // Closing is explicit , the header toggle or dragging the panel shut. untrack
+  // keeps the panel state out of this effect's dependencies, so only the
+  // selection changing reruns it (a width drag must not re-trigger it).
   //
   // Opening waits for pointer release: selecting an element also starts a drag,
   // and the panel sliding open mid-drag reflows the canvas under the cursor.
@@ -108,11 +109,11 @@
   // (or clears) before the button is released.
   $effect(() => {
     if (mobile) return;
-    if (!editor.selected) {
-      untrack(() => setPanelOpen("right", false));
-      return;
-    }
-    const onUp = () => untrack(() => setPanelOpen("right", !!editor.selected));
+    if (!editor.selected) return;
+    const onUp = () =>
+      untrack(() => {
+        if (editor.selected) setPanelOpen("right", true);
+      });
     window.addEventListener("pointerup", onUp, { once: true });
     window.addEventListener("pointercancel", onUp, { once: true });
     return () => {
