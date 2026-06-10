@@ -108,9 +108,18 @@ function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<Wid
       snapY: e.snapY !== undefined ? e.snapY : b.snapY,
     };
   }
+  // Configs encoded before the pause element existed carry no `pause` entry.
+  // Flag them (recomputed from presence, never trusted from the payload) so the
+  // renderer falls back to the original hardcoded pause badge instead of a new
+  // pause element the user never set up.
+  const legacyPause = pv?.elements?.pause === undefined;
   return {
     version: 2,
-    v2: { elements, switchAnim: { ...base.switchAnim, ...(pv?.switchAnim ?? {}) } },
+    v2: {
+      elements,
+      switchAnim: { ...base.switchAnim, ...(pv?.switchAnim ?? {}) },
+      ...(legacyPause ? { legacyPause: true } : {}),
+    },
   };
 }
 
