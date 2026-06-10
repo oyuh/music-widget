@@ -191,11 +191,11 @@
     if (el.snapX?.to === "art") return el.snapX.toEdge === "start" ? "right" : "left";
     return artNearLeft ? "left" : "right";
   }
-  // When the art is gone, pull every element that sat on the art's far side over to the
-  // matching WIDGET edge, so text/progress flush hard to one side instead of floating in
-  // the gap the art left behind. We adjust the RESOLVED boxes, so it works whether an
-  // element was snapped to the art OR free-positioned beside it. Elements land at the very
-  // edge (free) or the very edge plus their own snap offset (snapped).
+  // When the art is gone, re-anchor ONLY the elements explicitly snapped to it on the
+  // x-axis: they flush to the matching WIDGET edge (plus their own snap offset) instead
+  // of floating in the gap the art left behind. Elements snapped to a re-anchored
+  // element ride along (a snapX follower sits at a fixed distance from its anchor, so
+  // it shifts by the same delta). Free-positioned elements stay exactly where they are.
   const boxes = $derived.by(() => {
     const raw = resolveLayout(v2, measured);
     let out: Record<V2ElementId, Box> = raw;
@@ -205,18 +205,32 @@
       const artCenter = art.x + art.w / 2;
       const artNearLeft = art.x <= widgetW - (art.x + art.w);
       out = { ...raw } as Record<V2ElementId, Box>;
+      const dx: Partial<Record<V2ElementId, number>> = {};
       for (const id of V2_ELEMENT_IDS) {
         if (id === "art" || id === "background") continue;
         const el = v2.elements[id];
-        if (!el.visible) continue;
+        if (!el.visible || el.snapX?.to !== "art") continue;
         const b = raw[id];
         const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
         if (!onFarSide) continue;
-        const off = el.snapX?.to === "art" ? Math.abs(el.snapX.offset ?? 0) : 0;
-        out[id] = {
-          ...b,
-          x: goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off,
-        };
+        const off = Math.abs(el.snapX.offset ?? 0);
+        const x = goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off;
+        dx[id] = x - b.x;
+        out[id] = { ...b, x };
+      }
+      // Ripple the shift down snapX chains (anchor moved => follower moves the same).
+      for (let pass = 0; pass < V2_ELEMENT_IDS.length; pass++) {
+        let changed = false;
+        for (const id of V2_ELEMENT_IDS) {
+          if (id === "art" || id === "background" || dx[id] !== undefined) continue;
+          const el = v2.elements[id];
+          const to = el.snapX?.to;
+          if (!el.visible || !to || dx[to] === undefined) continue;
+          dx[id] = dx[to];
+          out[id] = { ...raw[id], x: raw[id].x + dx[to]! };
+          changed = true;
+        }
+        if (!changed) break;
       }
     }
 
@@ -454,7 +468,11 @@
           {:else if id === "progress"}
             {@const progColor = resolveColor(v2.elements.progress.color, v2.elements.progress.fallbackColor)}
             {@const sh = elementShadowCSS(v2.elements.progress.shadow, progColor)}
-            <div data-el="progress" use:measure={"progress"} style={posStyle("progress")}>
+            <div
+              data-el="progress"
+              use:measure={"progress"}
+              style="{posStyle('progress')};opacity:{(v2.elements.progress.fillOpacity ?? 100) / 100}"
+            >
               <div
                 style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements.progress.radius ??
                   4}px;overflow:hidden;{sh ? `box-shadow:${sh}` : ''}"
