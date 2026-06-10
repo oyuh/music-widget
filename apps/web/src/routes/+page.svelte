@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
+  import { slide, fly } from "svelte/transition";
   import LeftRail from "$lib/editor/LeftRail.svelte";
   import Canvas from "$lib/editor/Canvas.svelte";
   import Inspector from "$lib/editor/Inspector.svelte";
@@ -17,6 +18,94 @@
 
   const editor = new EditorState();
   const np = new NowPlaying();
+
+  // Sidebar visibility + widths , persisted separately from the design config
+  // so panel layout never dirties the widget / undo history.
+  const PANELS_KEY = "mw:panels";
+  const PANEL_DEFAULTS = { left: 260, right: 320 };
+  const PANEL_MIN = 180;
+  const PANEL_MAX = 460;
+  // Dragging a panel below this fraction of its default width snaps it closed.
+  const HIDE_AT = 0.15;
+
+  function loadPanels() {
+    const d = { left: true, leftW: PANEL_DEFAULTS.left, rightW: PANEL_DEFAULTS.right };
+    if (typeof window === "undefined") return d;
+    try {
+      return { ...d, ...JSON.parse(localStorage.getItem(PANELS_KEY) ?? "{}") };
+    } catch {
+      return d;
+    }
+  }
+  const panels = loadPanels();
+  const clampW = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, w));
+  let leftOpen = $state(panels.left);
+  // The inspector follows the selection (see the effect below), and nothing is
+  // selected on load, so it always starts closed.
+  let rightOpen = $state(false);
+  let leftW = $state(clampW(panels.leftW));
+  let rightW = $state(clampW(panels.rightW));
+  let resizing = $state<"left" | "right" | null>(null);
+
+  function savePanels() {
+    try {
+      localStorage.setItem(PANELS_KEY, JSON.stringify({ left: leftOpen, leftW, rightW }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function setPanelOpen(side: "left" | "right", open: boolean) {
+    // Reopen at the default width unless the panel was wider before it was
+    // hidden , a panel squeezed below the default shouldn't come back squeezed.
+    if (side === "left") {
+      if (open && !leftOpen) leftW = Math.max(leftW, PANEL_DEFAULTS.left);
+      leftOpen = open;
+    } else {
+      if (open && !rightOpen) rightW = Math.max(rightW, PANEL_DEFAULTS.right);
+      rightOpen = open;
+    }
+  }
+
+  function togglePanel(side: "left" | "right") {
+    setPanelOpen(side, side === "left" ? !leftOpen : !rightOpen);
+    savePanels();
+  }
+
+  function startPanelResize(side: "left" | "right", e: PointerEvent) {
+    e.preventDefault(); // don't start a text selection in the sidebar
+    resizing = side;
+    document.body.style.cursor = "col-resize";
+    const move = (ev: PointerEvent) => {
+      const raw = side === "left" ? ev.clientX : window.innerWidth - ev.clientX;
+      if (raw < PANEL_DEFAULTS[side] * HIDE_AT) {
+        end();
+        togglePanel(side); // dragged (nearly) shut , snap closed
+        return;
+      }
+      if (side === "left") leftW = clampW(raw);
+      else rightW = clampW(raw);
+    };
+    const end = () => {
+      resizing = null;
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      savePanels();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+  }
+
+  // The inspector follows the selection: nothing selected, nothing to edit.
+  // Manual show/hide still works in between selection changes. untrack keeps
+  // the panel state out of this effect's dependencies, so only the selection
+  // changing reruns it (a width drag must not re-trigger it).
+  $effect(() => {
+    if (mobile) return;
+    const open = !!editor.selected;
+    untrack(() => setPanelOpen("right", open));
+  });
 
   // Colorful placeholder art so the canvas (and auto-from-art) has something
   // to show before a real track loads.
@@ -134,12 +223,37 @@
 {#if mobile}
   <MobileGate />
 {:else}
-  <div class="font-mono-ui grid h-screen grid-cols-[260px_1fr_320px] overflow-hidden bg-background text-foreground">
-    <aside class="min-h-0 border-r border-border bg-sidebar">
-      <LeftRail {editor} />
-    </aside>
+  <div class="font-mono-ui relative flex h-screen overflow-hidden bg-background text-foreground">
+    {#if leftOpen}
+      <aside
+        transition:slide={{ axis: "x", duration: 220 }}
+        class="relative min-h-0 shrink-0 border-r border-border bg-sidebar"
+        style="width:{leftW}px"
+      >
+        <!-- Fixed-width inner box so content doesn't reflow while the panel slides -->
+        <div class="relative h-full" style="width:{leftW}px">
+          <button
+            onclick={() => togglePanel("left")}
+            title="Hide sidebar"
+            aria-label="Hide left sidebar"
+            class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" />
+            </svg>
+          </button>
+          <LeftRail {editor} />
+        </div>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          onpointerdown={(e) => startPanelResize("left", e)}
+          title="Drag to resize. Drag all the way in to hide."
+          class="absolute inset-y-0 -right-px z-20 w-1.5 cursor-col-resize transition-colors hover:bg-ring/50 {resizing === 'left' ? 'bg-ring/50' : ''}"
+        ></div>
+      </aside>
+    {/if}
 
-    <main class="min-h-0 overflow-hidden">
+    <main class="min-h-0 min-w-0 flex-1 overflow-hidden">
       <Canvas
         {editor}
         isLive={hasLive ? np.isLive : true}
@@ -154,8 +268,60 @@
       />
     </main>
 
-    <aside class="min-h-0 border-l border-border bg-sidebar">
-      <Inspector {editor} />
-    </aside>
+    {#if rightOpen}
+      <aside
+        transition:slide={{ axis: "x", duration: 220 }}
+        class="relative min-h-0 shrink-0 border-l border-border bg-sidebar"
+        style="width:{rightW}px"
+      >
+        <div class="relative ml-auto h-full" style="width:{rightW}px">
+          <button
+            onclick={() => togglePanel("right")}
+            title="Hide sidebar"
+            aria-label="Hide right sidebar"
+            class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 17 5-5-5-5" /><path d="m13 17 5-5-5-5" />
+            </svg>
+          </button>
+          <Inspector {editor} />
+        </div>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          onpointerdown={(e) => startPanelResize("right", e)}
+          title="Drag to resize. Drag all the way in to hide."
+          class="absolute inset-y-0 -left-px z-20 w-1.5 cursor-col-resize transition-colors hover:bg-ring/50 {resizing === 'right' ? 'bg-ring/50' : ''}"
+        ></div>
+      </aside>
+    {/if}
+
+    <!-- Restore tabs: hang off the page edge while a sidebar is hidden -->
+    {#if !leftOpen}
+      <button
+        transition:fly={{ x: -16, duration: 180, delay: 120 }}
+        onclick={() => togglePanel("left")}
+        title="Show sidebar"
+        aria-label="Show left sidebar"
+        class="absolute top-1/2 left-0 z-40 -translate-y-1/2 rounded-r-md border border-l-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 17 5-5-5-5" /><path d="m13 17 5-5-5-5" />
+        </svg>
+      </button>
+    {/if}
+    {#if !rightOpen}
+      <button
+        transition:fly={{ x: 16, duration: 180, delay: 120 }}
+        onclick={() => togglePanel("right")}
+        title="Show sidebar"
+        aria-label="Show right sidebar"
+        class="absolute top-1/2 right-0 z-40 -translate-y-1/2 rounded-l-md border border-r-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" />
+        </svg>
+      </button>
+    {/if}
   </div>
 {/if}
