@@ -258,7 +258,15 @@
   const wouldHide = $derived(isEffectivelyPaused && pausedTransparent);
   // The pause symbol only shows while paused/stopped, and only in "Show paused" mode.
   const showPauseSymbol = $derived(
-    isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "label" && v2.elements.pause?.visible,
+    isEffectivelyPaused &&
+      (cfg.fields.pausedMode ?? "label") === "label" &&
+      v2.elements.pause?.visible &&
+      !v2.legacyPause,
+  );
+  // Configs saved before the pause element existed keep the original badge
+  // (dark circle on the album art) so their widget doesn't change under them.
+  const showLegacyPause = $derived(
+    !!v2.legacyPause && isEffectivelyPaused && (cfg.fields.pausedMode ?? "label") === "label",
   );
 
   // ---- helpers ----
@@ -417,6 +425,14 @@
                     ? `box-shadow:${elementShadowCSS(v2.elements.art.shadow, '#000000')}`
                     : ''}"
                 />
+                {#if showLegacyPause}
+                  <div
+                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;gap:2px"
+                  >
+                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
+                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
+                  </div>
+                {/if}
               </div>
             {/if}
           {:else if id === "pause"}

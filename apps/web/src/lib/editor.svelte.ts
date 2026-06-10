@@ -46,6 +46,10 @@ export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfi
   const input = partial ? (JSON.parse(JSON.stringify(partial)) as Partial<WidgetConfig>) : undefined;
   const merged = mergeConfig(input);
   const v2 = merged.version === 2 && merged.v2 ? merged : migrateToV2(merged);
+  // The editor always edits the full new-style config: opening an old design
+  // upgrades it to the configurable pause element, so drop the runtime-only
+  // legacy-pause flag rather than baking it into saved/encoded configs.
+  if (v2.v2) delete v2.v2.legacyPause;
   return JSON.parse(JSON.stringify(v2)) as WidgetConfig;
 }
 

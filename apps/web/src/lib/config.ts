@@ -85,6 +85,10 @@ export type V2SwitchAnim = {
 export type WidgetV2 = {
   elements: Record<V2ElementId, V2Element>;
   switchAnim: V2SwitchAnim;
+  // Runtime-only, set during merge (never encoded/edited): the decoded config
+  // predates the configurable pause element, so the renderer shows the original
+  // hardcoded pause badge instead of a pause element the user never set up.
+  legacyPause?: boolean;
 };
 
 export type WidgetConfig = {
