@@ -21,7 +21,7 @@
     "services:down": "docker compose -f docker-compose.dev.yml down"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3"
   }

@@ -179,32 +179,56 @@ function safeJoin(root: string, requestPath: string) {
   return join(root, rel);
 }
 
+// The build emits .br/.gz siblings for every asset (precompress in
+// svelte.config.js). Serve the smallest variant the client accepts; the
+// caller sets Content-Type from the original file since the variant's
+// extension would lie.
+const PRECOMPRESSED = [
+  ["br", ".br"],
+  ["gzip", ".gz"],
+] as const;
+
+async function pickEncoding(filePath: string, acceptEncoding: string) {
+  for (const [coding, ext] of PRECOMPRESSED) {
+    if (!acceptEncoding.includes(coding)) continue;
+    const compressed = Bun.file(filePath + ext);
+    if (await compressed.exists()) return { body: compressed, encoding: coding };
+  }
+  const file = Bun.file(filePath);
+  return (await file.exists()) ? { body: file, encoding: null } : null;
+}
+
 // The widget/callback pages get index.html with the `<!-- editor-only -->`
 // blocks removed (SEO meta, JSON-LD, editor fonts, noscript copy — see
 // apps/web/src/app.html). Stripped once and cached for the process lifetime;
 // the file only changes when a new build deploys.
-let leanIndexCache: string | null = null;
+let leanIndexCache: { html: string; gzip: Uint8Array } | null = null;
 async function leanIndexHtml(index: ReturnType<typeof Bun.file>) {
   if (leanIndexCache === null) {
-    const html = await index.text();
-    leanIndexCache = html.replace(/<!-- editor-only -->[\s\S]*?<!-- \/editor-only -->/g, "");
+    const html = (await index.text()).replace(/<!-- editor-only -->[\s\S]*?<!-- \/editor-only -->/g, "");
+    leanIndexCache = { html, gzip: Bun.gzipSync(html) };
   }
   return leanIndexCache;
 }
 
 app.get("*", async (c) => {
   const { pathname } = new URL(c.req.url);
+  const acceptEncoding = c.req.header("accept-encoding") ?? "";
 
   if (pathname !== "/") {
     const filePath = safeJoin(WEB_DIR, pathname);
-    const file = Bun.file(filePath);
-    if (await file.exists()) {
+    const found = await pickEncoding(filePath, acceptEncoding);
+    if (found) {
       const immutable = pathname.startsWith("/_app/immutable/");
-      return new Response(file, {
-        headers: immutable
-          ? { "Cache-Control": "public, max-age=31536000, immutable" }
-          : { "Cache-Control": "public, max-age=3600" },
-      });
+      const headers: Record<string, string> = {
+        "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+        Vary: "Accept-Encoding",
+      };
+      if (found.encoding) {
+        headers["Content-Encoding"] = found.encoding;
+        headers["Content-Type"] = Bun.file(filePath).type;
+      }
+      return new Response(found.body, { headers });
     }
   }
 
@@ -215,16 +239,22 @@ app.get("*", async (c) => {
     // content: keep them out of search results so only the editor (/) ranks,
     // and serve them the lean shell so the OBS widget loads as fast as possible.
     const appPage = pathname === "/w" || pathname === "/callback" || pathname.startsWith("/callback/");
-    const headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-cache",
+      Vary: "Accept-Encoding",
     };
     if (appPage) {
-      return new Response(await leanIndexHtml(index), {
+      const lean = await leanIndexHtml(index);
+      const gzip = acceptEncoding.includes("gzip");
+      if (gzip) headers["Content-Encoding"] = "gzip";
+      return new Response(gzip ? lean.gzip : lean.html, {
         headers: { ...headers, "X-Robots-Tag": "noindex" },
       });
     }
-    return new Response(index, { headers });
+    const found = await pickEncoding(INDEX_HTML, acceptEncoding);
+    if (found?.encoding) headers["Content-Encoding"] = found.encoding;
+    return new Response(found?.body ?? index, { headers });
   }
 
   return c.text("Build not found. Run `bun run build:web` first.", 404);
