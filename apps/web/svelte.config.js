@@ -9,7 +9,9 @@ const config = {
     // non-/api route, with client-side routing taking over.
     adapter: adapter({
       fallback: "index.html",
-      precompress: false,
+      // Emit .br/.gz next to each asset at build time; the Hono server picks
+      // the smallest encoding the client accepts (see apps/server/src/index.ts).
+      precompress: true,
       strict: false,
     }),
     alias: {

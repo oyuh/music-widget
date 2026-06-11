@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.6.14"
+    "hono": "^4.12.25"
   },
   "devDependencies": {
     "@types/bun": "latest",
