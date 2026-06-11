@@ -10,6 +10,7 @@
   import { ensureGoogleFonts } from "$lib/fonts";
   import { isMobileDevice } from "$lib/device";
   import MobileGate from "$lib/MobileGate.svelte";
+  import WelcomeModal from "$lib/editor/WelcomeModal.svelte";
   import { KEYWORDS_META } from "$lib/keywords";
 
   // The editor needs a pointer + a wide screen , gate mobile to a simple page.
@@ -130,11 +131,16 @@
       `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#7c3aed'/><stop offset='0.55' stop-color='#db2777'/><stop offset='1' stop-color='#f59e0b'/></linearGradient></defs><rect width='300' height='300' fill='url(#g)'/></svg>`,
     );
 
+  // First-visit onboarding: anyone without a Last.fm username yet (covers both
+  // brand-new visitors and connected-session users, whose name auto-fills on load).
+  let welcomeOpen = $state(false);
+
   onMount(() => {
     if (mobile) return; // no editor on mobile
     editor.load();
     editor.loadPresets();
     editor.initHistory();
+    if (!(editor.config.lfmUser ?? "").trim()) welcomeOpen = true;
 
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -239,6 +245,7 @@
   <MobileGate />
 {:else}
   <div class="font-mono-ui relative flex h-screen overflow-hidden bg-background text-foreground">
+    <WelcomeModal bind:open={welcomeOpen} {editor} />
     {#if leftOpen}
       <aside
         transition:slide={{ axis: "x", duration: 220 }}
