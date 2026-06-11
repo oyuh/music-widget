@@ -3,11 +3,80 @@ import type { AppEnv } from "./types";
 import { withJsonCache } from "./cache";
 import { json, sha256, signLastfm } from "./util";
 import { isAllowedImageHost } from "./security";
-import { log } from "./log";
+import { log, levelEnabled, type JsonValue } from "./log";
 
 const RECENT_TTL_SECONDS = 3;
 const TRACK_INFO_TTL_SECONDS = 60 * 60 * 24;
 const LASTFM_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
+
+/** Human hints for the Last.fm error codes we actually see in the wild. */
+const LASTFM_ERROR_HINTS: Record<number, string> = {
+  4: "authentication failed",
+  6: "user not found",
+  9: "invalid session key — user needs to re-auth",
+  10: "invalid api key",
+  11: "last.fm service offline",
+  16: "temporary upstream error",
+  17: "login required — user's recent listening is likely private",
+  26: "api key suspended",
+  29: "rate limit exceeded",
+};
+
+type LastfmErrorBody = { error?: number; message?: string };
+
+type RecentTrack = {
+  name?: string;
+  artist?: { "#text"?: string; name?: string };
+  "@attr"?: { nowplaying?: string };
+};
+
+function lastfmErrorFields(data: LastfmErrorBody): Record<string, JsonValue> {
+  const fields: Record<string, JsonValue> = {};
+  if (typeof data.error === "number") {
+    fields.lfmError = data.error;
+    const hint = LASTFM_ERROR_HINTS[data.error];
+    if (hint) fields.hint = hint;
+  }
+  if (data.message) fields.lfmMessage = data.message;
+  return fields;
+}
+
+/**
+ * Log-only enrichment for user.getRecentTracks bodies. Parsing is gated on the
+ * log level so it costs nothing when info logs are disabled, and it never throws.
+ */
+function recentLogFields(body: string, ok: boolean): Record<string, JsonValue> {
+  if (!levelEnabled("info")) return {};
+  try {
+    const data = JSON.parse(body) as LastfmErrorBody & {
+      recenttracks?: { track?: RecentTrack[] | RecentTrack };
+    };
+    if (!ok || typeof data.error === "number") return lastfmErrorFields(data);
+
+    const first = Array.isArray(data.recenttracks?.track)
+      ? data.recenttracks.track[0]
+      : data.recenttracks?.track;
+    if (!first) return { track: "(no recent tracks)" };
+
+    const artist = first.artist?.["#text"] || first.artist?.name || "?";
+    return {
+      track: `${artist} – ${first.name || "?"}`,
+      nowPlaying: first["@attr"]?.nowplaying === "true",
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Error-only enrichment for upstream bodies — skips parsing entirely on success. */
+function upstreamErrorLogFields(body: string, ok: boolean): Record<string, JsonValue> {
+  if (ok || !levelEnabled("info")) return {};
+  try {
+    return lastfmErrorFields(JSON.parse(body) as LastfmErrorBody);
+  } catch {
+    return {};
+  }
+}
 
 type Handler = (c: Context<AppEnv>) => Promise<Response>;
 
@@ -71,9 +140,12 @@ export const handleRecent: Handler = async (c) => {
 
       log("info", "api.lastfm.recent.upstream", {
         requestId: reqId,
+        user,
+        auth: sk ? "session" : "public",
         upstreamStatus: upstream.status,
         upstreamOk: upstream.ok,
         upstreamMs: Date.now() - upstreamT0,
+        ...recentLogFields(body, upstream.ok),
       });
 
       return {
@@ -124,9 +196,11 @@ export const handleTrackInfo: Handler = async (c) => {
 
       log("info", "api.lastfm.trackInfo.upstream", {
         requestId: reqId,
+        track: `${artist} – ${track}`,
         upstreamStatus: upstream.status,
         upstreamOk: upstream.ok,
         upstreamMs: Date.now() - upstreamT0,
+        ...upstreamErrorLogFields(body, upstream.ok),
       });
 
       return {
@@ -165,13 +239,17 @@ export const handleSession: Handler = async (c) => {
 
   const upstreamT0 = Date.now();
   const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`);
-  const data = (await upstream.json()) as { session?: { key?: string; name?: string }; message?: string };
+  const data = (await upstream.json()) as LastfmErrorBody & {
+    session?: { key?: string; name?: string };
+  };
 
   log("info", "api.lastfm.session.upstream", {
     requestId: reqId,
     upstreamStatus: upstream.status,
     upstreamOk: upstream.ok,
     upstreamMs: Date.now() - upstreamT0,
+    ...(data.session?.name ? { user: data.session.name } : {}),
+    ...lastfmErrorFields(data),
   });
 
   if (data.session?.key && data.session.name) {

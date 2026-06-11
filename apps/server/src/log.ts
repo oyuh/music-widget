@@ -10,8 +10,13 @@ function threshold(): number {
   return LEVELS[configured] ?? LEVELS.info;
 }
 
+/** Lets callers skip building costly log metadata when the level wouldn't be emitted. */
+export function levelEnabled(level: Level): boolean {
+  return LEVELS[level] >= threshold();
+}
+
 export function log(level: Level, event: string, meta: Record<string, JsonValue> = {}) {
-  if (LEVELS[level] < threshold()) return;
+  if (!levelEnabled(level)) return;
 
   const line = JSON.stringify({
     ts: new Date().toISOString(),
