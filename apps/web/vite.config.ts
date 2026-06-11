@@ -24,7 +24,7 @@ export default defineConfig({
   // Read env from the monorepo root so .env / .env.local are the single source.
   envDir: path.resolve(import.meta.dirname, "../.."),
   server: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
     proxy: {
       "/api": "http://127.0.0.1:8787",
     },
