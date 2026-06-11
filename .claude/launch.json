@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "prod",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["apps/server/src/index.ts"],
+      "port": 8787
     }
   ]
 }
