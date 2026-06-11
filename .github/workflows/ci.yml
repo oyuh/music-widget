@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, the-refactor]
+    branches: [master, the-refactor]
   pull_request:
 
 jobs:
