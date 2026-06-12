@@ -143,6 +143,19 @@ export class EditorState {
     this.setSnap(id, axis, null);
   }
 
+  /**
+   * True when the axis snap actually drives the element's position (the anchor
+   * exists, isn't the element itself, and is visible) — mirrors the fallback
+   * rule in v2-layout.ts. When inactive, the element renders at its free
+   * coordinate, so editor moves must adjust that instead of the snap offset.
+   */
+  snapActive(id: ElementId, axis: "x" | "y"): boolean {
+    const el = this.config.v2!.elements[id];
+    const snap = axis === "x" ? el.snapX : el.snapY;
+    if (!snap || snap.to === id) return false;
+    return !!this.config.v2!.elements[snap.to]?.visible;
+  }
+
   /** Flip a dimension between auto (null) and a fixed px value. */
   toggleAuto(id: ElementId, dim: "w" | "h") {
     const el = this.config.v2!.elements[id];

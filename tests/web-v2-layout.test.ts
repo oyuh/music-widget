@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { resolveLayout, type Measured } from "../apps/web/src/lib/v2-layout";
+import { reflowArtGone, resolveLayout, type Measured } from "../apps/web/src/lib/v2-layout";
 import {
   V2_ELEMENT_IDS,
   migrateToV2,
@@ -126,6 +126,95 @@ describe("resolveLayout", () => {
     const boxes = resolveLayout(layout, {});
     expect(boxes.title.x).toBe(100); // 88 + 12
     expect(boxes.title.y).toBe(4); // art top + 4
+  });
+});
+
+describe("reflowArtGone", () => {
+  // Art on the left (88px) with a fixed-width title snapped to its right edge —
+  // the Modern Card shape.
+  const cardLayout = (over: Partial<Record<V2ElementId, Partial<V2Element>>> = {}) =>
+    v2({
+      background: { x: 0, y: 0, w: 400, h: 100 },
+      art: { x: 0, y: 0, w: 88, h: 88 },
+      title: {
+        w: 50,
+        h: 16,
+        x: 12,
+        snapX: { to: "art", myEdge: "start", toEdge: "end", offset: 10 },
+      },
+      ...over,
+    });
+
+  test("fixed-width element flushes its start edge but keeps its far edge (stretches)", () => {
+    const layout = cardLayout();
+    const raw = resolveLayout(layout, {});
+    expect(raw.title.x).toBe(98); // 88 + 10
+    const out = reflowArtGone(layout, raw);
+    expect(out.title.x).toBe(10); // flush left at |offset|
+    expect(out.title.x + out.title.w).toBe(raw.title.x + raw.title.w); // far edge unchanged
+    expect(out.title.w).toBe(138); // 50 + the 88px the art freed up
+  });
+
+  test("pure: raw boxes are untouched, so the layout reverts when art is back", () => {
+    const layout = cardLayout();
+    const raw = resolveLayout(layout, {});
+    const snapshot = JSON.parse(JSON.stringify(raw));
+    reflowArtGone(layout, raw);
+    expect(raw).toEqual(snapshot); // config/raw never mutated; no reflow = original boxes
+  });
+
+  test("auto-width element translates without stretching", () => {
+    const layout = cardLayout({ title: { w: null, h: 16, x: 12, snapX: { to: "art", myEdge: "start", toEdge: "end", offset: 10 } } });
+    const measured: Measured = { title: { w: 50, h: 16 } };
+    const raw = resolveLayout(layout, measured);
+    const out = reflowArtGone(layout, raw);
+    expect(out.title.x).toBe(10);
+    expect(out.title.w).toBe(50); // measured width, not stretched
+  });
+
+  test("follower on the anchor's START edge shifts and stretches with it", () => {
+    const layout = cardLayout({
+      artist: { w: 60, h: 14, x: 12, y: 40, snapX: { to: "title", myEdge: "start", toEdge: "start", offset: 0 } },
+    });
+    const raw = resolveLayout(layout, {});
+    const out = reflowArtGone(layout, raw);
+    expect(out.artist.x).toBe(out.title.x); // still rides the title's start
+    expect(out.artist.x + out.artist.w).toBe(raw.artist.x + raw.artist.w); // far edge kept
+  });
+
+  test("follower on the anchor's END edge stays put (that edge never moved)", () => {
+    const layout = cardLayout({
+      duration: { w: 40, h: 11, x: 0, snapX: { to: "title", myEdge: "start", toEdge: "end", offset: 8 } },
+    });
+    const raw = resolveLayout(layout, {});
+    const out = reflowArtGone(layout, raw);
+    expect(out.duration.x).toBe(raw.duration.x);
+    expect(out.duration.w).toBe(raw.duration.w);
+  });
+
+  test("mirror: art on the right flushes the end edge and keeps the start edge", () => {
+    const layout = v2({
+      background: { x: 0, y: 0, w: 400, h: 100 },
+      art: { x: 312, y: 0, w: 88, h: 88 },
+      title: {
+        w: 50,
+        h: 16,
+        x: 340,
+        snapX: { to: "art", myEdge: "end", toEdge: "start", offset: -10 },
+      },
+    });
+    const raw = resolveLayout(layout, {});
+    expect(raw.title.x).toBe(252); // art start 312 - 10 - 50
+    const out = reflowArtGone(layout, raw);
+    expect(out.title.x).toBe(raw.title.x); // start (far) edge unchanged
+    expect(out.title.x + out.title.w).toBe(390); // end flushed to widget edge - |offset|
+  });
+
+  test("free-positioned elements never move", () => {
+    const layout = cardLayout({ album: { x: 200, y: 60, w: 80, h: 12 } });
+    const raw = resolveLayout(layout, {});
+    const out = reflowArtGone(layout, raw);
+    expect(out.album).toEqual(raw.album);
   });
 });
 

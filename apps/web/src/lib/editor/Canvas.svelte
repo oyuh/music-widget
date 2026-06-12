@@ -123,6 +123,11 @@
     const base = localBox(id);
     if (!base) return;
     const z = zoom;
+    // Offsets at drag start: snapped axes move by re-deriving the offset from
+    // these each event, so there's no incremental rounding drift.
+    const el0 = editor.el(id);
+    const baseOffX = el0.snapX?.offset ?? 0;
+    const baseOffY = el0.snapY?.offset ?? 0;
     let pendingX: SnapCand = null;
     let pendingY: SnapCand = null;
 
@@ -151,11 +156,16 @@
           }
         }
 
-        // Move freely during the drag; snaps (if any) are committed on drop.
-        el.snapX = null;
-        el.snapY = null;
-        el.x = Math.round(x);
-        el.y = Math.round(y);
+        // Dragging never severs an existing snap (that's the Inspector's Unsnap
+        // button): an actively snapped axis follows the pointer by adjusting its
+        // snap offset — same as arrow-key nudging — so snaps that depend on this
+        // element and the art-failure fallback keep working. An axis whose snap
+        // is inactive (hidden anchor) renders at its free coordinate, so move
+        // that instead. Shift-snaps found above are committed on drop.
+        if (editor.snapActive(id, "x")) el.snapX!.offset = Math.round(baseOffX + (x - base.x));
+        else el.x = Math.round(x);
+        if (editor.snapActive(id, "y")) el.snapY!.offset = Math.round(baseOffY + (y - base.y));
+        else el.y = Math.round(y);
       },
       () => commitSnaps(id, pendingX, pendingY),
     );
