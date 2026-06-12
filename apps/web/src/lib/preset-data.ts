@@ -523,7 +523,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "strike": false
           },
           "duration": {
-            "italic": true,
+            "italic": false,
             "underline": false,
             "bold": false,
             "strike": false
@@ -633,7 +633,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
         "history": 50,
         "pausedMode": "label",
         "pausedText": "Paused",
-        "durationFormat": "both",
+        "durationFormat": "elapsed",
         "showDurationOnProgress": true,
         "showDurationAsText": true
       },
@@ -742,14 +742,14 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "to": "artist",
               "myEdge": "end",
               "toEdge": "start",
-              "offset": 1
+              "offset": -1
             },
             "radius": 0
           },
           "artist": {
             "visible": true,
             "x": 132,
-            "y": 60,
+            "y": 61,
             "w": 378,
             "h": null,
             "z": 3,
@@ -786,7 +786,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           "album": {
             "visible": true,
             "x": 132,
-            "y": 91,
+            "y": 94,
             "w": 382,
             "h": 23,
             "z": 4,
@@ -856,7 +856,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "visible": true,
             "x": 474,
             "y": 106,
-            "w": 86,
+            "w": 40,
             "h": 24,
             "z": 6,
             "color": "#ffffff",
@@ -884,7 +884,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "to": "progress",
               "myEdge": "center",
               "toEdge": "end",
-              "offset": -41
+              "offset": -26
             },
             "snapY": {
               "to": "background",
@@ -896,10 +896,10 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           },
           "pause": {
             "visible": true,
-            "x": 53,
-            "y": 52,
-            "w": 28,
-            "h": 28,
+            "x": 405,
+            "y": 98,
+            "w": 14,
+            "h": 13,
             "z": 7,
             "color": "#ffffff",
             "fallbackColor": "#1db954",
@@ -923,8 +923,18 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "speedPxPerSec": 24,
               "gapPx": 32
             },
-            "snapX": null,
-            "snapY": null
+            "snapX": {
+              "to": "duration",
+              "myEdge": "end",
+              "toEdge": "start",
+              "offset": -4
+            },
+            "snapY": {
+              "to": "duration",
+              "myEdge": "end",
+              "toEdge": "end",
+              "offset": -6
+            }
           }
         },
         "switchAnim": {

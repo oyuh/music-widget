@@ -152,18 +152,21 @@
       if (isTextField) return; // let inputs (incl. focused sliders) keep their native keys
 
       // Arrow keys nudge the selected element (Shift = bigger step). When an
-      // axis is snapped, the nudge adjusts the snap offset so the anchored
-      // relationship is preserved.
+      // axis snap is active, the nudge adjusts the snap offset so the anchored
+      // relationship is preserved; an inactive snap (hidden anchor) renders at
+      // the free coordinate, so nudge that instead.
       if (e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const sel = editor.selected;
         if (!sel || sel === "background" || !editor.config.v2) return;
         e.preventDefault();
         const el = editor.config.v2.elements[sel];
         const step = e.shiftKey ? 10 : 1;
-        if (e.key === "ArrowUp") el.snapY ? (el.snapY.offset -= step) : (el.y -= step);
-        else if (e.key === "ArrowDown") el.snapY ? (el.snapY.offset += step) : (el.y += step);
-        else if (e.key === "ArrowLeft") el.snapX ? (el.snapX.offset -= step) : (el.x -= step);
-        else if (e.key === "ArrowRight") el.snapX ? (el.snapX.offset += step) : (el.x += step);
+        const sx = editor.snapActive(sel, "x") ? el.snapX : null;
+        const sy = editor.snapActive(sel, "y") ? el.snapY : null;
+        if (e.key === "ArrowUp") sy ? (sy.offset -= step) : (el.y -= step);
+        else if (e.key === "ArrowDown") sy ? (sy.offset += step) : (el.y += step);
+        else if (e.key === "ArrowLeft") sx ? (sx.offset -= step) : (el.x -= step);
+        else if (e.key === "ArrowRight") sx ? (sx.offset += step) : (el.x += step);
         editor.save();
         return;
       }

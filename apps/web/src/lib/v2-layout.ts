@@ -103,6 +103,81 @@ export function resolveLayout(v2: WidgetV2, measured: Measured): Record<V2Elemen
   return out;
 }
 
+// Which widget side an element flushes to when the art is gone. Uses the cues the
+// design carries: the SCROLL direction (left/right), else WHICH art edge it snapped to
+// (sat to the art's right => flush left), else the side the art was hugging.
+function goneSide(el: V2Element, artNearLeft: boolean): "left" | "right" {
+  const dir = el.scroll?.enabled ? el.scroll.direction : undefined;
+  if (dir === "left") return "left";
+  if (dir === "right") return "right";
+  if (el.snapX?.to === "art") return el.snapX.toEdge === "start" ? "right" : "left";
+  return artNearLeft ? "left" : "right";
+}
+
+/**
+ * Re-anchor elements when the album art is gone (failed to load), so text flushes
+ * to the matching WIDGET edge (plus its own snap offset) instead of floating in the
+ * gap the art left behind. Pure: returns adjusted boxes, never touches the config,
+ * so the layout reverts on its own when the art comes back.
+ *
+ * A FIXED-width element doesn't just translate: its near edge flushes into the gap
+ * while its far edge stays put, so the box stretches to absorb the freed space.
+ * Auto-width elements move as-is. Elements snapped to a re-anchored element ride
+ * along by the movement of the specific anchor edge they snap to — a stretched
+ * anchor's far edge hasn't moved, so an end-snapped follower stays where it is.
+ */
+export function reflowArtGone(
+  v2: WidgetV2,
+  raw: Record<V2ElementId, Box>,
+): Record<V2ElementId, Box> {
+  const art = raw.art;
+  const widgetW = raw.background.w || 0;
+  const artCenter = art.x + art.w / 2;
+  const artNearLeft = art.x <= widgetW - (art.x + art.w);
+  const out = { ...raw } as Record<V2ElementId, Box>;
+  const movedIds = new Set<V2ElementId>();
+
+  // Move a box toward the gap: fixed-width boxes keep their far edge and stretch
+  // over the freed space; auto-width boxes translate.
+  const moveBox = (b: Box, shift: number, fixedW: boolean): Box => {
+    shift = Math.round(shift);
+    if (!shift || !fixedW) return { ...b, x: b.x + shift };
+    return shift < 0 ? { ...b, x: b.x + shift, w: b.w - shift } : { ...b, w: b.w + shift };
+  };
+
+  for (const id of V2_ELEMENT_IDS) {
+    if (id === "art" || id === "background") continue;
+    const el = v2.elements[id];
+    if (!el.visible || el.snapX?.to !== "art") continue;
+    const b = raw[id];
+    const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
+    if (!onFarSide) continue;
+    const off = Math.abs(el.snapX.offset ?? 0);
+    const x = goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off;
+    out[id] = moveBox(b, x - b.x, el.w != null);
+    movedIds.add(id);
+  }
+
+  // Ripple down snapX chains: a follower moves by however far the anchor edge it
+  // snaps to moved (zero for a stretched anchor's far edge).
+  const edgeX = (b: Box, e: V2Edge) => b.x + edgeFactor(e) * b.w;
+  for (let pass = 0; pass < V2_ELEMENT_IDS.length; pass++) {
+    let changed = false;
+    for (const id of V2_ELEMENT_IDS) {
+      if (id === "art" || id === "background" || movedIds.has(id)) continue;
+      const el = v2.elements[id];
+      const snap = el.snapX;
+      if (!el.visible || !snap || !movedIds.has(snap.to)) continue;
+      const shift = edgeX(out[snap.to], snap.toEdge) - edgeX(raw[snap.to], snap.toEdge);
+      out[id] = moveBox(raw[id], shift, el.w != null);
+      movedIds.add(id);
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
 /** CSS box-shadow / text-shadow string for a per-element shadow (reuses colors.ts). */
 export function elementShadowCSS(shadow: V2Shadow | undefined, baseColor: string): string | undefined {
   if (!shadow?.enabled) return undefined;

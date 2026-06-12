@@ -5,12 +5,11 @@
     formatDurationText,
     getTextFont,
     V2_ELEMENT_IDS,
-    type V2Element,
     type V2ElementId,
     type WidgetConfig,
   } from "./config";
   import { extractDominantColor, hexToRgb } from "./colors";
-  import { resolveLayout, elementShadowCSS, type Box, type Measured } from "./v2-layout";
+  import { resolveLayout, reflowArtGone, elementShadowCSS, type Box, type Measured } from "./v2-layout";
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
   import { untrack } from "svelte";
@@ -181,58 +180,13 @@
   // ---- layout resolution (snap-aware) ----
   let measured = $state<Measured>({});
 
-  // Which widget side an element flushes to when the art is gone. Uses the cues the
-  // design carries: the SCROLL direction (left/right), else WHICH art edge it snapped to
-  // (sat to the art's right => flush left), else the side the art was hugging.
-  function goneSide(el: V2Element, artNearLeft: boolean): "left" | "right" {
-    const dir = el.scroll?.enabled ? el.scroll.direction : undefined;
-    if (dir === "left") return "left";
-    if (dir === "right") return "right";
-    if (el.snapX?.to === "art") return el.snapX.toEdge === "start" ? "right" : "left";
-    return artNearLeft ? "left" : "right";
-  }
-  // When the art is gone, re-anchor ONLY the elements explicitly snapped to it on the
-  // x-axis: they flush to the matching WIDGET edge (plus their own snap offset) instead
-  // of floating in the gap the art left behind. Elements snapped to a re-anchored
-  // element ride along (a snapX follower sits at a fixed distance from its anchor, so
-  // it shifts by the same delta). Free-positioned elements stay exactly where they are.
+  // When the art is gone, re-anchor everything snapped to it on the x-axis (see
+  // reflowArtGone): near edges flush to the widget edge, fixed widths stretch over
+  // the freed space, and snapX followers ride the edge they're anchored to. Pure
+  // and derived, so the layout snaps back as soon as the art loads again.
   const boxes = $derived.by(() => {
     const raw = resolveLayout(v2, measured);
-    let out: Record<V2ElementId, Box> = raw;
-    if (artGone) {
-      const art = raw.art;
-      const widgetW = raw.background.w || 0;
-      const artCenter = art.x + art.w / 2;
-      const artNearLeft = art.x <= widgetW - (art.x + art.w);
-      out = { ...raw } as Record<V2ElementId, Box>;
-      const dx: Partial<Record<V2ElementId, number>> = {};
-      for (const id of V2_ELEMENT_IDS) {
-        if (id === "art" || id === "background") continue;
-        const el = v2.elements[id];
-        if (!el.visible || el.snapX?.to !== "art") continue;
-        const b = raw[id];
-        const onFarSide = artNearLeft ? b.x + b.w / 2 >= artCenter : b.x + b.w / 2 <= artCenter;
-        if (!onFarSide) continue;
-        const off = Math.abs(el.snapX.offset ?? 0);
-        const x = goneSide(el, artNearLeft) === "right" ? Math.max(0, widgetW - b.w - off) : off;
-        dx[id] = x - b.x;
-        out[id] = { ...b, x };
-      }
-      // Ripple the shift down snapX chains (anchor moved => follower moves the same).
-      for (let pass = 0; pass < V2_ELEMENT_IDS.length; pass++) {
-        let changed = false;
-        for (const id of V2_ELEMENT_IDS) {
-          if (id === "art" || id === "background" || dx[id] !== undefined) continue;
-          const el = v2.elements[id];
-          const to = el.snapX?.to;
-          if (!el.visible || !to || dx[to] === undefined) continue;
-          dx[id] = dx[to];
-          out[id] = { ...raw[id], x: raw[id].x + dx[to]! };
-          changed = true;
-        }
-        if (!changed) break;
-      }
-    }
+    let out: Record<V2ElementId, Box> = artGone ? reflowArtGone(v2, raw) : raw;
 
     // Pause symbol fallback: when it rides the album art but the art is hidden or
     // failed to load, sit it just after the title so it isn't stranded in empty space.
@@ -344,8 +298,11 @@
       `z-index:${el.z}`,
       "pointer-events:auto",
     ];
-    if (el.w != null) parts.push(`width:${el.w}px`);
-    if (el.h != null) parts.push(`height:${el.h}px`);
+    // Fixed sizes render from the resolved box, not the config: the art-gone
+    // reflow can stretch a fixed width over the gap the art left behind.
+    // Auto-sized axes stay unset so content keeps sizing itself.
+    if (el.w != null) parts.push(`width:${b.w}px`);
+    if (el.h != null) parts.push(`height:${b.h}px`);
     return parts.join(";");
   }
 
