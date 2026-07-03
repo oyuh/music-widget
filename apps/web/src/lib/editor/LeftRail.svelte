@@ -7,7 +7,7 @@
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
   // Progress / duration ride on Last.fm, which doesn't report exact playback
-  // position , so they're estimates. Surfaced as a tooltip in a few places.
+  // position, so they're estimates. Surfaced as a tooltip in a few places.
   const LASTFM_TIMING_HINT =
     "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
   import SetupModal from "$lib/editor/SetupModal.svelte";
@@ -135,7 +135,7 @@
 
   function applyDevJson() {
     try {
-      // Applied verbatim (no user/session preservation) , dev edits should be literal.
+      // Applied verbatim (no user/session preservation); dev edits should be literal.
       editor.config = freshConfig(JSON.parse(devJsonText));
       editor.save();
       devJsonOpen = false;
@@ -347,7 +347,7 @@
         <button
           type="button"
           disabled={inactive}
-          title={inactive ? "Hidden while paused , the widget is set to hide entirely. Switch to 'Show paused' at the bottom settings of the Background to use it." : undefined}
+          title={inactive ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it." : undefined}
           onclick={() => editor.select(el.id)}
           class="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
           el.id
@@ -387,7 +387,7 @@
     >
       <h2 class="text-base font-semibold tracking-tight">Use your own Last.fm API key</h2>
       <p class="mt-1 text-xs text-muted-foreground">
-        Optional. Your widget makes requests with your key , faster updates, isolated from everyone else.
+        Optional. Your widget makes its requests with your own key, so updates are faster and you're isolated from everyone else.
       </p>
       <ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
         <li>
@@ -397,7 +397,7 @@
           >
           (while logged in).
         </li>
-        <li>Give it any name/description (e.g. "my widget") , no callback URL needed.</li>
+        <li>Give it any name/description (e.g. "my widget"). No callback URL needed.</li>
         <li>Copy the <strong>API key</strong> it shows and paste it below.</li>
       </ol>
       <input
@@ -408,7 +408,7 @@
         class="mt-3 w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-xs"
       />
       <p class="mt-2 text-[11px] text-amber-500/80">
-        Heads up: your key is saved in the widget URL , keep that URL private.
+        Heads up: your key is saved in the widget URL, so keep that URL private.
       </p>
       <div class="mt-3 flex items-center justify-between gap-2">
         <button

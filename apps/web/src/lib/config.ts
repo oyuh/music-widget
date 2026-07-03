@@ -37,7 +37,7 @@ export type V2Shadow = {
   useOppositeColor: boolean;
   customColor?: string;
   // When true, the shadow is allowed to spill past the element's own box instead
-  // of being clipped by it , i.e. the shadow extends as far as its blur/offset want.
+  // of being clipped by it, i.e. the shadow extends as far as its blur/offset want.
   // Optional => absent/false keeps the existing clipped behavior (backward compatible).
   escape?: boolean;
 };
@@ -96,7 +96,7 @@ export type WidgetConfig = {
   v2?: WidgetV2; // populated when version === 2
   lfmUser: string;
   sessionKey?: string | null; // Last.fm session key for private profile access
-  apiKey?: string | null; // optional BYOK Last.fm API key , used client-side for faster, isolated requests
+  apiKey?: string | null; // optional BYOK Last.fm API key, used client-side for faster, isolated requests
   // Accent to use when auto-from-art has no color or extraction fails
   fallbackAccent?: string;
   theme: {
@@ -421,7 +421,7 @@ export function isV2(c: WidgetConfig | null | undefined): c is WidgetConfig & { 
 export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
   const L = cfg.layout;
   const T = cfg.theme;
-  // Default per-element accent fallback , seeded from the global fallback so
+  // Default per-element accent fallback, seeded from the global fallback so
   // existing designs look identical until a per-element color is chosen.
   const fbColor = cfg.fallbackAccent ?? T.accent ?? "#1db954";
   const pad = 12;

@@ -75,7 +75,7 @@ app.use("/api/*", async (c, next) => {
 
 app.options("/api/*", () => new Response(null, { status: 204 }));
 
-// Liveness probe , always 200 while the process is up (used by Railway's
+// Liveness probe: always 200 while the process is up (used by Railway's
 // healthcheck). /api/health additionally reports Redis status and may 503.
 app.get("/api/ping", () => json({ ok: true }));
 
@@ -199,7 +199,7 @@ async function pickEncoding(filePath: string, acceptEncoding: string) {
 }
 
 // The widget/callback pages get index.html with the `<!-- editor-only -->`
-// blocks removed (SEO meta, JSON-LD, editor fonts, noscript copy — see
+// blocks removed (SEO meta, JSON-LD, editor fonts, noscript copy; see
 // apps/web/src/app.html). Stripped once and cached for the process lifetime;
 // the file only changes when a new build deploys.
 let leanIndexCache: { html: string; gzip: Uint8Array } | null = null;

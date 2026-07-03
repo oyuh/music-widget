@@ -158,7 +158,7 @@
 
         // Dragging never severs an existing snap (that's the Inspector's Unsnap
         // button): an actively snapped axis follows the pointer by adjusting its
-        // snap offset — same as arrow-key nudging — so snaps that depend on this
+        // snap offset (same as arrow-key nudging), so snaps that depend on this
         // element and the art-failure fallback keep working. An axis whose snap
         // is inactive (hidden anchor) renders at its free coordinate, so move
         // that instead. Shift-snaps found above are committed on drop.

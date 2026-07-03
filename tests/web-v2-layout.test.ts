@@ -130,8 +130,8 @@ describe("resolveLayout", () => {
 });
 
 describe("reflowArtGone", () => {
-  // Art on the left (88px) with a fixed-width title snapped to its right edge —
-  // the Modern Card shape.
+  // Art on the left (88px) with a fixed-width title snapped to its right edge,
+  // i.e. the Modern Card shape.
   const cardLayout = (over: Partial<Record<V2ElementId, Partial<V2Element>>> = {}) =>
     v2({
       background: { x: 0, y: 0, w: 400, h: 100 },

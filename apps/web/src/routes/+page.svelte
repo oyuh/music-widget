@@ -13,14 +13,14 @@
   import WelcomeModal from "$lib/editor/WelcomeModal.svelte";
   import { KEYWORDS_META } from "$lib/keywords";
 
-  // The editor needs a pointer + a wide screen , gate mobile to a simple page.
+  // The editor needs a pointer + a wide screen, so mobile gets a simple gate page.
   // (The /w widget route is a separate page and stays usable everywhere.)
   const mobile = isMobileDevice();
 
   const editor = new EditorState();
   const np = new NowPlaying();
 
-  // Sidebar visibility + widths , persisted separately from the design config
+  // Sidebar visibility + widths, persisted separately from the design config
   // so panel layout never dirties the widget / undo history.
   const PANELS_KEY = "mw:panels";
   const PANEL_DEFAULTS = { left: 260, right: 320 };
@@ -58,7 +58,7 @@
 
   function setPanelOpen(side: "left" | "right", open: boolean) {
     // Reopen at the default width unless the panel was wider before it was
-    // hidden , a panel squeezed below the default shouldn't come back squeezed.
+    // hidden; a panel squeezed below the default shouldn't come back squeezed.
     if (side === "left") {
       if (open && !leftOpen) leftW = Math.max(leftW, PANEL_DEFAULTS.left);
       leftOpen = open;
@@ -81,7 +81,7 @@
       const raw = side === "left" ? ev.clientX : window.innerWidth - ev.clientX;
       if (raw < PANEL_DEFAULTS[side] * HIDE_AT) {
         end();
-        togglePanel(side); // dragged (nearly) shut , snap closed
+        togglePanel(side); // dragged (nearly) shut, so snap it closed
         return;
       }
       if (side === "left") leftW = clampW(raw);
@@ -100,7 +100,7 @@
 
   // The inspector OPENS to follow a selection but never auto-closes: clicking
   // off an element keeps the panel up (it falls back to widget-level settings).
-  // Closing is explicit , the header toggle or dragging the panel shut. untrack
+  // Closing is explicit: the header toggle or dragging the panel shut. untrack
   // keeps the panel state out of this effect's dependencies, so only the
   // selection changing reruns it (a width drag must not re-trigger it).
   //
@@ -230,18 +230,18 @@
 </script>
 
 <svelte:head>
-  <title>Last.fm Now Playing Widget — Free Music Overlay for OBS & Twitch</title>
+  <title>Last.fm Now Playing Widget | Free Music Overlay for OBS & Twitch</title>
   <meta name="keywords" content={KEYWORDS_META} />
 </svelte:head>
 
 <!-- Screen-reader / crawler copy: the editor UI itself has almost no indexable
      text, so this gives the page a semantic h1 + summary without altering the visuals. -->
-<h1 class="sr-only">Last.fm Now Playing Widget — free music overlay for OBS, Twitch and YouTube streams</h1>
+<h1 class="sr-only">Last.fm Now Playing Widget: free music overlay for OBS, Twitch and YouTube streams</h1>
 <p class="sr-only">
   Build a now-playing widget in a drag-and-drop editor and show the song you're listening to on
   stream. Works as an OBS, Streamlabs or XSplit browser source, with album art, artist, title and a
-  live progress bar. Powered by Last.fm — scrobble from Spotify, Apple Music, YouTube Music and
-  more. Free, no account, no watermark.
+  live progress bar. Powered by Last.fm, so you can scrobble from Spotify, Apple Music, YouTube
+  Music and more. Free, no account, no watermark.
 </p>
 
 {#if mobile}

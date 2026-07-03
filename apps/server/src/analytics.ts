@@ -14,7 +14,7 @@ import {
 import { json } from "./util";
 import { log } from "./log";
 
-// Caps on incoming string lengths , these endpoints are unauthenticated, so
+// Caps on incoming string lengths. These endpoints are unauthenticated, so
 // treat the body as untrusted and never store unbounded values.
 const MAX_USER = 64;
 const MAX_FP = 128;
@@ -52,7 +52,7 @@ type Meta = { ip: string | null; userAgent: string | null; referer: string | nul
 /**
  * Turn an untrusted request body + server-derived metadata into a sanitized
  * WidgetVisit. Pure (no I/O) so it's unit-testable. Deliberately captures only
- * WHO the visitor is , no track / event-type info, that's more than we need.
+ * WHO the visitor is; no track / event-type info, that's more than we need.
  */
 export function buildWidgetVisit(body: unknown, meta: Meta): WidgetVisit {
   const b = (body ?? {}) as Record<string, unknown>;
@@ -67,7 +67,7 @@ export function buildWidgetVisit(body: unknown, meta: Meta): WidgetVisit {
 }
 
 /**
- * POST /api/log/widget , records a site visitor. Always answers 204 and
+ * POST /api/log/widget: records a site visitor. Always answers 204 and
  * SILENTLY: malformed bodies, rate-limited callers, and DB errors all return 204
  * so opening/copying the widget is never blocked. Deduped + sanitized downstream
  * (one row per visitor; repeat visits just refresh it).
@@ -77,7 +77,7 @@ export const handleWidgetLog = async (c: Context<AppEnv>) => {
   if (!dbEnabled()) return noContent;
 
   // Dedicated, tighter limit for this endpoint (on top of the global /api one).
-  // Silently drop when exceeded , the client never sees an error.
+  // Silently drop when exceeded; the client never sees an error.
   if (!(await rateLimit("log", clientIp(c), 30, 60))) return noContent;
 
   let body: unknown;
@@ -93,13 +93,13 @@ export const handleWidgetLog = async (c: Context<AppEnv>) => {
     referer: c.req.header("referer") ?? null,
   });
 
-  // Only usernames are interesting , skip anonymous pings.
+  // Only usernames are interesting, so skip anonymous pings.
   if (visit.lfmUser) void recordWidgetVisit(visit);
 
   return noContent;
 };
 
-/** Constant-time secret comparison , avoids leaking the secret via timing. */
+/** Constant-time secret comparison; avoids leaking the secret via timing. */
 function secretMatches(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
@@ -107,7 +107,7 @@ function secretMatches(provided: string, expected: string): boolean {
 }
 
 /**
- * POST /api/cron/cleanup , scheduled housekeeping for the visitor log: collapses
+ * POST /api/cron/cleanup: scheduled housekeeping for the visitor log. Collapses
  * any duplicate visitors and prunes stale ones (see cleanupWidgetVisitors).
  * Protected by the CRON_SECRET env var, sent as `Authorization: Bearer <secret>`
  * (or an `x-cron-secret` header). Returns 503 when storage / the secret isn't
@@ -134,7 +134,7 @@ export const handleCronCleanup = async (c: Context<AppEnv>) => {
 };
 
 /**
- * POST /api/contact , saves a contact email (upserted, linked to a Last.fm
+ * POST /api/contact: saves a contact email (upserted, linked to a Last.fm
  * username). Unlike the log endpoint this has a form UI, so it returns real
  * status codes: 200 ok, 400 invalid email, 429 too many, 503 when logging is off.
  */
@@ -142,7 +142,7 @@ export const handleContact = async (c: Context<AppEnv>) => {
   if (!dbEnabled()) return json({ ok: false, error: "Contact storage is not configured." }, { status: 503 });
 
   if (!(await rateLimit("contact", clientIp(c), 5, 600))) {
-    return json({ ok: false, error: "Too many submissions , try again later." }, { status: 429 });
+    return json({ ok: false, error: "Too many submissions. Try again later." }, { status: 429 });
   }
 
   let body: Record<string, unknown>;
@@ -163,7 +163,7 @@ export const handleContact = async (c: Context<AppEnv>) => {
     userAgent: clip(c.req.header("user-agent"), MAX_TEXT),
   });
 
-  if (!ok) return json({ ok: false, error: "Couldn't save right now , try again later." }, { status: 503 });
+  if (!ok) return json({ ok: false, error: "Couldn't save right now. Try again later." }, { status: 503 });
   return json({ ok: true });
 };
 
@@ -194,7 +194,7 @@ export function buildFeedback(body: unknown, meta: Meta): FeedbackInput {
 }
 
 /**
- * POST /api/feedback , saves a free-form feedback submission and, when the user
+ * POST /api/feedback: saves a free-form feedback submission and, when the user
  * ticked "email me", also registers them for outage/event alerts via the same
  * contact flow (which links the email to their Last.fm username). Returns real
  * status codes: 200 ok, 400 empty/needs-email, 429 too many, 503 when storage off.
@@ -203,7 +203,7 @@ export const handleFeedback = async (c: Context<AppEnv>) => {
   if (!dbEnabled()) return json({ ok: false, error: "Feedback storage is not configured." }, { status: 503 });
 
   if (!(await rateLimit("feedback", clientIp(c), 5, 600))) {
-    return json({ ok: false, error: "Too many submissions , try again later." }, { status: 429 });
+    return json({ ok: false, error: "Too many submissions. Try again later." }, { status: 429 });
   }
 
   let body: Record<string, unknown>;
@@ -219,7 +219,7 @@ export const handleFeedback = async (c: Context<AppEnv>) => {
     referer: null,
   });
 
-  // Don't store empty submissions , require at least one meaningful field.
+  // Don't store empty submissions; require at least one meaningful field.
   if (!fb.good && !fb.bad && !fb.name && !fb.email && !fb.handle) {
     return json({ ok: false, error: "Add a little feedback first." }, { status: 400 });
   }
@@ -230,10 +230,10 @@ export const handleFeedback = async (c: Context<AppEnv>) => {
   }
 
   const saved = await insertFeedback(fb);
-  if (!saved) return json({ ok: false, error: "Couldn't save right now , try again later." }, { status: 503 });
+  if (!saved) return json({ ok: false, error: "Couldn't save right now. Try again later." }, { status: 503 });
 
   // Mirror the opt-in into the contacts list so outage/event mail reaches them.
-  // Fire-and-forget , feedback already succeeded, so a contact hiccup mustn't fail it.
+  // Fire-and-forget: feedback already succeeded, so a contact hiccup mustn't fail it.
   if (fb.subscribed && fb.email) {
     void upsertContact({
       email: fb.email,

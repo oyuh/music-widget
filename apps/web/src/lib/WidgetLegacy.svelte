@@ -102,7 +102,7 @@
         lastExtractedColor = color;
         lastImageUrl = source;
       } else {
-        // Extraction failed (art couldn't be fetched / read) , use the configured
+        // Extraction failed (art couldn't be fetched / read), so use the configured
         // fallback color instead of leaving a stale or default-green accent.
         computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
         computedAccent = fallbackAccent;
@@ -143,7 +143,7 @@
       computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
       computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     } catch {
-      // Couldn't read the pixels (e.g. tainted canvas) , fall back to the user color.
+      // Couldn't read the pixels (e.g. tainted canvas), so fall back to the user color.
       computedAccent = cfg.fallbackAccent || cfg.theme.accent;
     }
   }

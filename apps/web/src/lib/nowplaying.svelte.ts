@@ -166,7 +166,7 @@ export class NowPlaying {
       const sinceTrackChange = Date.now() - this.#lastTrackChange;
       return sinceTrackChange < 10000 ? INTERVALS.FAST : INTERVALS.NORMAL;
     }
-    // Nothing playing , a slower steady poll still catches playback starting.
+    // Nothing playing; a slower steady poll still catches playback starting.
     return INTERVALS.SLOW;
   }
 
@@ -198,7 +198,7 @@ export class NowPlaying {
       }
 
       // Fetch a few entries (not just [0]) so we can also see the most recent
-      // scrobble , used to detect a looped/replayed track that's stuck "paused".
+      // scrobble, used to detect a looped/replayed track that's stuck "paused".
       const data = (await fetchRecent({
         user: this.#username,
         limit: 3,
@@ -211,7 +211,7 @@ export class NowPlaying {
       }
 
       // Last.fm returns `track` as an array, but as a bare object when there's only
-      // one entry , normalize so iteration and [0] both work.
+      // one entry; normalize so iteration and [0] both work.
       const rawTracks = data?.recenttracks?.track;
       const recent: LfmTrack[] = Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : [];
       const tr: LfmTrack | undefined = recent[0];
@@ -229,7 +229,7 @@ export class NowPlaying {
 
       // Most recent COMPLETED scrobble of whatever is now playing (the now-playing
       // entry itself carries no date). A fresh one means the track just played
-      // through again , i.e. it looped or was resumed.
+      // through again, i.e. it looped or was resumed.
       let selfScrobbleUts = 0;
       if (live) {
         for (const t of recent) {
@@ -276,7 +276,7 @@ export class NowPlaying {
         selfScrobbleUts * 1000 > this.#trackStartTime + this.durationMs
       ) {
         // Same track still "now playing", but it scrobbled MORE than a full
-        // duration after we started timing it , it looped or was resumed (a single
+        // duration after we started timing it, meaning it looped or was resumed (a single
         // play scrobbles within one duration, so this can't be the first play).
         // Re-anchor to the new play so we don't get stuck showing "paused".
         this.#trackScrobbleUts = selfScrobbleUts;
@@ -308,7 +308,7 @@ export class NowPlaying {
         this.#pausedAt = null;
         this.#estimatedStartOffset = 0;
         if (this.#lastId) this.#lastId = "";
-        // Nothing is playing , prefer the last track we actually heard over
+        // Nothing is playing; prefer the last track we actually heard over
         // recenttracks[0], which Last.fm sometimes reports as the wrong song.
         if (this.#lastLiveTrack) this.track = this.#lastLiveTrack;
       }

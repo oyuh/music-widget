@@ -11,10 +11,10 @@
   const canSend = $derived(isValidEmail(email) && !sending);
 
   const resultMsg: Record<ContactResult, string> = {
-    ok: "Got it , I'll email you. See you on desktop!",
+    ok: "Got it, I'll email you. See you on desktop!",
     invalid: "Enter a valid email address.",
-    rate: "Too many tries , give it a few minutes.",
-    error: "Couldn't save , try again later.",
+    rate: "Too many tries. Give it a few minutes.",
+    error: "Couldn't save that. Try again later.",
   };
 
   async function send() {
@@ -43,7 +43,7 @@
       <p class="font-mono-ui text-sm leading-relaxed text-muted-foreground">
         The widget editor needs a mouse and a wider screen, so it only runs on a computer.
         Drop your email and I'll remind you to set it up when you're back at your desk
-        (only about that and outages , nothing else).
+        (only about that and outages, nothing else).
       </p>
 
       <!-- email capture -->

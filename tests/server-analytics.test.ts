@@ -27,7 +27,7 @@ describe("buildWidgetVisit", () => {
 
   test("blank / non-string fields become empty user / null meta", () => {
     const v = buildWidgetVisit({ lfmUser: "   ", fp: 42 }, { ip: null, userAgent: null, referer: null });
-    expect(v.lfmUser).toBe(""); // anonymous , the route drops these before storing
+    expect(v.lfmUser).toBe(""); // anonymous; the route drops these before storing
     expect(v.fingerprint).toBeNull();
     expect(v.ip).toBeNull();
   });
@@ -83,7 +83,7 @@ describe("buildFeedback", () => {
     expect(f.good).toBe("hi");
   });
 
-  test("only `subscribe: true` (boolean) opts in , truthy strings don't count", () => {
+  test("only `subscribe: true` (boolean) opts in; truthy strings don't count", () => {
     expect(buildFeedback({ subscribe: "yes" }, meta).subscribed).toBe(false);
     expect(buildFeedback({ subscribe: 1 }, meta).subscribed).toBe(false);
     expect(buildFeedback({ subscribe: true }, meta).subscribed).toBe(true);

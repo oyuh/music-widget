@@ -10,7 +10,7 @@ const MOBILE = [
 const DESKTOP = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/146 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15",
-  // OBS / browser-source UAs look like desktop Chrome , must NOT be gated.
+  // OBS / browser-source UAs look like desktop Chrome, so they must NOT be gated.
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36 OBS/30",
 ];
 

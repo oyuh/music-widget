@@ -6,7 +6,7 @@ import { contacts, feedback, widgetVisitors } from "./schema";
 import { log } from "./log";
 
 // Postgres via Drizzle ORM (on Bun's native SQL client). Backs the optional
-// widget usage log + contact emails. Modeled on redis.ts: FAILS OPEN , a missing
+// widget usage log + contact emails. Modeled on redis.ts: FAILS OPEN; a missing
 // or unreachable database is logged and ignored, never blocking a request.
 
 const DB_TIMEOUT_MS = 4000;
@@ -29,7 +29,7 @@ function getDb(): BunSQLDatabase | null {
 }
 
 function withTimeout<T>(run: () => Promise<T>, label: string, ms = DB_TIMEOUT_MS): Promise<T> {
-  // Drizzle query builders are LAZY thenables , they re-run the SQL on every
+  // Drizzle query builders are LAZY thenables; they re-run the SQL on every
   // `.then()`. Adopt the query as a real native promise (executed exactly once)
   // before we attach `.catch` and race it, so it can't fire twice.
   const promise = (async () => await run())();
@@ -57,7 +57,7 @@ async function ensureMigrated(d: BunSQLDatabase): Promise<void> {
 }
 
 export type WidgetVisit = {
-  lfmUser: string; // always present , anonymous visits are dropped before here
+  lfmUser: string; // always present; anonymous visits are dropped before here
   fingerprint: string | null;
   ip: string | null;
   userAgent: string | null;
@@ -103,7 +103,7 @@ export async function recordWidgetVisit(v: WidgetVisit): Promise<boolean> {
     );
     return true;
   } catch (err) {
-    // Re-run migrations on the next write , self-heals if the schema went missing
+    // Re-run migrations on the next write; self-heals if the schema went missing
     // (e.g. the database was wiped/recreated under a long-lived server).
     migrated = null;
     log("warn", "db.widget_visit_failed", { error: err instanceof Error ? err.message : String(err) });
@@ -113,7 +113,7 @@ export async function recordWidgetVisit(v: WidgetVisit): Promise<boolean> {
 
 export type CleanupResult = { duplicatesRemoved: number; stalePruned: number };
 
-// Visitors not seen in this long are pruned by the cron job , keeps the table to
+// Visitors not seen in this long are pruned by the cron job, which keeps the table to
 // people who actually still use the site.
 const STALE_VISITOR_DAYS = 365;
 
@@ -162,7 +162,7 @@ export async function cleanupWidgetVisitors(): Promise<CleanupResult> {
 
 /**
  * Recover a Last.fm username from the visitor log by matching a device
- * fingerprint , used to link a contact/feedback submission to the widget the
+ * fingerprint; used to link a contact/feedback submission to the widget the
  * person actually uses when they didn't type their username. Returns the most
  * recently seen match, or null. Assumes migrations have already run.
  */
@@ -190,10 +190,10 @@ export type ContactInput = {
 };
 
 /**
- * Save a contact email (upserted by email , no duplicates). Links it to a
+ * Save a contact email (upserted by email, no duplicates). Links it to a
  * Last.fm username: uses the one submitted with the form, or, when absent,
  * recovers it from the usage log by matching the same device fingerprint. On
- * conflict, only fills in fields we now know , never clobbers a known username
+ * conflict, only fills in fields we now know; never clobbers a known username
  * with null.
  */
 export async function upsertContact(c: ContactInput): Promise<boolean> {
@@ -252,7 +252,7 @@ export type FeedbackInput = {
 };
 
 /**
- * Save a feedback submission (append-only , one row per submit). When the user
+ * Save a feedback submission (append-only, one row per submit). When the user
  * didn't type a Last.fm username, recover it from the visitor log by
  * fingerprint, same as contacts. Best-effort (returns false, never throws).
  */

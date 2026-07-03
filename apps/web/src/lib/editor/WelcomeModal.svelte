@@ -71,8 +71,8 @@
         {#if helpOpen}
           <div transition:slide={{ duration: 180 }} class="flex flex-col gap-2 rounded-md border border-border p-2">
             <p class="text-[11px] leading-snug text-muted-foreground">
-              Last.fm is free and keeps track of what you listen to (called "scrobbling") , that's
-              where the widget reads your now-playing track from.
+              Last.fm is free and keeps a running log of what you listen to (that's called
+              "scrobbling"). The widget reads your now-playing track from there.
             </p>
             <div class="flex gap-2">
               <a

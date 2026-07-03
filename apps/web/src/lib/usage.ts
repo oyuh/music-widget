@@ -1,5 +1,5 @@
 // Fire-and-forget visitor logging. We record which Last.fm usernames actually
-// use the site (plus a rough device fingerprint), so we can see real usage , not
+// use the site (plus a rough device fingerprint), so we can see real usage, not
 // what they're listening to. Strictly best-effort: it never throws and never
 // blocks the UI, and a username is required (anonymous visits are skipped).
 
@@ -9,7 +9,7 @@ let cachedFp: string | null = null;
 
 /**
  * A lightweight, stable-ish browser fingerprint. NOT for security or precise
- * identification , just enough to roughly distinguish devices in the log. It's a
+ * identification, just enough to roughly distinguish devices in the log. It's a
  * hash of a few stable signals, so it stays the same across reloads on a device.
  */
 export function browserFingerprint(): string {
@@ -57,7 +57,7 @@ function send(lfmUser: string) {
       }).catch(() => {});
     }
   } catch {
-    /* ignore , logging must never affect the widget */
+    /* ignore; logging must never affect the widget */
   }
 }
 
@@ -123,8 +123,8 @@ export interface FeedbackPayload {
 }
 
 /**
- * Submit feedback from the editor's modal. Validates locally first , needs at
- * least one filled field, and a valid email when opting into alerts , then posts
+ * Submit feedback from the editor's modal. Validates locally first (needs at
+ * least one filled field, and a valid email when opting into alerts), then posts
  * to /api/feedback (which also wires up the alert opt-in and recovers the
  * username from the device fingerprint when it wasn't supplied). Returns a status
  * the form can show.
@@ -143,7 +143,7 @@ export async function submitFeedback(p: FeedbackPayload): Promise<FeedbackResult
     bad: trim(p.bad),
   };
 
-  // Nothing to say , don't bother the server.
+  // Nothing to say, so don't bother the server.
   if (!fields.name && !fields.email && !fields.handle && !fields.good && !fields.bad) return "empty";
   // Alerts need a deliverable address.
   if (p.subscribe && !isValidEmail(email)) return "needEmail";
@@ -176,7 +176,7 @@ export async function submitFeedback(p: FeedbackPayload): Promise<FeedbackResult
 /**
  * How many distinct Last.fm users have used the site. Fetched once on load: the
  * server computes this in a background task and keeps it in memory, so this route
- * just pulls the pre-computed number , nothing to poll, no DB hit. Returns null
+ * just pulls the pre-computed number: nothing to poll, no DB hit. Returns null
  * on any failure so the caller can just hide the line rather than show a broken
  * number.
  */
@@ -206,7 +206,7 @@ export function markFeedbackSent(): void {
   try {
     localStorage.setItem(FEEDBACK_SENT_KEY, String(Date.now()));
   } catch {
-    /* private mode / storage disabled , no big deal */
+    /* private mode / storage disabled; no big deal */
   }
 }
 
@@ -230,7 +230,7 @@ export function feedbackRecentlySent(): boolean {
   }
 }
 
-// cyrb53 , a tiny, fast, dependency-free 53-bit string hash. Good enough to turn
+// cyrb53: a tiny, fast, dependency-free 53-bit string hash. Good enough to turn
 // the fingerprint signals into a short opaque id; not cryptographic.
 function cyrb53(str: string, seed = 0): string {
   let h1 = 0xdeadbeef ^ seed;
