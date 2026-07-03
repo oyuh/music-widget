@@ -37,7 +37,7 @@ export type TextElementId = (typeof TEXT_ELEMENTS)[number];
 const STORAGE_KEY = "mw:config";
 
 /**
- * A fully-defaulted, deeply-cloned config , always in v2 form. JSON round-tripping
+ * A fully-defaulted, deeply-cloned config, always in v2 form. JSON round-tripping
  * strips any Svelte state proxies from the input (structuredClone throws on those)
  * and ensures the result shares no references with defaultConfig. Legacy configs
  * (no version flag) are upgraded to v2 so the editor only ever edits v2.
@@ -145,7 +145,7 @@ export class EditorState {
 
   /**
    * True when the axis snap actually drives the element's position (the anchor
-   * exists, isn't the element itself, and is visible) — mirrors the fallback
+   * exists, isn't the element itself, and is visible); mirrors the fallback
    * rule in v2-layout.ts. When inactive, the element renders at its free
    * coordinate, so editor moves must adjust that instead of the snap offset.
    */

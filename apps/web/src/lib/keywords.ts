@@ -1,6 +1,6 @@
 // SEO keyword phrases for streamer music-widget discovery, used in the home
 // page's <meta name="keywords">. Meta keywords are ignored by Google but still
-// read by some engines and platforms; keep this list short and on-topic —
+// read by some engines and platforms; keep this list short and on-topic, since
 // a huge unfocused list reads as keyword stuffing and dilutes relevance.
 export const KEYWORDS: string[] = [
   // core intent

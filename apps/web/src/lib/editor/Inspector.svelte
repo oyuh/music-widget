@@ -72,7 +72,7 @@
         {@render header(
           "Position",
           isTextSel
-            ? "Pixels from the widget's top-left. Hold Shift while dragging to snap an edge to another element. Tip: snap text to the album art so it stays anchored , if the art ever fails to load, the text won't get stranded in the middle."
+            ? "Pixels from the widget's top-left. Hold Shift while dragging to snap an edge to another element. Tip: snap text to the album art so it stays anchored. If the art ever fails to load, the text won't get stranded in the middle."
             : "Pixels from the widget's top-left. Hold Shift while dragging on the canvas to snap an edge to another element.",
           "snap",
         )}
@@ -103,7 +103,7 @@
         {:else}
           <Slider bind:value={E.y} min={-200} max={700} label="Y" suffix="px" />
         {/if}
-        <Slider bind:value={E.z} min={0} max={20} label="Layer" hint="Stacking order , higher numbers sit in front of lower ones." diagram="z" />
+        <Slider bind:value={E.z} min={0} max={20} label="Layer" hint="Stacking order: higher numbers sit in front of lower ones." diagram="z" />
       </div>
     {/if}
 
@@ -172,7 +172,7 @@
         <ColorInput
           bind:value={E.fallbackColor!}
           label="Fallback color"
-          hint="Used for this text when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          hint="Used for this text when auto-color is on but the album art can't be fetched or read, so it isn't stuck on the failed accent."
           diagram="fallback"
         />
       {/if}
@@ -291,12 +291,12 @@
         <ColorInput
           bind:value={E.fallbackColor!}
           label="Fallback color"
-          hint="Used for the bar when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          hint="Used for the bar when auto-color is on but the album art can't be fetched or read, so it isn't stuck on the failed accent."
           diagram="fallback"
         />
       {/if}
       <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" />
-      <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" hint="Fades the whole bar , track and fill together." />
+      <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" hint="Fades the whole bar, track and fill together." />
     {:else if isPause}
       <hr class="border-border" />
       <ColorInput bind:value={E.color} label="Color" allowAccent hint="The pause bars' color. 'auto' follows the accent / album-art color." diagram="auto-color" />
@@ -304,7 +304,7 @@
         <ColorInput
           bind:value={E.fallbackColor!}
           label="Fallback color"
-          hint="Used when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          hint="Used when auto-color is on but the album art can't be fetched or read, so it isn't stuck on the failed accent."
           diagram="fallback"
         />
       {/if}
@@ -333,7 +333,7 @@
         <Toggle
           bind:checked={E.shadow.escape}
           label="Shadow can leave the box"
-          hint="Lets the shadow reach past the element's box (even past the widget edge), while the text itself stays clipped in place , so only the shadow spills out, not the text."
+          hint="Lets the shadow reach past the element's box (even past the widget edge) while the text itself stays clipped in place. Only the shadow spills out, not the text."
           diagram="shadow-escape"
         />
       {/if}
@@ -360,7 +360,7 @@
         <ColorInput
           bind:value={E.fallbackColor!}
           label="Fallback color"
-          hint="The background's accent-fill color when auto-color is on but the album art can't be fetched or read , so it isn't stuck on the failed accent."
+          hint="The background's accent-fill color when auto-color is on but the album art can't be fetched or read, so it isn't stuck on the failed accent."
           diagram="fallback"
         />
       {:else if E.fill === "art"}
@@ -413,7 +413,7 @@
         <label class="block">
           <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             Easing
-            <InfoTip text="The speed curve of the animation , e.g. cubicOut eases out, backOut overshoots slightly." label="Easing" />
+            <InfoTip text="The speed curve of the animation. For example, cubicOut eases out and backOut overshoots slightly." label="Easing" />
           </div>
           <select bind:value={v2.switchAnim.easing} class={inputCls}>
             {#each EASINGS as e (e)}

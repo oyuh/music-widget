@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  console.error("DATABASE_URL is not set , point it at the target database and re-run.");
+  console.error("DATABASE_URL is not set. Point it at the target database and re-run.");
   process.exit(1);
 }
 

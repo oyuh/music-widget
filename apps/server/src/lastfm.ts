@@ -13,11 +13,11 @@ const LASTFM_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
 const LASTFM_ERROR_HINTS: Record<number, string> = {
   4: "authentication failed",
   6: "user not found",
-  9: "invalid session key — user needs to re-auth",
+  9: "invalid session key, user needs to re-auth",
   10: "invalid api key",
   11: "last.fm service offline",
   16: "temporary upstream error",
-  17: "login required — user's recent listening is likely private",
+  17: "login required, user's recent listening is likely private",
   26: "api key suspended",
   29: "rate limit exceeded",
 };
@@ -68,7 +68,7 @@ function recentLogFields(body: string, ok: boolean): Record<string, JsonValue> {
   }
 }
 
-/** Error-only enrichment for upstream bodies — skips parsing entirely on success. */
+/** Error-only enrichment for upstream bodies; skips parsing entirely on success. */
 function upstreamErrorLogFields(body: string, ok: boolean): Record<string, JsonValue> {
   if (ok || !levelEnabled("info")) return {};
   try {

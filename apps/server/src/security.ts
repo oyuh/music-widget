@@ -4,7 +4,7 @@ import { log } from "./log";
 
 // --- Per-IP rate limiting -------------------------------------------------
 // Lenient on purpose: normal widget polling and the editor stay well under it,
-// so honest users are never penalized , only abusive bursts trip it, and only
+// so honest users are never penalized; only abusive bursts trip it, and only
 // briefly. Fails OPEN when Redis is unavailable so the cache being down never
 // blocks legitimate traffic.
 const RL_WINDOW_SECONDS = 10;

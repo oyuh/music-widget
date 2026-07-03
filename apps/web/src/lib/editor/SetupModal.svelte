@@ -95,7 +95,7 @@
         <div>
           <h2 class="text-base font-semibold tracking-tight">Add the widget to your stream</h2>
           <p class="mt-0.5 text-xs text-muted-foreground">
-            It's a browser source , paste the URL into your streaming software.
+            It's just a browser source. Paste the URL into your streaming software and you're set.
           </p>
         </div>
         <button
@@ -137,8 +137,8 @@
             </a>
           </div>
           <p class="text-[11px] text-muted-foreground">
-            Recommended size: <span class="text-foreground">{width} × {height}</span> px. Keep this URL private —
-            it holds your settings (and your API key, if you set one).
+            Recommended size: <span class="text-foreground">{width} × {height}</span> px. Keep this URL
+            private, since it holds your settings (and your API key, if you set one).
           </p>
         </div>
 
@@ -160,8 +160,8 @@
         </ol>
 
         <p class="text-[11px] text-muted-foreground">
-          Edited your design? Re-copy the URL , it changes whenever your settings do, so update the source to
-          see the new look.
+          Edited your design? Re-copy the URL. It changes whenever your settings do, so update the source
+          to see the new look.
         </p>
       </div>
     </div>

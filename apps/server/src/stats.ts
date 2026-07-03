@@ -6,10 +6,10 @@ import { json } from "./util";
 // Site-wide usage stats, computed in the BACKGROUND and held in memory. The
 // editor wants to show "N people use this" on load WITHOUT polling and WITHOUT
 // touching the database on every visit. So a slow background task does all the
-// real work , counting distinct usernames (some people have many rows under one
-// username; that dedup happens here, not per-request) , and stashes the result.
+// real work of counting distinct usernames (some people have many rows under one
+// username; that dedup happens here, not per-request) and stashes the result.
 // The public route is dumb: it just hands back the number already in memory.
-// No cron job, no per-request query , a single read of a module variable.
+// No cron job, no per-request query, just a single read of a module variable.
 
 // How often the background task recomputes. The number drifts slowly and this is
 // a vanity stat, so a relaxed cadence is plenty.
@@ -20,7 +20,7 @@ let refreshedAt = 0; // epoch ms of the last successful refresh, 0 until warmed
 let started = false;
 
 async function refresh(): Promise<void> {
-  const n = await countWidgetUsers(); // null on failure , keep the last good value
+  const n = await countWidgetUsers(); // null on failure, so keep the last good value
   if (n != null) {
     cachedUsers = n;
     refreshedAt = Date.now();
@@ -48,7 +48,7 @@ export function startStatsRefresh(): void {
 }
 
 /**
- * GET /api/site-stats , returns the pre-computed site stats straight from memory.
+ * GET /api/site-stats: returns the pre-computed site stats straight from memory.
  * Does NOT query the database; the background task above is the only thing that
  * does. `refreshedAt` is null until the first successful refresh. Short cache
  * header since the value only changes every REFRESH_MS anyway.

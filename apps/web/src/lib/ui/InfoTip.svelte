@@ -62,7 +62,7 @@
   onfocus={show}
   onblur={hide}
   onclick={(e) => {
-    // It's a help affordance, not a control , don't let the click toggle a
+    // It's a help affordance, not a control, so don't let the click toggle a
     // sibling setting or submit anything. Showing is handled by hover/focus.
     e.preventDefault();
     e.stopPropagation();

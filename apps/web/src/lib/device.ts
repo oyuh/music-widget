@@ -10,7 +10,7 @@ export function isMobileUA(ua: string): boolean {
 
 /**
  * Whether the current device should get the desktop-only gate. UA-based, plus a
- * touch check for iPadOS , which reports a desktop Safari UA but is touch-only.
+ * touch check for iPadOS, which reports a desktop Safari UA but is touch-only.
  */
 export function isMobileDevice(): boolean {
   if (typeof navigator === "undefined") return false;

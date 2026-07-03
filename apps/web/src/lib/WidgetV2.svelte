@@ -54,14 +54,14 @@
   // ---- accent color ----
   // When "auto from art" is on, the accent is the album's dominant color;
   // otherwise it's the configured accent. Only elements whose color is "accent"
-  // follow it , every other element keeps its own explicit color.
+  // follow it; every other element keeps its own explicit color.
   // Seed from the user's fallback/accent (not a hardcoded green) so there's no
   // green flash before the first extraction resolves, and a failed fetch lands on
   // the configured fallback instead.
   let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
-  // True when "auto from art" is on but no color could be read from the art , in
+  // True when "auto from art" is on but no color could be read from the art; in
   // that state elements set to "accent" use their per-element fallback color.
   let accentFailed = $state(false);
 
@@ -73,7 +73,7 @@
 
     (async () => {
       if (!auto) {
-        // Not deriving from art , the configured accent is intentional, not a failure.
+        // Not deriving from art; the configured accent is intentional, not a failure.
         computedAccent = cfg.theme.accent;
         accentFailed = false;
         lastExtractedColor = null;
@@ -96,7 +96,7 @@
         lastExtractedColor = color;
         lastImageUrl = source;
       } else {
-        // Extraction failed (art couldn't be fetched / read) , use the configured
+        // Extraction failed (art couldn't be fetched / read), so use the configured
         // fallback color instead of leaving a stale or default-green accent.
         computedAccent = fallbackAccent;
         accentFailed = true;
@@ -133,7 +133,7 @@
       if (!cancelled) artState = "failed";
     };
     probe.src = url;
-    // Already cached? onload may not fire , resolve synchronously.
+    // Already cached? onload may not fire, so resolve synchronously.
     if (probe.complete && probe.naturalWidth > 0) artState = "ok";
     return () => {
       cancelled = true;
@@ -171,7 +171,7 @@
       computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
       accentFailed = false;
     } catch {
-      // Cross-origin art taints the canvas here; that's expected , the $effect above
+      // Cross-origin art taints the canvas here; that's expected. The $effect above
       // reads the color via a crossorigin request (Last.fm art sends CORS headers),
       // so leave its result alone instead of forcing the fallback.
     }

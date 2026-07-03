@@ -1,6 +1,6 @@
 // Small inline-SVG diagrams shown inside InfoTip hover tooltips for the settings
 // that are hard to grok from a label alone. Rendered via {@html}, so the markup
-// is authored here (trusted, static) , no user input is ever interpolated.
+// is authored here (trusted, static); no user input is ever interpolated.
 //
 // Style: dark tooltip card, so strokes are light zinc and the highlighted bit is
 // the editor green. viewBox is a consistent 220x110. Any filter/clip ids are

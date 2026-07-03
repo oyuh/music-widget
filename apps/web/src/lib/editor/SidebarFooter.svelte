@@ -17,7 +17,7 @@
   // localStorage isn't available during the static prerender). See $lib/usage.
   let feedbackHidden = $state(false);
   // Distinct-user count, fetched once on load (server keeps it warm in memory,
-  // so there's nothing to poll). null until it arrives / on failure , hidden then.
+  // so there's nothing to poll). null until it arrives or on failure; hidden then.
   let userCount = $state<number | null>(null);
 
   onMount(() => {
@@ -102,7 +102,7 @@
   </span>
   <!-- Subtle abuse indicator: low-key when healthy, amber when throttled. -->
   {#if serviceStatus.rateLimited}
-    <span class="text-amber-500/80" title="You're being rate-limited , ease off for a moment.">throttled</span>
+    <span class="text-amber-500/80" title="You're being rate-limited. Ease off for a moment.">throttled</span>
   {:else}
     <span class="opacity-35" title="Usage looks healthy.">ok</span>
   {/if}
