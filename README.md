@@ -58,13 +58,13 @@ There are two layout engines. The original (`version: 1`) is a fixed grid. The c
 
 ### Polling and Progress
 
-Last.fm doesn't push updates, so the widget polls `user.getRecentTracks` and watches the `nowplaying` flag. The interval adapts to what's going on: 2.5s right after a song change, 5s while something's playing, then backing off to 10s and eventually 20s once the tab has sat idle for a couple minutes ([nowplaying.svelte.ts](apps/web/src/lib/nowplaying.svelte.ts)). Between polls the progress bar ticks along locally using the track's reported duration, with pause detection and a resume-position estimate so the bar doesn't freeze up or jump around.
+Last.fm doesn't push updates, so the widget polls `user.getRecentTracks` and watches the `nowplaying` flag. Because every widget polls from its viewer's own IP (see below), the cadence is a flat 1 second whether something is playing or not, so track changes, pauses, and playback starting all show up within about a second ([nowplaying.svelte.ts](apps/web/src/lib/nowplaying.svelte.ts)). The only backoff is a hidden tab (5s), which OBS browser sources never hit since they always report as visible. Between polls the progress bar ticks along locally using the track's reported duration, with pause detection and a resume-position estimate so the bar doesn't freeze up or jump around.
 
 ### Browser-Direct Last.fm Calls
 
 Last.fm rate-limits at roughly 5 requests per second per IP. If every viewer's widget fetched through the server, they'd all be sharing the server's single IP, and the moment a streamer with any real audience went live, everyone would get throttled. So public lookups (recent tracks, track info) go straight from each viewer's browser to `ws.audioscrobbler.com` ([lastfm-client.ts](apps/web/src/lib/lastfm-client.ts)), and each viewer spends their own per-IP budget. Album art and color extraction load directly from Last.fm's CDN the same way (it sends `Access-Control-Allow-Origin: *`). If a direct call fails at the transport level (network/CORS), it falls back to the server proxy.
 
-Private profiles are the one exception. A hidden listening profile has to be requested with a signed call, and the signature needs the Last.fm shared secret, which never leaves the server. Those requests always go through `/api/lastfm/*`, which signs them server-side ([lastfm.ts](apps/server/src/lastfm.ts)).
+Private profiles go browser-direct too, with one extra step. A hidden listening profile has to be requested with a signed call, and the signature needs the Last.fm shared secret, which never leaves the server. But Last.fm signatures carry no timestamp or nonce, so the server only needs to sign the recent-tracks URL once (`GET /api/lastfm/sign-recent`) and the browser then reuses that pre-signed URL for every poll, straight against Last.fm from the viewer's own IP ([lastfm.ts](apps/server/src/lastfm.ts)). The signed proxy routes stick around as the fallback if signing or the direct call fails.
 
 ## Repository Layout
 
@@ -109,7 +109,7 @@ The server is a Bun-powered Hono service. In production it serves both the stati
 
 What it handles:
 
-- Signed Last.fm calls for private profiles, plus the fallback proxy for browser-direct calls.
+- One-time signing of private-profile poll URLs, plus the fallback proxy for browser-direct calls.
 - Exchanging Last.fm auth tokens for session keys.
 - A host-allowlisted album-art image proxy.
 - Fire-and-forget visitor logging and contact storage.
@@ -170,13 +170,14 @@ Run these from the repository root.
 
 ## API Surface
 
-Everything lives under `/api`. The Last.fm routes mostly exist as the fallback and as the signed path for private profiles; the common case never touches them.
+Everything lives under `/api`. The Last.fm proxy routes mostly exist as the fallback; the common case (public and private alike) polls Last.fm directly and never touches them.
 
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/ping` | Liveness; always 200 while the process is up |
 | `GET /api/health` | Reports Redis (and informational Postgres) status; may 503 if Redis is configured but down |
-| `GET /api/lastfm/recent`, `/trackInfo` | Signed/cached proxy, used for private profiles and as the browser-direct fallback |
+| `GET /api/lastfm/recent`, `/trackInfo` | Signed/cached proxy, the fallback when browser-direct calls fail |
+| `GET /api/lastfm/sign-recent` | Signs a private-profile recent-tracks URL once; the browser then polls Last.fm directly with it |
 | `POST /api/lastfm/session` | Exchange a Last.fm auth token for a session key (signed) |
 | `GET /api/proxy-image` | Album-art fetch fallback; host-allowlisted |
 | `POST /api/log/widget` | Fire-and-forget visitor log, one row per visitor (fail-open) |
@@ -202,7 +203,7 @@ After changing [apps/server/src/schema.ts](apps/server/src/schema.ts), run `bun 
 
 ### Caching
 
-The proxy cache is short on purpose: recent-tracks responses live for 3 seconds, track-info for 24 hours.
+The proxy cache is short on purpose: recent-tracks responses live for 1 second, track-info for 24 hours.
 
 ### Rate Limiting
 
@@ -219,8 +220,9 @@ Redis and Postgres are both optional. If either one is unreachable, the widget k
 ## Known Constraints
 
 - The design lives entirely in the URL hash. No accounts, no server-side saves. Lose the URL, lose the design (though the editor keeps a `localStorage` autosave as a safety net).
-- Public Last.fm calls go browser-direct by design. The server proxy is only the fallback and the signed path for private profiles.
-- Last.fm doesn't push events, so "now playing" is always polled and runs a few seconds behind reality.
+- Last.fm calls go browser-direct by design, public and private alike (private via a one-time server-signed URL). The server proxy is only the fallback.
+- Last.fm doesn't push events, so "now playing" is always polled and runs about a second behind reality.
+- Browser-direct calls necessarily expose the Last.fm API key in DevTools (it's a query param on every request, including the pre-signed private URLs). That's how the Last.fm API works for any client-side app; the key is not a credential, the shared secret is, and that stays server-side.
 
 ## License
 

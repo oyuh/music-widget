@@ -5,7 +5,7 @@ import { json, sha256, signLastfm } from "./util";
 import { isAllowedImageHost } from "./security";
 import { log, levelEnabled, type JsonValue } from "./log";
 
-const RECENT_TTL_SECONDS = 3;
+const RECENT_TTL_SECONDS = 1;
 const TRACK_INFO_TTL_SECONDS = 60 * 60 * 24;
 const LASTFM_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
 
@@ -121,7 +121,7 @@ export const handleRecent: Handler = async (c) => {
     requestId: reqId,
     cacheKey,
     ttlSeconds: RECENT_TTL_SECONDS,
-    cacheControl: "public, max-age=3, s-maxage=3, stale-while-revalidate=30",
+    cacheControl: "public, max-age=1, s-maxage=1, stale-while-revalidate=30",
     fetcher: async () => {
       const base: Record<string, string> = {
         method: "user.getRecentTracks",
@@ -155,6 +155,48 @@ export const handleRecent: Handler = async (c) => {
       };
     },
   });
+};
+
+/**
+ * Sign a user.getRecentTracks request for a private (session-key) profile and
+ * hand the full URL back to the client. Last.fm signatures carry no timestamp
+ * or nonce, so the URL stays valid for as long as the session key does and the
+ * client can poll Last.fm directly from its own IP, exactly like public
+ * lookups. Only this one read-only method with a fixed param set gets signed,
+ * so the endpoint can't be abused as an oracle to sign writes (scrobble,
+ * love, and so on).
+ */
+export const handleSignRecent: Handler = async (c) => {
+  const reqId = c.get("reqId");
+  const user = c.req.query("user") || "";
+  const limit = String(Math.min(50, Math.max(1, parseInt(c.req.query("limit") || "1", 10) || 1)));
+  const sk = c.req.query("sk") || "";
+
+  if (!user || !sk) {
+    log("warn", "api.lastfm.signRecent.missing_params", { requestId: reqId });
+    return json({ error: "Missing user/sk" }, { status: 400 });
+  }
+
+  const envError = requireLastfmEnv();
+  if (envError) return envError;
+  const { apiKey, sharedSecret } = lastfmEnv();
+
+  const params: Record<string, string> = {
+    method: "user.getRecentTracks",
+    user,
+    limit,
+    api_key: apiKey!,
+    sk,
+  };
+  const api_sig = signLastfm(params, sharedSecret!);
+  const qs = new URLSearchParams({ ...params, api_sig, format: "json" });
+
+  log("info", "api.lastfm.signRecent", { requestId: reqId, user, limit });
+
+  return json(
+    { url: `${LASTFM_ENDPOINT}?${qs.toString()}` },
+    { status: 200, headers: { "Cache-Control": "private, no-store" } },
+  );
 };
 
 export const handleTrackInfo: Handler = async (c) => {

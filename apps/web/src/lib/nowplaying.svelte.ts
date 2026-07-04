@@ -11,15 +11,16 @@ export type LfmTrack = {
   date?: { uts: string };
 };
 
-// Client-side calls hit Last.fm from each user's own IP, so these can be
-// snappier than the old shared-proxy intervals without risking rate limits.
-// While something is live we poll briskly so a pause/stop is noticed quickly;
-// when nothing's playing (or the tab is hidden) we back off to save requests.
+// All lookups (public and private, via pre-signed URLs) hit Last.fm from each
+// user's own IP, and Last.fm allows ~5 req/s per IP, so polling every second
+// is comfortably within budget. Live and stopped both poll fast so track
+// changes, pauses, and playback starting are all caught within about a second;
+// only a hidden tab (nothing visible; OBS sources always report visible) backs
+// off to save requests.
 const INTERVALS = {
-  FAST: 2500,
-  NORMAL: 4000,
-  SLOW: 10000,
-  IDLE: 20000,
+  LIVE: 1000,
+  STOPPED: 1000,
+  HIDDEN: 5000,
 } as const;
 
 // How far past a track's own duration its estimated progress may run while still
@@ -60,7 +61,6 @@ export class NowPlaying {
   // Shown on pause/stop instead of recenttracks[0], which Last.fm sometimes gets
   // wrong, and persisted to localStorage so a cold OBS start while paused is right.
   #lastLiveTrack: LfmTrack | null = null;
-  #lastTrackChange = 0;
   #trackStartTime: number | null = null;
   // uts (seconds) of the most recent scrobble of the CURRENT track we've already
   // accounted for. A newer self-scrobble means the track looped/was replayed, so
@@ -158,16 +158,10 @@ export class NowPlaying {
   }
 
   #getOptimalInterval(): number {
-    // Hidden tab (e.g. an inactive editor): nothing to show, back off hard. OBS
-    // browser sources report as visible, so overlays keep the brisk cadence.
-    if (typeof document !== "undefined" && document.hidden) return INTERVALS.IDLE;
-    if (this.isLive) {
-      // Poll quickly while playing so a pause/stop (or track change) is caught fast.
-      const sinceTrackChange = Date.now() - this.#lastTrackChange;
-      return sinceTrackChange < 10000 ? INTERVALS.FAST : INTERVALS.NORMAL;
-    }
-    // Nothing playing; a slower steady poll still catches playback starting.
-    return INTERVALS.SLOW;
+    // Hidden tab (e.g. an inactive editor): nothing to show, back off. OBS
+    // browser sources report as visible, so overlays keep the 1s cadence.
+    if (typeof document !== "undefined" && document.hidden) return INTERVALS.HIDDEN;
+    return this.isLive ? INTERVALS.LIVE : INTERVALS.STOPPED;
   }
 
   #scheduleNext() {
@@ -192,7 +186,7 @@ export class NowPlaying {
   async #fetchNow() {
     try {
       const now = Date.now();
-      if (now - this.#lastUpdate < 800) {
+      if (now - this.#lastUpdate < 400) {
         this.#scheduleNext();
         return;
       }
@@ -250,7 +244,6 @@ export class NowPlaying {
         this.#estimatedStartOffset = 0;
         this.durationMs = null;
         this.#trackScrobbleUts = 0;
-        this.#lastTrackChange = now;
 
         if (live) {
           this.#estimatePosition(tr)
@@ -317,7 +310,7 @@ export class NowPlaying {
       this.#scheduleNext();
     } catch {
       this.#consecutiveErrors++;
-      const delay = Math.min(15000, 2000 * Math.pow(1.5, this.#consecutiveErrors));
+      const delay = Math.min(10000, 1000 * Math.pow(1.5, this.#consecutiveErrors));
       this.#timeout = setTimeout(() => this.#fetchNow(), delay);
     }
   }
