@@ -5,7 +5,10 @@
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.13 0.028 261.692);
-  --radius: 0.625rem;
+  /* Sharp-corner UI scale: rounded-md resolves to 0.2rem (3.2px), matching the
+     button rule below. The widget itself takes its radii from the design
+     config (inline styles), so it doesn't follow this token. */
+  --radius: 0.325rem;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.13 0.028 261.692);
   --popover: oklch(1 0 0);
@@ -103,6 +106,13 @@
     @apply bg-background text-foreground;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   }
+}
+
+/* Near-square buttons across the site UI. Unlayered so it outranks the
+   rounded-* utilities on individual buttons; the widget itself renders no
+   <button> elements, so widget designs are unaffected. */
+button {
+  border-radius: 0.2rem; /* 3.2px */
 }
 
 /* ---- Marquee scrolling text (shared by the widget) ---- */

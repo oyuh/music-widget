@@ -44,6 +44,18 @@
     window.location.href = `https://www.last.fm/api/auth/?api_key=${key}&cb=${encodeURIComponent(cb)}`;
   }
 
+  // Wrong-account escape hatch. When the username was auto-filled from the
+  // session (not typed), clear it too so the wrong name doesn't linger.
+  function signOut() {
+    const fromSession = editor.config.lfmUser === editor.sessionName;
+    editor.disconnect();
+    if (fromSession) {
+      editor.config.lfmUser = "";
+      name = "";
+      editor.save();
+    }
+  }
+
   // The preset thumbnails render with their real typography, so lazily add one
   // stylesheet link for the fonts the presets use (separate from the managed
   // per-config link, which would drop these on the next config change).
@@ -116,12 +128,21 @@
         {/if}
         {#if editor.sessionName}
           <div
-            class="flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-green-400"
+            class="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs"
           >
-            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            <span class="truncate">Signed in as {editor.sessionName}</span>
+            <span class="flex min-w-0 items-center gap-1.5 text-green-400">
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span class="truncate">Signed in as {editor.sessionName}</span>
+            </span>
+            <button
+              type="button"
+              onclick={signOut}
+              class="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+            >
+              Sign out
+            </button>
           </div>
         {:else}
           <button
