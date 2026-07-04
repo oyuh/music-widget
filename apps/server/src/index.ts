@@ -3,12 +3,12 @@ import { bodyLimit } from "hono/body-limit";
 import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppEnv } from "./types";
-import { handleProxyImage, handleRecent, handleSession, handleTrackInfo } from "./lastfm";
+import { handleProxyImage, handleRecent, handleSession, handleSignRecent, handleTrackInfo } from "./lastfm";
 import { handleContact, handleCronCleanup, handleFeedback, handleWidgetLog } from "./analytics";
 import { handleSiteStats, startStatsRefresh } from "./stats";
 import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
-import { clientIp, rateLimitOk } from "./security";
+import { clientIp, rateLimitOk, rateLimitUsage } from "./security";
 import { json, xmlEscape } from "./util";
 import { log } from "./log";
 
@@ -47,7 +47,8 @@ app.use("/api/*", async (c, next) => {
 
   // Lenient per-IP rate limit (skips health/liveness + preflight).
   const path = new URL(c.req.url).pathname;
-  const exempt = c.req.method === "OPTIONS" || path === "/api/ping" || path === "/api/health";
+  const exempt =
+    c.req.method === "OPTIONS" || path === "/api/ping" || path === "/api/health" || path === "/api/usage";
   if (!exempt) {
     const limit = await rateLimitOk(clientIp(c), reqId);
     if (!limit.ok) {
@@ -109,7 +110,14 @@ app.get("/api/health", async () => {
   }
 });
 
+// The caller's own rate-limit usage (reads the counter, never increments it,
+// and is exempt from the limiter so checking usage can't consume usage).
+app.get("/api/usage", async (c) =>
+  json(await rateLimitUsage(clientIp(c)), { headers: { "Cache-Control": "no-store" } }),
+);
+
 app.get("/api/lastfm/recent", handleRecent);
+app.get("/api/lastfm/sign-recent", handleSignRecent);
 app.get("/api/lastfm/trackInfo", handleTrackInfo);
 app.post("/api/lastfm/session", handleSession);
 app.get("/api/proxy-image", handleProxyImage);

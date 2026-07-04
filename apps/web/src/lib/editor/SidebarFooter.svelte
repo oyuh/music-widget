@@ -54,6 +54,14 @@
           ? "bg-zinc-500"
           : "bg-red-500",
   );
+  // Your own IP's share of the server rate limit, from /api/usage. Quiet while
+  // low, amber as it climbs; the throttled branch below takes over at a 429.
+  const usageFrac = $derived(
+    serviceStatus.usage && serviceStatus.usage.max > 0
+      ? serviceStatus.usage.used / serviceStatus.usage.max
+      : 0,
+  );
+
   const lfmLabel = $derived(
     serviceStatus.lastfm === "ok"
       ? "Last.fm OK"
@@ -100,9 +108,17 @@
     <span class="h-1.5 w-1.5 rounded-full {dotColor}" title="Service status"></span>
     <span>{label}{serviceStatus.redis ? ` · cache ${serviceStatus.redis}` : ""}</span>
   </span>
-  <!-- Subtle abuse indicator: low-key when healthy, amber when throttled. -->
+  <!-- Your IP's live usage against the server rate limit: low-key when quiet,
+       amber as it climbs, and "throttled" once a 429 has actually been seen. -->
   {#if serviceStatus.rateLimited}
     <span class="text-amber-500/80" title="You're being rate-limited. Ease off for a moment.">throttled</span>
+  {:else if serviceStatus.usage}
+    <span
+      class={usageFrac >= 0.7 ? "text-amber-500/80" : "opacity-35"}
+      title="Your IP's usage of the server API: {serviceStatus.usage.used}/{serviceStatus.usage.max} requests in the current {serviceStatus.usage.windowSeconds}s window."
+    >
+      {serviceStatus.usage.used}/{serviceStatus.usage.max}
+    </span>
   {:else}
     <span class="opacity-35" title="Usage looks healthy.">ok</span>
   {/if}

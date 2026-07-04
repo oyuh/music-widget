@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { redisEnabled, redisExpire, redisIncr } from "./redis";
+import { redisEnabled, redisExpire, redisGet, redisIncr } from "./redis";
 import { log } from "./log";
 
 // --- Per-IP rate limiting -------------------------------------------------
@@ -30,6 +30,31 @@ export async function rateLimitOk(ip: string, reqId: string): Promise<{ ok: bool
     return { ok: true, retryAfter: 0 };
   } catch {
     return { ok: true, retryAfter: 0 }; // fail open
+  }
+}
+
+export type RateLimitUsage = {
+  used: number;
+  max: number;
+  windowSeconds: number;
+  enabled: boolean;
+};
+
+/**
+ * Read an IP's request count in the current rate-limit window WITHOUT
+ * incrementing it, so the editor footer can show real usage for the visitor's
+ * own IP. `enabled: false` means Redis is off or unreachable and there's no
+ * number to show.
+ */
+export async function rateLimitUsage(ip: string): Promise<RateLimitUsage> {
+  const base = { max: RL_MAX, windowSeconds: RL_WINDOW_SECONDS };
+  if (!redisEnabled()) return { ...base, used: 0, enabled: false };
+  try {
+    const bucket = Math.floor(Date.now() / 1000 / RL_WINDOW_SECONDS);
+    const raw = await redisGet(`rl:${ip}:${bucket}`);
+    return { ...base, used: raw ? parseInt(raw, 10) || 0 : 0, enabled: true };
+  } catch {
+    return { ...base, used: 0, enabled: false };
   }
 }
 

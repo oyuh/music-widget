@@ -11,6 +11,7 @@
   import { isMobileDevice } from "$lib/device";
   import MobileGate from "$lib/MobileGate.svelte";
   import WelcomeModal from "$lib/editor/WelcomeModal.svelte";
+  import SignInDialog, { type AuthResult } from "$lib/editor/SignInDialog.svelte";
   import { KEYWORDS_META } from "$lib/keywords";
 
   // The editor needs a pointer + a wide screen, so mobile gets a simple gate page.
@@ -135,11 +136,24 @@
   // brand-new visitors and connected-session users, whose name auto-fills on load).
   let welcomeOpen = $state(false);
 
+  // Sign-in outcome handed over by /callback (one-shot via sessionStorage);
+  // non-null renders the confirmation dialog.
+  let authResult = $state<AuthResult | null>(null);
+
   onMount(() => {
     if (mobile) return; // no editor on mobile
     editor.load();
     editor.loadPresets();
     editor.initHistory();
+    try {
+      const raw = sessionStorage.getItem("mw:auth-result");
+      if (raw) {
+        sessionStorage.removeItem("mw:auth-result");
+        authResult = JSON.parse(raw) as AuthResult;
+      }
+    } catch {
+      /* ignore */
+    }
     if (!(editor.config.lfmUser ?? "").trim()) welcomeOpen = true;
 
     const onKey = (e: KeyboardEvent) => {
@@ -249,6 +263,7 @@
 {:else}
   <div class="font-mono-ui relative flex h-screen overflow-hidden bg-background text-foreground">
     <WelcomeModal bind:open={welcomeOpen} {editor} />
+    <SignInDialog bind:result={authResult} />
     {#if leftOpen}
       <aside
         transition:slide={{ axis: "x", duration: 220 }}

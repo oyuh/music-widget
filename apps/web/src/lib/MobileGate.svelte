@@ -42,7 +42,7 @@
     <div class="space-y-6 px-6 py-8">
       <p class="font-mono-ui text-sm leading-relaxed text-muted-foreground">
         The widget editor needs a mouse and a wider screen, so it only runs on a computer.
-        Drop your email and I'll remind you to set it up when you're back at your desk
+        Drop your email and I'll let you know when I've got something for mobile ready!
         (only about that and outages, nothing else).
       </p>
 
@@ -83,16 +83,8 @@
           rel="noopener noreferrer"
           class="group inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 font-mono-ui text-sm text-foreground transition-colors hover:bg-accent"
         >
-          learn about me!
+          learn about the creator!
           <span class="transition-transform group-hover:translate-x-0.5">→</span>
-        </a>
-        <a
-          href={source}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 font-mono-ui text-sm text-foreground transition-colors hover:bg-accent"
-        >
-          the source
         </a>
       </div>
     </div>
