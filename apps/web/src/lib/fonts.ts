@@ -1,12 +1,17 @@
 import { getUsedFonts, type WidgetConfig } from "./config";
 
-/** Build the Google Fonts CSS URL for every font used by the config. */
-export function googleFontsHref(config: WidgetConfig): string {
-  const families = getUsedFonts(config)
+/** Build the Google Fonts CSS URL for a set of font families. */
+export function googleFontsHrefFor(families: string[]): string {
+  const query = families
     .filter(Boolean)
     .map((font) => `family=${encodeURIComponent(font).replace(/%20/g, "+")}`)
     .join("&");
-  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+  return `https://fonts.googleapis.com/css2?${query}&display=swap`;
+}
+
+/** Build the Google Fonts CSS URL for every font used by the config. */
+export function googleFontsHref(config: WidgetConfig): string {
+  return googleFontsHrefFor(getUsedFonts(config));
 }
 
 /**
