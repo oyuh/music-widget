@@ -1,6 +1,9 @@
 <script lang="ts">
   import { slide } from "svelte/transition";
   import { PRESETS } from "$lib/presets";
+  import { getUsedFonts } from "$lib/config";
+  import { googleFontsHrefFor } from "$lib/fonts";
+  import PresetThumb from "./PresetThumb.svelte";
   import type { EditorState } from "$lib/editor.svelte";
 
   interface Props {
@@ -12,6 +15,49 @@
   let name = $state("");
   let needName = $state(false);
   let helpOpen = $state(false);
+
+  // Prefill the username when a connected session (or a saved name from before
+  // a sign-in round-trip) already knows it.
+  $effect(() => {
+    if (open && !name && editor.config.lfmUser) name = editor.config.lfmUser;
+  });
+
+  // Same Last.fm auth redirect as the sidebar's Connect button. The flag tells
+  // +page.svelte the sign-in started mid-onboarding, so /callback bounces back
+  // into this modal (with a ✓) instead of the standalone success dialog.
+  let signInError = $state("");
+  function signIn() {
+    const key = import.meta.env.VITE_LFM_KEY;
+    const cb = import.meta.env.VITE_LFM_CALLBACK || `${window.location.origin}/callback`;
+    if (!key) {
+      // Dev builds without a .env have no key; don't leave the click dead-silent.
+      signInError = "Sign-in isn't configured in this build (VITE_LFM_KEY is missing).";
+      return;
+    }
+    if (name.trim()) editor.config.lfmUser = name.trim();
+    editor.save();
+    try {
+      sessionStorage.setItem("mw:welcome-signin", "1");
+    } catch {
+      /* ignore */
+    }
+    window.location.href = `https://www.last.fm/api/auth/?api_key=${key}&cb=${encodeURIComponent(cb)}`;
+  }
+
+  // The preset thumbnails render with their real typography, so lazily add one
+  // stylesheet link for the fonts the presets use (separate from the managed
+  // per-config link, which would drop these on the next config change).
+  $effect(() => {
+    if (!open) return;
+    const id = "mw-preset-fonts";
+    if (document.getElementById(id)) return;
+    const families = [...new Set(PRESETS.flatMap((p) => getUsedFonts(p.config)))];
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = googleFontsHrefFor(families);
+    document.head.appendChild(link);
+  });
 
   // No close button on purpose: the only way out is picking a preset (or the
   // stay-default text), and both require a Last.fm username first.
@@ -68,6 +114,27 @@
         {#if needName}
           <p class="text-[11px] text-amber-500">Enter your Last.fm username first.</p>
         {/if}
+        {#if editor.sessionName}
+          <div
+            class="flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-green-400"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            <span class="truncate">Signed in as {editor.sessionName}</span>
+          </div>
+        {:else}
+          <button
+            type="button"
+            onclick={signIn}
+            class="cursor-pointer rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Sign into your private profile!
+          </button>
+          {#if signInError}
+            <p class="text-[11px] text-amber-500">{signInError}</p>
+          {/if}
+        {/if}
         {#if helpOpen}
           <div transition:slide={{ duration: 180 }} class="flex flex-col gap-2 rounded-md border border-border p-2">
             <p class="text-[11px] leading-snug text-muted-foreground">
@@ -103,9 +170,10 @@
             <button
               type="button"
               onclick={() => finish(p)}
-              class="rounded-md border border-border px-2 py-2 text-xs hover:bg-muted"
+              class="flex flex-col gap-1.5 rounded-md border border-border p-1.5 pb-2 text-xs hover:bg-muted"
             >
-              {p.name}
+              <PresetThumb config={p.config} />
+              <span class="w-full text-center">{p.name}</span>
             </button>
           {/each}
         </div>

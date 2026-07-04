@@ -145,16 +145,24 @@
     editor.load();
     editor.loadPresets();
     editor.initHistory();
+    let welcomePending = false;
     try {
       const raw = sessionStorage.getItem("mw:auth-result");
       if (raw) {
         sessionStorage.removeItem("mw:auth-result");
         authResult = JSON.parse(raw) as AuthResult;
       }
+      // Sign-in started from the welcome modal: onboarding isn't done (no
+      // preset picked yet), so return to the modal. A success shows as a ✓
+      // next to its sign-in button instead of the standalone dialog; a
+      // failure keeps the dialog, which stacks above the modal.
+      welcomePending = sessionStorage.getItem("mw:welcome-signin") === "1";
+      sessionStorage.removeItem("mw:welcome-signin");
     } catch {
       /* ignore */
     }
-    if (!(editor.config.lfmUser ?? "").trim()) welcomeOpen = true;
+    if (welcomePending || !(editor.config.lfmUser ?? "").trim()) welcomeOpen = true;
+    if (welcomePending && authResult?.ok) authResult = null;
 
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
