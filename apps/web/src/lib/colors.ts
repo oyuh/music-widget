@@ -8,7 +8,10 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
 }
 
 export function rgbToHex(r: number, g: number, b: number): string {
-  const h = (n: number) => n.toString(16).padStart(2, '0');
+  // Clamp to a valid 0-255 byte so we never emit a >2-digit channel (e.g. a
+  // quantized 256 would render "100" and produce an invalid 7-digit hex that
+  // browsers silently drop, making the styled element disappear).
+  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
   return `#${h(r)}${h(g)}${h(b)}`;
 }
 
@@ -154,8 +157,9 @@ function extractFrom(src: string, crossOrigin: boolean): Promise<string | null> 
             if (a < 200) continue; // skip transparent
             // Ignore near-white and near-black pixels that often represent borders or backgrounds
             if ((r > 245 && g > 245 && b > 245) || (r < 10 && g < 10 && b < 10)) continue;
-            // quantize to reduce unique colors
-            const key = `${Math.round(r/16)*16},${Math.round(g/16)*16},${Math.round(b/16)*16}`;
+            // quantize to reduce unique colors (clamp so 248-255 doesn't round up to 256)
+            const q = (v: number) => Math.min(255, Math.round(v / 16) * 16);
+            const key = `${q(r)},${q(g)},${q(b)}`;
             counts.set(key, (counts.get(key) ?? 0) + 1);
           }
           let max = 0;
