@@ -1,0 +1,50 @@
+Music Widget Source-Available License
+
+Copyright (c) 2026 Lawson Hart
+
+This is a source-available license. The source code is public so you can read
+it, learn from it, run it, and modify it for your own use. It is not an
+open-source license under the OSI definition, and the grant below is limited.
+
+1. Grant
+
+You are granted a non-exclusive, worldwide, royalty-free license to:
+
+  a. use, copy, and run the software for personal use, including self-hosting
+     your own instance and using it while streaming; and
+
+  b. modify the software and run your modified version for the personal use
+     described above.
+
+2. Restrictions
+
+You may NOT, without prior written permission from the copyright holder:
+
+  a. redistribute, republish, sublicense, or sell the software or any
+     substantial portion of it, whether modified or unmodified;
+
+  b. distribute a modified version, fork, or derivative as a separate product
+     or hosted service; or
+
+  c. represent the software, in whole or in part, as your own work.
+
+Commercial redistribution or offering the software as a hosted or paid service
+requires explicit written permission.
+
+3. Contributions
+
+Contributions are welcome and credited. By submitting a contribution (for
+example, a pull request), you agree that your contribution is licensed under
+these same terms and that the copyright holder may include it in the project.
+
+4. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+For redistribution or commercial-use requests, contact me@lawsonhart.me.
