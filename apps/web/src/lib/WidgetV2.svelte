@@ -2,8 +2,11 @@
   import ScrollText from "./ScrollText.svelte";
   import {
     applyTextTransform,
+    CSS_SCOPE,
+    customCssActive,
     formatDurationText,
     getTextFont,
+    scopeCss,
     V2_ELEMENT_IDS,
     type V2ElementId,
     type WidgetConfig,
@@ -366,6 +369,21 @@
       .join(";");
   });
 
+  // ---- experimental custom CSS ----
+  // Scoped to the widget root, so it can style anything inside the widget and
+  // nothing outside it. Every style the editor produces is inline, which wins
+  // over a stylesheet: tweaking a setting overrides the custom CSS for that
+  // property unless the rule says !important.
+  const customCss = $derived(customCssActive(cfg) ? scopeCss(cfg.experimental!.css) : "");
+  $effect(() => {
+    if (!customCss) return;
+    const style = document.createElement("style");
+    style.setAttribute("data-mw-custom", "");
+    style.textContent = customCss;
+    document.head.appendChild(style);
+    return () => style.remove();
+  });
+
   // ---- song-switch animation ----
   const trackKey = $derived(`${title}|${artist}`);
   function switchIn(node: Element) {
@@ -386,7 +404,7 @@
   }
 </script>
 
-<div class="relative">
+<div class="relative {CSS_SCOPE}">
   {#if preview && wouldHide}
     <div class="absolute top-1 right-1 z-10 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white">
       Hidden on the live widget

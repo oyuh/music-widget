@@ -1,4 +1,5 @@
 import {
+  CSS_MAX,
   decodeConfig,
   defaultConfig,
   migrateToV2,
@@ -82,6 +83,17 @@ export function mergeConfig(partial: Partial<WidgetConfig> | null | undefined): 
     },
     fields: { ...d.fields, ...p.fields },
   };
+
+  // Experimental custom CSS: only present once someone opts in, and normalized
+  // here because it arrives from a URL hash anyone can hand-edit.
+  if (p.experimental) {
+    result.experimental = {
+      enabled: !!p.experimental.enabled,
+      css: String(p.experimental.css ?? "").slice(0, CSS_MAX),
+    };
+  } else {
+    delete result.experimental;
+  }
 
   // v2 designs carry an element-based layout. Build a baseline from the merged
   // legacy fields (so missing pieces are sensible) and overlay the partial v2.

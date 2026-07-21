@@ -94,9 +94,21 @@ export type WidgetV2 = {
   legacyPause?: boolean;
 };
 
+/**
+ * Experimental: raw CSS the user writes for their own widget. Absent on every
+ * config that never opted in, so existing widget URLs stay byte-identical.
+ * `enabled: false` keeps the CSS around but stops applying it, so turning the
+ * feature off returns the widget to exactly what it looked like before.
+ */
+export type WidgetExperimental = {
+  enabled: boolean;
+  css: string;
+};
+
 export type WidgetConfig = {
   version?: 1 | 2; // absent/1 => legacy grid; 2 => v2 free layout
   v2?: WidgetV2; // populated when version === 2
+  experimental?: WidgetExperimental;
   lfmUser: string;
   sessionKey?: string | null; // Last.fm session key for private profile access
   apiKey?: string | null; // optional BYOK Last.fm API key, used client-side for faster, isolated requests
@@ -319,6 +331,53 @@ export function checkArtUrl(url: string): UrlCheck {
     return { level: "warn", msg: "http:// links often get blocked. Use the https:// version if there is one." };
   if (parsed.protocol !== "https:") return { level: "bad", msg: "Needs to be an https:// link to an image file." };
   return { level: "ok", msg: "" };
+}
+
+// ---- experimental custom CSS ----
+
+/** Class on the widget root that custom CSS gets scoped under. */
+export const CSS_SCOPE = "mw-widget";
+
+/** The whole design rides in the URL, so custom CSS gets a budget too. */
+export const CSS_MAX = 4000;
+
+// At-rules that are invalid inside a nesting block, so they're hoisted back to
+// the top level instead of being silently dropped by the parser.
+const HOIST_AT = /^@(-\w+-)?(keyframes|font-face|property)\b/i;
+
+/**
+ * Wrap user CSS in a nesting block so it can only ever reach inside the widget,
+ * never the editor UI around it (that's the escape hatch for CSS that hides
+ * everything). Rules nest as descendants of the scope, so `[data-el="title"]`
+ * works as written. @keyframes / @font-face / @property can't live inside a
+ * style rule, so they're hoisted out; @import is dropped (it would pull a
+ * remote stylesheet that can change after the widget URL is shared).
+ */
+export function scopeCss(css: string, scope = `.${CSS_SCOPE}`): string {
+  const src = css.replace(/@import\b[^;]*;?/gi, "");
+  const hoisted: string[] = [];
+  const scoped: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}" && depth > 0 && --depth === 0) {
+      const chunk = src.slice(start, i + 1).trim();
+      if (chunk) (HOIST_AT.test(chunk) ? hoisted : scoped).push(chunk);
+      start = i + 1;
+    }
+  }
+  // Unbalanced tail (mid-typing in the editor): keep it scoped so a half-written
+  // rule can't leak out, and let the browser's own recovery handle the rest.
+  const tail = src.slice(start).trim();
+  if (tail) scoped.push(tail);
+  const body = scoped.length ? `${scope}{\n${scoped.join("\n")}\n}` : "";
+  return [...hoisted, body].filter(Boolean).join("\n");
+}
+
+/** True when this config should actually apply its custom CSS. */
+export function customCssActive(c: WidgetConfig | null | undefined): boolean {
+  return !!c?.experimental?.enabled && !!c.experimental.css.trim();
 }
 
 export function encodeConfig(c: WidgetConfig): string {
