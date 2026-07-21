@@ -11,6 +11,7 @@ A Last.fm now-playing overlay that runs as a browser source in OBS, Streamlabs, 
 Technically it's a TypeScript monorepo: a SvelteKit editor and widget SPA, a Bun + Hono API, and a local Redis + Postgres dev stack.
 
 - Live app: [fast.jamlog.lol](https://fast.jamlog.lol)
+- User docs: [the wiki](https://github.com/oyuh/music-widget/wiki) (source in [`wiki/`](wiki/))
 
 ## Contents
 

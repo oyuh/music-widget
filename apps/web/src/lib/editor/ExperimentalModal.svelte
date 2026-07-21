@@ -1,5 +1,6 @@
 <script lang="ts">
   import Toggle from "$lib/ui/Toggle.svelte";
+  import { CSS_DOCS } from "$lib/config";
   import type { EditorState } from "$lib/editor.svelte";
 
   interface Props {
@@ -59,6 +60,13 @@
       <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
         It's easy to break your own widget in here. Switching this off puts it back exactly how it
         was and keeps your CSS around for later.
+      </p>
+
+      <p class="mt-2 text-xs">
+        <a class="text-primary underline" href={CSS_DOCS} target="_blank" rel="noopener noreferrer">
+          Read the docs
+        </a>
+        <span class="text-muted-foreground">for what you can target, examples, and the limits.</span>
       </p>
 
       <div class="mt-3 rounded-md border border-border bg-zinc-800/60 px-3 py-2.5">
