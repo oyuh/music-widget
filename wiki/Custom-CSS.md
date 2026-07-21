@@ -148,6 +148,8 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 
 Your CSS is part of the design, so it rides along in the widget URL like everything else. Copy the URL, paste it into an OBS browser source, and it renders there exactly like it does in the editor preview. Nothing is stored on a server.
 
+Because it's in the URL, editing your CSS gives you a **new URL**. Re-copy it and update your browser source, or your stream keeps showing the old version.
+
 Same goes for presets: saving the current look as a preset saves the CSS with it.
 
 If you send someone your URL, they get your CSS too. Worth a look before you paste someone else's link, same as any shared design.
