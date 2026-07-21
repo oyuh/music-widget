@@ -7,6 +7,7 @@ import {
   formatDurationText,
   applyTextTransform,
   getUsedFonts,
+  checkArtUrl,
 } from "../apps/web/src/lib/config";
 
 describe("encode/decode", () => {
@@ -58,5 +59,17 @@ describe("time + text helpers", () => {
     });
     expect(fonts).toContain("Inter");
     expect(fonts).toContain("Poppins");
+  });
+
+  test("checkArtUrl grades pasted fallback-art links", () => {
+    expect(checkArtUrl("https://example.com/cover.png").level).toBe("ok");
+    expect(checkArtUrl("  https://example.com/cover.png  ").level).toBe("ok");
+    expect(checkArtUrl("http://example.com/cover.png").level).toBe("warn");
+    expect(checkArtUrl("example.com/cover.png").level).toBe("bad");
+    expect(checkArtUrl("data:image/png;base64,iVBORw0KGgo=").level).toBe("bad");
+    // Long links bloat the encoded widget URL the whole design rides in.
+    expect(checkArtUrl("https://example.com/" + "a".repeat(600)).level).toBe("bad");
+    // Empty is "unset", not an error the user should see.
+    expect(checkArtUrl("").msg).toBe("");
   });
 });

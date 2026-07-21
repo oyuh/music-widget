@@ -72,6 +72,9 @@ export type V2Element = {
   snapX: V2Snap; // null = free; set => overrides x (anchored relationship)
   snapY: V2Snap; // null = free; set => overrides y
   radius: number; // corner radius (art / background)
+  // Art element only: image URL to show when the song has no cover, or the cover
+  // fails to load. Empty/absent => the art just disappears (existing behavior).
+  fallbackArt?: string;
   // Typography reuses theme.textSize/textStyle/textTransform/textFont[id].
 };
 
@@ -292,6 +295,31 @@ export const defaultConfig: WidgetConfig = {
   marquee: { speedPxPerSec: 24, gapPx: 32, perText: undefined },
   fields: { title: true, artist: true, album: true, progress: true, duration: true, history: 50, pausedMode: "label", pausedText: "Paused", durationFormat: "both", showDurationOnProgress: true, showDurationAsText: false },
 };
+
+/**
+ * Sanity-check a pasted fallback-art URL before the browser tries to load it.
+ * "warn" still works, it's just a link that tends to get blocked. Actually
+ * loading the image is a separate step (see the editor's Inspector).
+ */
+export type UrlCheck = { level: "ok" | "warn" | "bad"; msg: string };
+export function checkArtUrl(url: string): UrlCheck {
+  const u = url.trim();
+  if (!u) return { level: "bad", msg: "" };
+  // The whole design is packed into the widget URL, so a giant link (or pasted
+  // image data) would bloat every copy of it.
+  if (u.length > 600)
+    return { level: "bad", msg: "That link is way too long. The whole design gets packed into your widget URL, so upload the image somewhere and paste a short link instead." };
+  let parsed: URL;
+  try {
+    parsed = new URL(u);
+  } catch {
+    return { level: "bad", msg: "That's not a full link. It needs to start with https://" };
+  }
+  if (parsed.protocol === "http:")
+    return { level: "warn", msg: "http:// links often get blocked. Use the https:// version if there is one." };
+  if (parsed.protocol !== "https:") return { level: "bad", msg: "Needs to be an https:// link to an image file." };
+  return { level: "ok", msg: "" };
+}
 
 export function encodeConfig(c: WidgetConfig): string {
   const json = JSON.stringify(c);

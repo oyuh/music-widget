@@ -6,6 +6,7 @@
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
   import { TEXT_ELEMENTS, type EditorState, type ElementId } from "$lib/editor.svelte";
+  import { checkArtUrl } from "$lib/config";
 
   interface Props {
     editor: EditorState;
@@ -34,6 +35,54 @@
     duration: "Duration",
     pause: "Pause symbol",
   };
+
+  // Live check on the pasted fallback image. Format first (cheap), then actually
+  // try to load it, because the usual mistake is a link to the *page* an image
+  // sits on rather than the image file, which only shows up on a real load.
+  type Probe = { level: "ok" | "warn" | "bad" | "checking"; msg: string; src: string };
+  let probe = $state<Probe>({ level: "bad", msg: "", src: "" });
+  $effect(() => {
+    const url = (isArt ? (E?.fallbackArt ?? "") : "").trim();
+    if (!url) {
+      probe = { level: "bad", msg: "", src: "" };
+      return;
+    }
+    const check = checkArtUrl(url);
+    if (check.level === "bad") {
+      probe = { ...check, src: "" };
+      return;
+    }
+    probe = { level: "checking", msg: "Checking that link…", src: "" };
+    let cancelled = false;
+    // Debounced so typing a URL out doesn't fire a request per keystroke.
+    const timer = setTimeout(() => {
+      const img = new Image();
+      img.onload = () => {
+        if (cancelled) return;
+        const size = `${img.naturalWidth}×${img.naturalHeight}`;
+        probe = {
+          level: check.level,
+          msg:
+            check.msg ||
+            `Looks good, ${size}${img.naturalWidth === img.naturalHeight ? "" : ". It's not square, so it'll get cropped to fit the art box"}`,
+          src: url,
+        };
+      };
+      img.onerror = () => {
+        if (!cancelled)
+          probe = {
+            level: "bad",
+            msg: "Couldn't load that one. Make sure it links straight to the image file (right-click the image → Copy image address), not the page it's sitting on.",
+            src: "",
+          };
+      };
+      img.src = url;
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  });
 
   const EASINGS = ["linear", "sineOut", "cubicOut", "quintOut", "backOut", "elasticOut"];
   const inputCls = "w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-sm";
@@ -284,6 +333,39 @@
     {:else if isArt}
       <hr class="border-border" />
       <Slider bind:value={E.radius} min={0} max={100} label="Corner radius" suffix="px" hint="Round the album art's corners. Max makes it a circle." />
+
+      <hr class="border-border" />
+      {@render header(
+        "Fallback image",
+        "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
+        "fallback",
+      )}
+      <input
+        class={inputCls}
+        type="url"
+        spellcheck="false"
+        placeholder="https://example.com/cover.png"
+        aria-label="Fallback image URL"
+        bind:value={E.fallbackArt}
+      />
+      {#if probe.msg}
+        <div class="flex items-start gap-2">
+          {#if probe.src}
+            <img src={probe.src} alt="" class="h-9 w-9 shrink-0 rounded border border-border object-cover" />
+          {/if}
+          <p
+            class="text-[11px] leading-snug {probe.level === 'ok'
+              ? 'text-green-400'
+              : probe.level === 'warn'
+                ? 'text-amber-400'
+                : probe.level === 'checking'
+                  ? 'text-muted-foreground'
+                  : 'text-red-400'}"
+          >
+            {probe.msg}
+          </p>
+        </div>
+      {/if}
     {:else if isProgress}
       <hr class="border-border" />
       <ColorInput bind:value={E.color} label="Fill color" allowAccent hint="The played portion's color. 'auto' follows the accent / album-art color." diagram="auto-color" />

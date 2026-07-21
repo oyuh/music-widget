@@ -49,7 +49,62 @@
 
   const v2 = $derived(cfg.v2!);
   const artSrc = $derived((art || "").trim());
-  const imgUrl = $derived(artSrc);
+  const fallbackArt = $derived((v2.elements.art.fallbackArt || "").trim());
+
+  // ---- which image loads ----
+  // We probe a URL with a SEPARATE off-DOM Image (NOT the displayed <img>) so
+  // detection is decoupled from rendering: the displayed <img>'s `error` also fires
+  // when the {#key} song-switch tears down an in-flight image, which used to hide
+  // perfectly good art. The `cancelled` guard drops a stale probe's result once the
+  // song (URL) changes.
+  type ArtState = "loading" | "ok" | "failed";
+
+  function probeInto(url: string, set: (s: ArtState) => void) {
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (!cancelled) set("ok");
+    };
+    probe.onerror = () => {
+      if (!cancelled) set("failed");
+    };
+    probe.src = url;
+    // Already cached? onload may not fire, so resolve synchronously.
+    if (probe.complete && probe.naturalWidth > 0) set("ok");
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  // The song's own cover. Unchanged from before the fallback existed.
+  let coverState = $state<ArtState>("loading");
+  $effect(() => {
+    const url = artSrc;
+    if (!url) {
+      coverState = "failed";
+      return;
+    }
+    coverState = "loading";
+    return probeInto(url, (s) => (coverState = s));
+  });
+
+  // The user's fallback image, probed ONLY once the cover is confirmed dead. With
+  // no fallback configured `usingFallback` is never true, so `imgUrl` / `artState`
+  // below collapse to plain `artSrc` / `coverState`: the original behavior exactly,
+  // where the art element just disappears.
+  let fbState = $state<ArtState>("loading");
+  $effect(() => {
+    const url = fallbackArt;
+    fbState = "loading";
+    if (!url || coverState !== "failed") return;
+    return probeInto(url, (s) => (fbState = s));
+  });
+
+  const usingFallback = $derived(coverState === "failed" && !!fallbackArt);
+  // What actually renders. Everything downstream (accent extraction, the blurred
+  // background fill) reads this, so the fallback feeds those too.
+  const imgUrl = $derived(usingFallback ? fallbackArt : artSrc);
+  const artState = $derived(usingFallback ? fbState : coverState);
 
   // ---- accent color ----
   // When "auto from art" is on, the accent is the album's dominant color;
@@ -110,35 +165,6 @@
     };
   });
 
-  // Whether the art image actually loads. We probe the URL with a SEPARATE off-DOM
-  // Image (NOT the displayed <img>) so detection is decoupled from rendering: the
-  // displayed <img>'s `error` also fires when the {#key} song-switch tears down an
-  // in-flight image, which used to hide perfectly good art. The `cancelled` guard
-  // drops a stale probe's result once the song (URL) changes.
-  type ArtState = "loading" | "ok" | "failed";
-  let artState = $state<ArtState>("loading");
-  $effect(() => {
-    const url = imgUrl;
-    if (!url) {
-      artState = "failed";
-      return;
-    }
-    artState = "loading";
-    let cancelled = false;
-    const probe = new Image();
-    probe.onload = () => {
-      if (!cancelled) artState = "ok";
-    };
-    probe.onerror = () => {
-      if (!cancelled) artState = "failed";
-    };
-    probe.src = url;
-    // Already cached? onload may not fire, so resolve synchronously.
-    if (probe.complete && probe.naturalWidth > 0) artState = "ok";
-    return () => {
-      cancelled = true;
-    };
-  });
   // Render the art while it's loading or good; only hide it on a confirmed failure.
   const showArt = $derived(artState !== "failed");
   // When the art is gone (no URL OR a URL that won't load) we re-anchor anything snapped
