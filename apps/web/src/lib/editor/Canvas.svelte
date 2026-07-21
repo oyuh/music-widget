@@ -2,6 +2,7 @@
   import { fly, slide } from "svelte/transition";
   import Widget from "$lib/Widget.svelte";
   import ColorInput from "$lib/ui/ColorInput.svelte";
+  import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
   import { type EditorState, type ElementId } from "$lib/editor.svelte";
   import { V2_ELEMENT_IDS, type V2Edge } from "$lib/config";
 
@@ -235,6 +236,10 @@
   const bdBtn = "flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground";
   const bdActive = "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground";
 
+  // ---- experimental features ----
+  let experimentalOpen = $state(false);
+  const experimentalOn = $derived(!!editor.config.experimental?.enabled);
+
   // ---- footer: community / support links ----
   const LINKS = {
     discord: "https://discordapp.com/users/527167786200465418",
@@ -386,6 +391,20 @@
         >
           <svg viewBox="0 0 16 16" class="h-4 w-4" fill="currentColor" aria-hidden="true">
             <rect x="4" y="3" width="3" height="10" rx="1" /><rect x="9" y="3" width="3" height="10" rx="1" />
+          </svg>
+        </button>
+        <span class="mx-0.5 h-5 w-px bg-border"></span>
+        <!-- Experimental features (custom CSS); the modal is the on/off switch -->
+        <button
+          onpointerdown={stop}
+          onclick={() => (experimentalOpen = true)}
+          title="Experimental features"
+          aria-label="Experimental features"
+          class="{bdBtn} {experimentalOn ? 'text-amber-500 hover:text-amber-500' : ''}"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 2v7.31l-5.42 8.13A2 2 0 0 0 6.24 20.5h11.52a2 2 0 0 0 1.66-3.06L14 9.31V2" />
+            <path d="M8.5 2h7" /><path d="M7 15h10" />
           </svg>
         </button>
       </div>
@@ -584,3 +603,6 @@
     </div>
   </footer>
 </div>
+
+<!-- Sibling of the canvas so clicks in the modal don't reach the deselect handler -->
+<ExperimentalModal bind:open={experimentalOpen} {editor} />

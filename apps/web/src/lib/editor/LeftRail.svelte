@@ -11,6 +11,8 @@
   const LASTFM_TIMING_HINT =
     "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
   import SetupModal from "$lib/editor/SetupModal.svelte";
+  import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
+  import { CSS_MAX, CSS_SCOPE } from "$lib/config";
   import { recordWidgetCopy } from "$lib/usage";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
@@ -108,6 +110,52 @@
     byokKey = "";
     editor.save();
     byokOpen = false;
+  }
+
+  // ---- Experimental: custom CSS ----
+  let experimentalOpen = $state(false);
+  let cssOpen = $state(true);
+  const cssOn = $derived(!!editor.config.experimental?.enabled);
+  const cssText = $derived(editor.config.experimental?.css ?? "");
+
+  function setCss(v: string) {
+    const exp = editor.config.experimental;
+    if (!exp) return;
+    exp.css = v.slice(0, CSS_MAX);
+    editor.save();
+  }
+
+  /**
+   * Dump what the widget is actually rendering right now as CSS. Every style the
+   * normal settings produce is inline, so this reads them straight off the live
+   * preview: it's a real starting point rather than a guess at what's applied.
+   */
+  function loadCurrentStyles() {
+    const root = document.querySelector(`.${CSS_SCOPE}`);
+    if (!root) return;
+    const rules: string[] = [];
+    const push = (sel: string, node: Element) => {
+      const decls = (node.getAttribute("style") ?? "")
+        .split(";")
+        .map((d) => d.trim())
+        .filter(Boolean);
+      if (decls.length) rules.push(`${sel} {\n${decls.map((d) => `  ${d};`).join("\n")}\n}`);
+    };
+    for (const node of root.querySelectorAll("[data-el]")) {
+      const sel = `[data-el="${node.getAttribute("data-el")}"]`;
+      push(sel, node);
+      // The wrapper carries position/size; the child carries the paint (font,
+      // color, the progress fill), which is usually what people came here for.
+      const kids = Array.from(node.children);
+      kids.forEach((k, i) => {
+        push(kids.length === 1 ? `${sel} > ${k.tagName.toLowerCase()}` : `${sel} > :nth-child(${i + 1})`, k);
+      });
+    }
+    const header =
+      "/* Your widget as it looks right now. Edit, delete, add whatever.\n" +
+      "   These same values get re-applied inline whenever you touch a setting,\n" +
+      "   so add !important to any rule you want to keep winning. */\n\n";
+    setCss(header + rules.join("\n\n"));
   }
 
   // ---- Dev tools (local dev server only; stripped from production builds) ----
@@ -236,6 +284,47 @@
       <p class="text-[11px] {importOk ? 'text-green-400' : 'text-destructive'}">{importMsg}</p>
     {/if}
   </Collapsible>
+
+  <!-- Custom CSS (experimental; only here once it's switched on) -->
+  {#if cssOn}
+    <Collapsible title="Custom CSS" bind:open={cssOpen} badge="{cssText.length}/{CSS_MAX}">
+      <textarea
+        value={cssText}
+        oninput={(e) => setCss(e.currentTarget.value)}
+        spellcheck="false"
+        rows="14"
+        placeholder={'[data-el="title"] > div {\n  color: hotpink !important;\n}'}
+        class="w-full resize-y rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-[11px] leading-relaxed"
+      ></textarea>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          onclick={loadCurrentStyles}
+          title="Replace the box with your widget's current styles"
+          class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
+        >
+          Load current styles
+        </button>
+        <ConfirmButton
+          label="Clear"
+          confirmLabel="Clear?"
+          class="rounded-md border border-border px-2 py-1.5 text-xs text-red-400 hover:bg-muted"
+          onconfirm={() => setCss("")}
+        />
+      </div>
+      <p class="text-[11px] leading-snug text-muted-foreground">
+        Scoped to your widget, so it can't touch the editor. Settings render as inline styles and
+        beat plain rules, so use <code>!important</code> to win.
+      </p>
+      <button
+        type="button"
+        onclick={() => (experimentalOpen = true)}
+        class="text-left text-[11px] text-amber-500/80 hover:text-amber-500"
+      >
+        Experimental feature · turn it off →
+      </button>
+    </Collapsible>
+  {/if}
 
   {#if isDev}
     <!-- Dev tools (never rendered in production builds) -->
@@ -486,6 +575,8 @@
     </div>
   </div>
 {/if}
+
+<ExperimentalModal bind:open={experimentalOpen} {editor} />
 
 <SetupModal
   bind:open={setupOpen}
