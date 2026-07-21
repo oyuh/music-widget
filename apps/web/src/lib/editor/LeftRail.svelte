@@ -12,7 +12,7 @@
     "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
   import SetupModal from "$lib/editor/SetupModal.svelte";
   import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
-  import { CSS_MAX, CSS_SCOPE } from "$lib/config";
+  import { CSS_DOCS, CSS_MAX, CSS_SCOPE } from "$lib/config";
   import { recordWidgetCopy } from "$lib/usage";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
@@ -315,6 +315,9 @@
       <p class="text-[11px] leading-snug text-muted-foreground">
         Scoped to your widget, so it can't touch the editor. Settings render as inline styles and
         beat plain rules, so use <code>!important</code> to win.
+        <a class="text-primary underline" href={CSS_DOCS} target="_blank" rel="noopener noreferrer">
+          Selectors &amp; examples →
+        </a>
       </p>
       <button
         type="button"

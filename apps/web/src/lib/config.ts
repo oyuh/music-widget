@@ -341,6 +341,9 @@ export const CSS_SCOPE = "mw-widget";
 /** The whole design rides in the URL, so custom CSS gets a budget too. */
 export const CSS_MAX = 4000;
 
+/** Wiki page for the feature; linked from the modal and the sidebar panel. */
+export const CSS_DOCS = "https://github.com/oyuh/music-widget/wiki/Custom-CSS";
+
 // At-rules that are invalid inside a nesting block, so they're hoisted back to
 // the top level instead of being silently dropped by the parser.
 const HOIST_AT = /^@(-\w+-)?(keyframes|font-face|property)\b/i;
