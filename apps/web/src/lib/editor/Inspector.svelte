@@ -396,6 +396,36 @@
       </p>
     {/if}
 
+    <!-- ===== Outline (every element) ===== -->
+    {#if E.stroke}
+      <hr class="border-border" />
+      {@render header("Outline", "A stroke around this element. Handy for keeping text readable on top of busy backgrounds like a game.", "")}
+      <Toggle bind:checked={E.stroke.enabled} label="Enable" />
+      {#if E.stroke.enabled}
+        <Slider bind:value={E.stroke.width} min={0} max={12} step={0.5} label="Thickness" suffix="px" hint="How far the outline reaches past the edge." />
+        {#if !isTextSel}
+          <Segmented
+            bind:value={E.stroke.align}
+            label="Position"
+            options={[
+              { value: "outside", label: "Outside" },
+              { value: "center", label: "Center" },
+              { value: "inside", label: "Inside" },
+            ]}
+            hint="Which side of the edge the outline sits on. Outside keeps the shape intact, inside eats into it."
+          />
+        {/if}
+        <Slider bind:value={E.stroke.opacity} min={0} max={100} label="Opacity" suffix="%" />
+        <ColorInput bind:value={E.stroke.color} label="Outline color" allowAccent />
+        {#if isTextSel}
+          <p class="text-[11px] leading-snug text-muted-foreground">
+            Text outlines are drawn around the letters, never over them, so the words stay readable on a busy
+            background.
+          </p>
+        {/if}
+      {/if}
+    {/if}
+
     <!-- ===== Drop shadow (every element) ===== -->
     <hr class="border-border" />
     {@render header("Drop shadow", "A soft shadow cast behind this element.", "shadow-offset")}

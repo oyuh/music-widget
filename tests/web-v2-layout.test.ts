@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { reflowArtGone, resolveLayout, type Measured } from "../apps/web/src/lib/v2-layout";
+import { elementStrokeCSS, reflowArtGone, resolveLayout, type Measured } from "../apps/web/src/lib/v2-layout";
 import {
   V2_ELEMENT_IDS,
   migrateToV2,
@@ -215,6 +215,53 @@ describe("reflowArtGone", () => {
     const raw = resolveLayout(layout, {});
     const out = reflowArtGone(layout, raw);
     expect(out.album).toEqual(raw.album);
+  });
+});
+
+describe("element stroke CSS", () => {
+  const base = { enabled: true, width: 3, align: "outside", opacity: 50, color: "#000000" } as const;
+
+  test("off, missing, or zero-width yields nothing", () => {
+    expect(elementStrokeCSS(undefined, "#000000")).toBeNull();
+    expect(elementStrokeCSS({ ...base, enabled: false }, "#000000")).toBeNull();
+    expect(elementStrokeCSS({ ...base, width: 0 }, "#000000")).toBeNull();
+  });
+
+  test("opacity becomes the outline color's alpha", () => {
+    expect(elementStrokeCSS(base, "#ff0000")!.text).toContain("rgba(255, 0, 0, 0.5)");
+    expect(elementStrokeCSS({ ...base, opacity: 100 }, "#ff0000")!.box).toContain("rgba(255, 0, 0, 1)");
+  });
+
+  test("text outline is a ring of shadow copies, never a path stroke (no miter spikes)", () => {
+    const css = elementStrokeCSS(base, "#000000")!.text;
+    expect(css).toStartWith("text-shadow:");
+    expect(css).not.toContain("-webkit-text-stroke");
+    // Copies sit on a circle of the outline's radius, so the ring reaches exactly
+    // `width` past the letters in every direction.
+    const offsets = [...css.matchAll(/(-?[\d.]+)px (-?[\d.]+)px 0/g)].map(([, x, y]) => Math.hypot(+x, +y));
+    expect(offsets.length).toBeGreaterThanOrEqual(12);
+    for (const r of offsets) expect(r).toBeCloseTo(3, 2);
+  });
+
+  test("text ignores align: the ring always sits outside so letters stay readable", () => {
+    const outside = elementStrokeCSS(base, "#000000")!;
+    for (const align of ["center", "inside"] as const) {
+      const other = elementStrokeCSS({ ...base, align }, "#000000")!;
+      expect(other.text).toBe(outside.text);
+      expect(other.textOutward).toBe(3);
+    }
+  });
+
+  test("box outline offset moves the ring in by the amount that should be hidden", () => {
+    expect(elementStrokeCSS(base, "#000000")!.box).toContain("outline-offset:0px");
+    expect(elementStrokeCSS({ ...base, align: "center" }, "#000000")!.box).toContain("outline-offset:-1.5px");
+    expect(elementStrokeCSS({ ...base, align: "inside" }, "#000000")!.box).toContain("outline-offset:-3px");
+  });
+
+  test("outward extent (drop shadow spread) matches the visible outer half", () => {
+    expect(elementStrokeCSS(base, "#000000")!.outward).toBe(3);
+    expect(elementStrokeCSS({ ...base, align: "center" }, "#000000")!.outward).toBe(1.5);
+    expect(elementStrokeCSS({ ...base, align: "inside" }, "#000000")!.outward).toBe(0);
   });
 });
 

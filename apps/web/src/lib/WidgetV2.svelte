@@ -12,7 +12,14 @@
     type WidgetConfig,
   } from "./config";
   import { extractDominantColor, hexToRgb } from "./colors";
-  import { resolveLayout, reflowArtGone, elementShadowCSS, type Box, type Measured } from "./v2-layout";
+  import {
+    resolveLayout,
+    reflowArtGone,
+    elementShadowCSS,
+    elementStrokeCSS,
+    type Box,
+    type Measured,
+  } from "./v2-layout";
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
   import { untrack } from "svelte";
@@ -275,6 +282,12 @@
     return c === "accent" ? accentColor(fallbackColor) : (c ?? "#ffffff");
   }
 
+  /** An element's outline CSS, with its own color resolved (so "accent" works). */
+  function strokeOf(id: V2ElementId) {
+    const el = v2.elements[id];
+    return elementStrokeCSS(el.stroke, resolveColor(el.stroke?.color, el.fallbackColor));
+  }
+
   // ---- background fill ----
   const bgFill = $derived(v2.elements.background.fill ?? "color");
   const bgFillOpacity = $derived((v2.elements.background.fillOpacity ?? 100) / 100);
@@ -314,24 +327,47 @@
     ];
     const sh = elementShadowCSS(v2.elements[id].shadow, color);
     if (includeShadow && sh) parts.push(`text-shadow:${sh}`);
+    const stroke = strokeOf(id);
+    if (stroke) parts.push(stroke.text);
     return parts.join(";");
   }
 
-  function posStyle(id: V2ElementId): string {
+  /** Room an element's box must reserve for its outline (0 when there isn't one). */
+  function strokePad(id: V2ElementId): number {
+    const s = strokeOf(id);
+    if (!s) return 0;
+    return Math.ceil(isText(id) ? s.textOutward : s.outward);
+  }
+
+  /**
+   * `padContent` puts the outline's breathing room on the box itself, which is what
+   * a 100%-sized child (art, progress, pause) needs to keep its designed size. Text
+   * carries the padding on its own text layer instead, because that layer is the one
+   * that clips (fixed width, or the marquee's scroll window) and would otherwise
+   * slice the outline off mid-glyph, leaving only the half that falls inside the
+   * glyph box: a centered outline then looks exactly like an inside one.
+   */
+  function posStyle(id: V2ElementId, padContent = true): string {
     const b = boxes[id];
     const el = v2.elements[id];
+    // Outlines (glyph and box alike) paint outside the content and never affect
+    // layout, so the box has to grow around them on purpose. Growing it also keeps
+    // the measured size honest, which is what snapping and the editor's selection
+    // rectangle read.
+    const pad = strokePad(id);
     const parts = [
       "position:absolute",
-      `left:${b.x}px`,
-      `top:${b.y}px`,
+      `left:${b.x - pad}px`,
+      `top:${b.y - pad}px`,
       `z-index:${el.z}`,
       "pointer-events:auto",
     ];
+    if (pad && padContent) parts.push(`padding:${pad}px`);
     // Fixed sizes render from the resolved box, not the config: the art-gone
     // reflow can stretch a fixed width over the gap the art left behind.
     // Auto-sized axes stay unset so content keeps sizing itself.
-    if (el.w != null) parts.push(`width:${b.w}px`);
-    if (el.h != null) parts.push(`height:${b.h}px`);
+    if (el.w != null) parts.push(`width:${b.w + pad * 2}px`);
+    if (el.h != null) parts.push(`height:${b.h + pad * 2}px`);
     return parts.join(";");
   }
 
@@ -354,7 +390,10 @@
     const el = v2.elements.background;
     const b = boxes.background;
     const shBase = bgFill === "accent" ? accentColor(el.fallbackColor) : resolveColor(el.color, el.fallbackColor);
-    const sh = elementShadowCSS(el.shadow, shBase);
+    // An outward outline grows the widget's silhouette, so the drop shadow spreads
+    // by the same amount instead of peeking out from under the outline.
+    const stroke = strokeOf("background");
+    const sh = elementShadowCSS(el.shadow, shBase, stroke?.outward ?? 0);
     return [
       "position:relative",
       `width:${b.w}px`,
@@ -364,6 +403,7 @@
       `font-family:'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system`,
       `opacity:${!preview && wouldHide ? 0 : 1}`,
       sh ? `box-shadow:${sh}` : "",
+      stroke ? stroke.box : "",
     ]
       .filter(Boolean)
       .join(";");
@@ -430,15 +470,15 @@
         {#each childIds as id (id)}
           {#if id === "art"}
             {#if showArt}
+              {@const artStroke = strokeOf("art")}
+              {@const artSh = elementShadowCSS(v2.elements.art.shadow, "#000000", artStroke?.outward ?? 0)}
               <div data-el="art" use:measure={"art"} style={posStyle("art")}>
                 <img
                   src={imgUrl}
                   alt=""
                   onload={onArtLoad}
                   style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements.art.radius ??
-                    12}px;{elementShadowCSS(v2.elements.art.shadow, '#000000')
-                    ? `box-shadow:${elementShadowCSS(v2.elements.art.shadow, '#000000')}`
-                    : ''}"
+                    12}px;{artSh ? `box-shadow:${artSh};` : ''}{artStroke ? artStroke.box : ''}"
                 />
                 {#if showLegacyPause}
                   <div
@@ -453,7 +493,8 @@
           {:else if id === "pause"}
             {#if showPauseSymbol}
               {@const pColor = resolveColor(v2.elements.pause.color, v2.elements.pause.fallbackColor)}
-              {@const pSh = elementShadowCSS(v2.elements.pause.shadow, pColor)}
+              {@const pStroke = strokeOf("pause")}
+              {@const pSh = elementShadowCSS(v2.elements.pause.shadow, pColor, pStroke?.outward ?? 0)}
               {@const pW = boxes.pause.w || 24}
               {@const barW = Math.max(2, Math.round(pW * 0.3))}
               {@const barGap = Math.max(2, Math.round(pW * 0.16))}
@@ -461,14 +502,15 @@
                 <div
                   style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:{barGap}px"
                 >
-                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh}` : ''}"></div>
-                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh}` : ''}"></div>
+                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
+                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
                 </div>
               </div>
             {/if}
           {:else if id === "progress"}
             {@const progColor = resolveColor(v2.elements.progress.color, v2.elements.progress.fallbackColor)}
-            {@const sh = elementShadowCSS(v2.elements.progress.shadow, progColor)}
+            {@const progStroke = strokeOf("progress")}
+            {@const sh = elementShadowCSS(v2.elements.progress.shadow, progColor, progStroke?.outward ?? 0)}
             <div
               data-el="progress"
               use:measure={"progress"}
@@ -476,7 +518,7 @@
             >
               <div
                 style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements.progress.radius ??
-                  4}px;overflow:hidden;{sh ? `box-shadow:${sh}` : ''}"
+                  4}px;overflow:hidden;{sh ? `box-shadow:${sh};` : ''}{progStroke ? progStroke.box : ''}"
               >
                 <div
                   style="height:100%;width:{Math.max(0, Math.min(100, percent))}%;background:{progColor};transition:width 120ms linear"
@@ -495,10 +537,21 @@
                  unclipped and just uses a normal text-shadow. -->
             {@const escape = !!el.shadow?.enabled && !!el.shadow?.escape}
             {@const shadowCss = elementShadowCSS(el.shadow, color)}
+            <!-- text-shadow traces the bare glyph, so once there's an outline the
+                 shadow would read thinner than the letters it sits behind. Switch it
+                 to a drop-shadow FILTER, which works off the rendered pixels and so
+                 includes the outline. Outside escape mode it goes on the text layer
+                 itself, leaving the box free to clip it as before. -->
+            {@const filterShadow = !!shadowCss && (escape || !!strokeOf(id))}
+            {@const pad = strokePad(id)}
+            {@const textStyle =
+              textCss(id, color, !filterShadow) +
+              (pad ? `;padding:${pad}px` : "") +
+              (filterShadow && !escape ? `;filter:drop-shadow(${shadowCss})` : "")}
             <div
               data-el={id}
               use:measure={id}
-              style="{posStyle(id)};text-align:{anchor};{escape && shadowCss
+              style="{posStyle(id, false)};text-align:{anchor};{escape && shadowCss
                 ? `overflow:visible;filter:drop-shadow(${shadowCss})`
                 : fixed
                   ? 'overflow:hidden'
@@ -508,7 +561,7 @@
                 <ScrollText
                   text={textContent(id)}
                   {color}
-                  style={textCss(id, color, !escape)}
+                  style={textStyle}
                   direction={el.scroll.direction}
                   speedPxPerSec={el.scroll.speedPxPerSec}
                   gapPx={el.scroll.gapPx}
@@ -516,7 +569,7 @@
                 />
               {:else}
                 <div
-                  style="{textCss(id, color, !escape)};white-space:nowrap;{escape || fixed
+                  style="{textStyle};white-space:nowrap;{escape || fixed
                     ? 'overflow:hidden;text-overflow:ellipsis'
                     : 'overflow:visible'}"
                 >

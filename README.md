@@ -39,7 +39,7 @@ Technically it's a TypeScript monorepo: a SvelteKit editor and widget SPA, a Bun
 
 ### The Editor
 
-The editor (`/`) is a canvas for laying out the widget's pieces: album art, title, artist, album, a progress bar, and an elapsed/remaining time readout. Elements can be dragged, resized, and snapped to each other, and each one carries its own font, colors, and shadow, plus a per-track-change animation. State autosaves to `localStorage` on every change, so closing the tab doesn't lose work.
+The editor (`/`) is a canvas for laying out the widget's pieces: album art, title, artist, album, a progress bar, and an elapsed/remaining time readout. Elements can be dragged, resized, and snapped to each other, and each one carries its own font, colors, outline, and shadow, plus a per-track-change animation. State autosaves to `localStorage` on every change, so closing the tab doesn't lose work.
 
 ### The Widget URL
 
