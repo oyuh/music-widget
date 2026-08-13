@@ -55,6 +55,9 @@ export function getOppositeColor(hex: string): string {
 }
 
 // Generate drop shadow CSS based on configuration
+// `spread` grows the shadow outward (box-shadow's 4th length) so a shadow can hug
+// an outlined silhouette instead of the bare shape underneath it. Omitted/0 keeps
+// the original 3-length output, which is all text-shadow accepts anyway.
 export function generateDropShadowCSS(
   config: {
     enabled: boolean;
@@ -65,7 +68,8 @@ export function generateDropShadowCSS(
     useOppositeColor: boolean;
     customColor?: string;
   },
-  baseColor: string
+  baseColor: string,
+  spread = 0
 ): string {
   if (!config.enabled) return '';
 
@@ -78,7 +82,8 @@ export function generateDropShadowCSS(
 
   if (!rgb) return '';
 
-  return `${config.offsetX}px ${config.offsetY}px ${config.blur}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+  const sp = spread ? ` ${spread}px` : '';
+  return `${config.offsetX}px ${config.offsetY}px ${config.blur}px${sp} rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
 }
 
 // Generate per-element drop shadow CSS with individual settings

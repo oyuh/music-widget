@@ -114,6 +114,7 @@ function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<Wid
       ...b,
       ...e,
       shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
+      stroke: e.stroke ? { ...b.stroke!, ...e.stroke } : b.stroke,
       scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
       // snapX/snapY can legitimately be null; preserve an explicit value.
       snapX: e.snapX !== undefined ? e.snapX : b.snapX,

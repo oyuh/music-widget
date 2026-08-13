@@ -55,3 +55,4 @@ build/
 # local-only docs + editor/agent tooling (not part of the published project)
 /docs
 .claude/
+/post

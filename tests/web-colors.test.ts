@@ -47,6 +47,10 @@ describe("drop shadow CSS", () => {
     const css = generateDropShadowCSS({ ...base, useOppositeColor: false, customColor: "#ff0000" }, "#000000");
     expect(css).toBe("2px 2px 4px rgba(255, 0, 0, 0.5)");
   });
+  test("spread is omitted when 0 and appended after the blur otherwise", () => {
+    expect(generateDropShadowCSS(base, "#000000", 0)).toBe("2px 2px 4px rgba(255, 255, 255, 0.5)");
+    expect(generateDropShadowCSS(base, "#000000", 3)).toBe("2px 2px 4px 3px rgba(255, 255, 255, 0.5)");
+  });
   test("element shadow respects global + element enabled flags", () => {
     expect(generateElementDropShadowCSS({ ...base, enabled: false }, undefined, "#000000")).toBe("");
     expect(generateElementDropShadowCSS(base, { enabled: false }, "#000000")).toBe("");

@@ -42,6 +42,19 @@ export type V2Shadow = {
   escape?: boolean;
 };
 
+/**
+ * An outline drawn around the element's shape: the glyph outlines for text, the
+ * box edge for everything else. Optional => absent means "no outline", so configs
+ * saved before this existed decode byte-identically.
+ */
+export type V2Stroke = {
+  enabled: boolean;
+  width: number; // visible thickness in px
+  align: "inside" | "center" | "outside"; // which side of the edge the width sits on
+  opacity: number; // 0-100 opacity %
+  color: string; // hex, or "accent" => album-art / accent color
+};
+
 export type V2Scroll = {
   enabled: boolean; // scroll when content overflows the box width
   direction: "left" | "right" | "bounce";
@@ -68,6 +81,7 @@ export type V2Element = {
   fillOpacity: number; // background: 0-100 opacity for the accent / album-art fill; progress: whole-bar opacity
   anchor: "left" | "center" | "right"; // text horizontal anchor (ignored by non-text)
   shadow: V2Shadow;
+  stroke?: V2Stroke; // outline around the element (absent => none)
   scroll: V2Scroll; // text elements only (ignored otherwise)
   snapX: V2Snap; // null = free; set => overrides x (anchored relationship)
   snapY: V2Snap; // null = free; set => overrides y
@@ -587,6 +601,15 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     customColor: ds?.customColor ?? "#000000",
     escape: false,
   });
+  // Nothing in the legacy engine maps to an outline, so every migrated element
+  // starts with one turned off.
+  const defaultStroke = (): V2Stroke => ({
+    enabled: false,
+    width: 2,
+    align: "outside",
+    opacity: 100,
+    color: "#000000",
+  });
 
   const scrollFor = (id: V2TextId): V2Scroll => ({
     enabled: true,
@@ -608,6 +631,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     fillOpacity: 100,
     anchor: oppositeAlign,
     shadow: shadowFor("text", id) ?? defaultShadow(),
+    stroke: defaultStroke(),
     scroll: scrollFor(id),
     snapX: null,
     snapY: null,
@@ -641,6 +665,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     fillOpacity: 100,
     anchor: "left",
     shadow: shadowFor("progressBar") ?? defaultShadow(),
+    stroke: defaultStroke(),
     scroll: noScroll(),
     radius: 4,
     snapX: null,
@@ -668,6 +693,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     anchor: "left",
     radius: 0,
     shadow: defaultShadow(),
+    stroke: defaultStroke(),
     scroll: noScroll(),
     snapX: showArt ? { to: "art", myEdge: "center", toEdge: "center", offset: 0 } : null,
     snapY: showArt ? { to: "art", myEdge: "center", toEdge: "center", offset: 0 } : null,
@@ -688,6 +714,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
       anchor: "left",
       radius: L.backgroundRadius ?? 16,
       shadow: shadowFor("background") ?? defaultShadow(),
+      stroke: defaultStroke(),
       scroll: noScroll(),
       snapX: null,
       snapY: null,
@@ -706,6 +733,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
       anchor: "left",
       radius: L.artRadius ?? 12,
       shadow: shadowFor("albumArt") ?? defaultShadow(),
+      stroke: defaultStroke(),
       scroll: noScroll(),
       snapX: null,
       snapY: null,
