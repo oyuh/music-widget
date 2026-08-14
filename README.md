@@ -54,6 +54,20 @@ There are two layout engines, and the `version` flag in the encoded config picks
 
 A `migrateToV2` step upgrades old grid designs into the equivalent free layout, so existing v1 URLs keep working. The full config shape lives in [`config.ts`](apps/web/src/lib/config.ts).
 
+#### Element instances
+
+v2 elements are keyed by an *instance id*, not by their type. A "kind" is what an element is (`title`, `art`); an id is one instance of it, and the first instance of each kind uses the bare kind name while extras are suffixed:
+
+```
+background, background#2, background#3, art, art#2, title, title#2, …
+```
+
+Up to `MAX_PER_KIND` (3) instances of each kind, each with its own position, size, color, outline, shadow and (for text) typography. Because the first instance keeps the bare name, every design saved before instances existed decodes unchanged and `[data-el="title"]` in someone's custom CSS still points at the same element.
+
+Two behaviors deliberately follow the *primary* instance rather than every copy, since they're widget-wide rather than per-box: the album-art failure reflow (`reflowArtGone`) and the fallback-image URL. Extra art instances are decoration that renders the same cover.
+
+Element ids arrive from a hand-editable URL hash, so `mergeConfig` validates each one (`isValidElementId`), drops unknown kinds and over-cap instances, and nulls out snaps that point at anything that didn't survive.
+
 ### Polling and Progress
 
 Last.fm has no push API, so the widget polls `user.getRecentTracks` and watches the `nowplaying` flag. Since every widget polls from its viewer's own IP (see [below](#browser-direct-lastfm-calls)), the cadence is a flat 1 second regardless of playback state, so track changes, pauses, and playback starting all land within about a second ([`nowplaying.svelte.ts`](apps/web/src/lib/nowplaying.svelte.ts)). The only backoff is a hidden tab (5s), which OBS browser sources never trigger because they always report as visible.

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ELEMENTS, freshConfig, type EditorState } from "$lib/editor.svelte";
+  import { ELEMENTS, freshConfig, labelFor, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
@@ -12,7 +12,7 @@
     "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
   import SetupModal from "$lib/editor/SetupModal.svelte";
   import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
-  import { CSS_DOCS, CSS_MAX, CSS_SCOPE } from "$lib/config";
+  import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
   import { recordWidgetCopy } from "$lib/usage";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
@@ -88,6 +88,14 @@
   }
 
   const pillCls = "rounded border border-border px-1.5 py-0.5 text-[11px] transition hover:bg-muted";
+
+  // Borderless glyph buttons on the element rows: same treatment as the canvas
+  // toolbar, so the row reads as one line instead of a strip of little boxes.
+  const rowAdd =
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded text-base leading-none text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
+  // Not fixed-width: it grows into "Delete?" once armed.
+  const rowDel =
+    "shrink-0 rounded px-1.5 py-1 text-xs leading-none text-muted-foreground transition hover:bg-muted hover:text-red-400";
 
   // The pause symbol only renders in "Show paused" mode, so dim + disable its row
   // when the widget is set to hide entirely while paused (nothing to style there).
@@ -430,29 +438,72 @@
     {/if}
   </Collapsible>
 
-  <!-- Element list -->
+  <!-- Element list. Each kind lists its instances; the "+" copies the one you're
+       looking at, up to MAX_PER_KIND. The first instance can't be deleted (hide
+       it instead), so a design always has a background, a title and so on. -->
   <section class="flex flex-col gap-1">
-    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Elements</div>
-    {#each ELEMENTS as el (el.id)}
-      {@const inactive = el.id === "pause" && pauseInactive}
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={inactive}
-          title={inactive ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it." : undefined}
-          onclick={() => editor.select(el.id)}
-          class="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
-          el.id
-            ? 'bg-primary text-primary-foreground'
-            : 'hover:bg-muted'} {inactive ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : ''}"
-        >
-          <span class="w-4 text-center opacity-70">{el.icon}</span>
-          <span>{el.label}</span>
-        </button>
-        {#if el.id === "progress" || el.id === "duration"}
-          <InfoTip text={LASTFM_TIMING_HINT} label={el.label} />
-        {/if}
-      </div>
+    <div class="flex items-center gap-1 font-pixel text-xs font-medium text-muted-foreground uppercase">
+      Elements
+      <InfoTip
+        text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
+        label="Elements"
+      />
+    </div>
+    {#each ELEMENTS as kind (kind.id)}
+      {@const inactive = kind.id === "pause" && pauseInactive}
+      {@const ids = editor.idsOf(kind.id)}
+      {#each ids as id (id)}
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={inactive}
+            title={inactive
+              ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it."
+              : undefined}
+            onclick={() => editor.select(id)}
+            class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
+            id
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-muted'} {inactive ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : ''}"
+          >
+            <span class="w-4 shrink-0 text-center opacity-70">{kind.icon}</span>
+            <span class="truncate">{labelFor(id)}</span>
+            {#if !editor.el(id).visible && id !== "background"}
+              <span class="ml-auto shrink-0 text-[10px] opacity-60">hidden</span>
+            {/if}
+          </button>
+
+          {#if !isBaseId(id)}
+            <ConfirmButton
+              label="✕"
+              confirmLabel="Delete?"
+              title="Remove this one"
+              class={rowDel}
+              onconfirm={() => editor.removeInstance(id)}
+            />
+          {/if}
+
+          <!-- The + hangs off the LAST instance, so it reads as "add another". -->
+          {#if id === ids[ids.length - 1]}
+            <button
+              type="button"
+              disabled={inactive || !editor.canAdd(kind.id)}
+              onclick={() => editor.duplicate(id)}
+              title={editor.canAdd(kind.id)
+                ? `Add another ${kind.label.toLowerCase()} (copies this one)`
+                : `You can have up to ${MAX_PER_KIND} of these`}
+              aria-label="Add another {kind.label}"
+              class={rowAdd}
+            >
+              +
+            </button>
+          {/if}
+
+          {#if (kind.id === "progress" || kind.id === "duration") && isBaseId(id)}
+            <InfoTip text={LASTFM_TIMING_HINT} label={kind.label} />
+          {/if}
+        </div>
+      {/each}
     {/each}
   </section>
 

@@ -4,7 +4,7 @@
   import ColorInput from "$lib/ui/ColorInput.svelte";
   import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
   import { type EditorState, type ElementId } from "$lib/editor.svelte";
-  import { V2_ELEMENT_IDS, type V2Edge } from "$lib/config";
+  import { kindOf, type V2Edge } from "$lib/config";
 
   interface Props {
     editor: EditorState;
@@ -42,7 +42,7 @@
   let simPaused = $state(false);
   const pauseSelectable = $derived((editor.config.fields.pausedMode ?? "label") === "label");
   const previewPaused = $derived(
-    isPaused || simPaused || (editor.selected === "pause" && pauseSelectable),
+    isPaused || simPaused || (!!editor.selected && kindOf(editor.selected) === "pause" && pauseSelectable),
   );
 
   // Snap guides shown while shift-dragging.
@@ -86,7 +86,7 @@
     let best: SnapCand = null;
     let bestAbs = SNAP_PX;
     const edges: V2Edge[] = ["start", "center", "end"];
-    for (const aid of V2_ELEMENT_IDS) {
+    for (const aid of Object.keys(editor.v2.elements)) {
       if (aid === excludeId || !editor.el(aid).visible) continue;
       const box = localBox(aid);
       if (!box) continue;
@@ -214,7 +214,9 @@
     const el = editor.el(id);
     const baseW = el.w ?? dom?.w ?? 0;
     const baseH = el.h ?? dom?.h ?? 0;
-    const minW = id === "background" ? 120 : 16;
+    // Only the PRIMARY background is the widget frame; an extra one is a box and
+    // can go as small as anything else.
+    const minW = id === "background" ? 120 : 8;
     const minH = id === "background" ? 60 : 8;
     const z = zoom;
     bindDrag((ev) => {

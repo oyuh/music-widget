@@ -5,10 +5,14 @@
     CSS_SCOPE,
     customCssActive,
     formatDurationText,
-    getTextFont,
+    kindOf,
+    resolveTextProps,
     scopeCss,
-    V2_ELEMENT_IDS,
+    textPropsCss,
+    V2_TEXT_IDS,
+    type V2Element,
     type V2ElementId,
+    type V2TextId,
     type WidgetConfig,
   } from "./config";
   import { extractDominantColor, hexToRgb } from "./colors";
@@ -24,9 +28,8 @@
   import * as easings from "svelte/easing";
   import { untrack } from "svelte";
 
-  type TextId = "title" | "artist" | "album" | "duration";
-  const TEXT_IDS: TextId[] = ["title", "artist", "album", "duration"];
-  const isText = (id: V2ElementId): id is TextId => (TEXT_IDS as string[]).includes(id);
+  // Every check here is on an element's KIND, so "title#2" behaves like a title.
+  const isText = (id: V2ElementId): boolean => (V2_TEXT_IDS as readonly string[]).includes(kindOf(id));
 
   interface Props {
     cfg: WidgetConfig;
@@ -289,10 +292,6 @@
   }
 
   // ---- background fill ----
-  const bgFill = $derived(v2.elements.background.fill ?? "color");
-  const bgFillOpacity = $derived((v2.elements.background.fillOpacity ?? 100) / 100);
-  const bgArt = $derived(bgFill === "art" && showArt);
-
   /** Apply an opacity to a solid color (hex or "accent"). */
   function withOpacity(color: string, opacity: number): string {
     if (opacity >= 1) return color;
@@ -300,31 +299,33 @@
     return rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})` : color;
   }
 
-  const containerBg = $derived(
-    (!preview && wouldHide) || bgFill === "none" || bgFill === "art"
-      ? "transparent"
-      : bgFill === "accent"
-        ? withOpacity(accentColor(v2.elements.background.fallbackColor), bgFillOpacity)
-        : resolveColor(v2.elements.background.color, v2.elements.background.fallbackColor),
-  );
+  /**
+   * The solid color a background instance paints. "art" contributes nothing here
+   * because the blurred cover is its own layer (see the bgLayers snippet).
+   */
+  function bgColorOf(el: V2Element): string {
+    const fill = el.fill ?? "color";
+    if (fill === "none" || fill === "art") return "transparent";
+    if (fill === "accent")
+      return withOpacity(accentColor(el.fallbackColor), (el.fillOpacity ?? 100) / 100);
+    return resolveColor(el.color, el.fallbackColor);
+  }
 
-  const boldWeight: Record<TextId, number> = { title: 700, artist: 600, album: 600, duration: 700 };
-  const defaultSize: Record<TextId, number> = { title: 16, artist: 14, album: 12, duration: 11 };
+  /** The tint layer's color, or "" when this background has no tint. */
+  function tintOf(el: V2Element): string {
+    const t = el.tint;
+    if (!t || !(t.opacity > 0)) return "";
+    return withOpacity(resolveColor(t.color, el.fallbackColor), Math.min(100, t.opacity) / 100);
+  }
+
+  const bgEl = $derived(v2.elements.background);
+  const bgFill = $derived(bgEl.fill ?? "color");
+  const containerBg = $derived(!preview && wouldHide ? "transparent" : bgColorOf(bgEl));
 
   // `includeShadow` is false in "escape" mode, where the shadow is rendered as a
   // drop-shadow filter on the (unclipped) wrapper instead of a clipped text-shadow.
-  function textCss(id: TextId, color: string, includeShadow = true): string {
-    const t = cfg.theme;
-    const st = t.textStyle?.[id];
-    const deco = `${st?.underline ? "underline " : ""}${st?.strike ? " line-through" : ""}`.trim();
-    const parts = [
-      `font-family:${getTextFont(id, cfg)}`,
-      `font-size:${t.textSize?.[id] ?? defaultSize[id]}px`,
-      `font-style:${st?.italic ? "italic" : "normal"}`,
-      `font-weight:${st?.bold ? boldWeight[id] : 400}`,
-      `text-decoration:${deco || "none"}`,
-      `color:${color}`,
-    ];
+  function textCss(id: V2ElementId, color: string, includeShadow = true): string {
+    const parts = textPropsCss(resolveTextProps(cfg, id), kindOf(id) as V2TextId, color);
     const sh = elementShadowCSS(v2.elements[id].shadow, color);
     if (includeShadow && sh) parts.push(`text-shadow:${sh}`);
     const stroke = strokeOf(id);
@@ -371,18 +372,21 @@
     return parts.join(";");
   }
 
-  function textContent(id: TextId): string {
-    const raw = id === "title" ? title : id === "artist" ? artist : id === "album" ? album : dur;
-    return applyTextTransform(raw, cfg.theme.textTransform?.[id] ?? "none");
+  function textContent(id: V2ElementId): string {
+    const kind = kindOf(id);
+    const raw = kind === "title" ? title : kind === "artist" ? artist : kind === "album" ? album : dur;
+    return applyTextTransform(raw, resolveTextProps(cfg, id).transform);
   }
 
   const dur = $derived(formatDurationText(progressMs, durationMs, cfg.fields.durationFormat ?? "both"));
 
-  // Visible, z-ordered children (background is the frame itself).
+  // Visible, z-ordered children. Only the PRIMARY background is excluded: it is
+  // the frame itself, so it defines the widget's size. Extra background
+  // instances are ordinary boxes that stack like anything else.
   const childIds = $derived(
-    V2_ELEMENT_IDS.filter((id) => id !== "background" && v2.elements[id].visible).sort(
-      (a, b) => v2.elements[a].z - v2.elements[b].z,
-    ),
+    Object.keys(v2.elements)
+      .filter((id) => id !== "background" && v2.elements[id].visible)
+      .sort((a, b) => v2.elements[a].z - v2.elements[b].z),
   );
 
   // ---- background frame ----
@@ -444,6 +448,33 @@
   }
 </script>
 
+<!--
+  The blurred cover and the tint that can darken it. Shared by the frame and by
+  any extra background instance, so both look the same wherever they sit.
+-->
+{#snippet bgLayers(el: V2Element)}
+  {@const radius = el.radius ?? 16}
+  {@const tint = tintOf(el)}
+  {#if (el.fill ?? "color") === "art" && showArt}
+    <!-- Blurred album art, scaled to the box width and clipped to its corners. -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden" style="border-radius:{radius}px;z-index:0">
+      <img
+        src={imgUrl}
+        alt=""
+        style="position:absolute;left:50%;top:50%;width:100%;height:auto;min-height:100%;transform:translate(-50%,-50%) scale(1.18);filter:blur(18px);object-fit:cover;opacity:{(el.fillOpacity ??
+          100) / 100}"
+      />
+    </div>
+  {/if}
+  {#if tint}
+    <!-- Sits above the fill and below the content, so text stays readable. -->
+    <div
+      class="pointer-events-none absolute inset-0"
+      style="border-radius:{radius}px;background:{tint};z-index:0"
+    ></div>
+  {/if}
+{/snippet}
+
 <div class="relative {CSS_SCOPE}">
   {#if preview && wouldHide}
     <div class="absolute top-1 right-1 z-10 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white">
@@ -452,35 +483,39 @@
   {/if}
 
   <div style={containerStyle} data-el="background">
-    {#if bgArt}
-      <!-- Blurred album art, scaled to the widget width and clipped to the frame. -->
-      <div
-        class="pointer-events-none absolute inset-0 overflow-hidden"
-        style="border-radius:{v2.elements.background.radius ?? 16}px;z-index:0"
-      >
-        <img
-          src={imgUrl}
-          alt=""
-          style="position:absolute;left:50%;top:50%;width:100%;height:auto;min-height:100%;transform:translate(-50%,-50%) scale(1.18);filter:blur(18px);object-fit:cover;opacity:{bgFillOpacity}"
-        />
-      </div>
-    {/if}
+    {@render bgLayers(bgEl)}
     {#key trackKey}
       <div class="v2-layer" in:switchIn style="position:absolute;inset:0;pointer-events:none">
         {#each childIds as id (id)}
-          {#if id === "art"}
+          {@const kind = kindOf(id)}
+          {#if kind === "background"}
+            <!-- An extra background: an ordinary z-ordered box, unlike the primary
+                 one, which IS the widget frame and so sizes everything else. -->
+            {@const bg = v2.elements[id]}
+            {@const bgStroke = strokeOf(id)}
+            {@const bgSh = elementShadowCSS(bg.shadow, bgColorOf(bg) || "#000000", bgStroke?.outward ?? 0)}
+            <div
+              data-el={id}
+              use:measure={id}
+              style="{posStyle(id)};border-radius:{bg.radius ?? 16}px;background:{bgColorOf(
+                bg,
+              )};overflow:hidden;{bgSh ? `box-shadow:${bgSh};` : ''}{bgStroke ? bgStroke.box : ''}"
+            >
+              {@render bgLayers(bg)}
+            </div>
+          {:else if kind === "art"}
             {#if showArt}
-              {@const artStroke = strokeOf("art")}
-              {@const artSh = elementShadowCSS(v2.elements.art.shadow, "#000000", artStroke?.outward ?? 0)}
-              <div data-el="art" use:measure={"art"} style={posStyle("art")}>
+              {@const artStroke = strokeOf(id)}
+              {@const artSh = elementShadowCSS(v2.elements[id].shadow, "#000000", artStroke?.outward ?? 0)}
+              <div data-el={id} use:measure={id} style={posStyle(id)}>
                 <img
                   src={imgUrl}
                   alt=""
                   onload={onArtLoad}
-                  style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements.art.radius ??
+                  style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements[id].radius ??
                     12}px;{artSh ? `box-shadow:${artSh};` : ''}{artStroke ? artStroke.box : ''}"
                 />
-                {#if showLegacyPause}
+                {#if showLegacyPause && id === "art"}
                   <div
                     style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;gap:2px"
                   >
@@ -490,15 +525,15 @@
                 {/if}
               </div>
             {/if}
-          {:else if id === "pause"}
+          {:else if kind === "pause"}
             {#if showPauseSymbol}
-              {@const pColor = resolveColor(v2.elements.pause.color, v2.elements.pause.fallbackColor)}
-              {@const pStroke = strokeOf("pause")}
-              {@const pSh = elementShadowCSS(v2.elements.pause.shadow, pColor, pStroke?.outward ?? 0)}
-              {@const pW = boxes.pause.w || 24}
+              {@const pColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
+              {@const pStroke = strokeOf(id)}
+              {@const pSh = elementShadowCSS(v2.elements[id].shadow, pColor, pStroke?.outward ?? 0)}
+              {@const pW = boxes[id].w || 24}
               {@const barW = Math.max(2, Math.round(pW * 0.3))}
               {@const barGap = Math.max(2, Math.round(pW * 0.16))}
-              <div data-el="pause" use:measure={"pause"} style={posStyle("pause")}>
+              <div data-el={id} use:measure={id} style={posStyle(id)}>
                 <div
                   style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:{barGap}px"
                 >
@@ -507,17 +542,17 @@
                 </div>
               </div>
             {/if}
-          {:else if id === "progress"}
-            {@const progColor = resolveColor(v2.elements.progress.color, v2.elements.progress.fallbackColor)}
-            {@const progStroke = strokeOf("progress")}
-            {@const sh = elementShadowCSS(v2.elements.progress.shadow, progColor, progStroke?.outward ?? 0)}
+          {:else if kind === "progress"}
+            {@const progColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
+            {@const progStroke = strokeOf(id)}
+            {@const sh = elementShadowCSS(v2.elements[id].shadow, progColor, progStroke?.outward ?? 0)}
             <div
-              data-el="progress"
-              use:measure={"progress"}
-              style="{posStyle('progress')};opacity:{(v2.elements.progress.fillOpacity ?? 100) / 100}"
+              data-el={id}
+              use:measure={id}
+              style="{posStyle(id)};opacity:{(v2.elements[id].fillOpacity ?? 100) / 100}"
             >
               <div
-                style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements.progress.radius ??
+                style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements[id].radius ??
                   4}px;overflow:hidden;{sh ? `box-shadow:${sh};` : ''}{progStroke ? progStroke.box : ''}"
               >
                 <div

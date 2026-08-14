@@ -1,9 +1,11 @@
 <script lang="ts">
   import {
     applyTextTransform,
+    BOLD_WEIGHT,
     formatDurationText,
-    getTextFont,
-    V2_ELEMENT_IDS,
+    kindOf,
+    resolveTextProps,
+    V2_TEXT_IDS,
     type V2Element,
     type V2ElementId,
     type V2TextId,
@@ -30,10 +32,7 @@
   const SAMPLE_PROGRESS_MS = 63000;
   const SAMPLE_DURATION_MS = 180000;
 
-  const BOLD_WEIGHT: Record<V2TextId, number> = { title: 700, artist: 600, album: 600, duration: 700 };
-  const DEFAULT_SIZE: Record<V2TextId, number> = { title: 16, artist: 14, album: 12, duration: 11 };
-  const TEXT_IDS: readonly V2TextId[] = ["title", "artist", "album", "duration"];
-  const isText = (id: V2ElementId): id is V2TextId => (TEXT_IDS as readonly string[]).includes(id);
+  const isText = (id: V2ElementId): boolean => (V2_TEXT_IDS as readonly string[]).includes(kindOf(id));
 
   // Shared offscreen context for text measurement (feeds auto-sized snaps).
   let measureCtx: CanvasRenderingContext2D | null = null;
@@ -69,22 +68,22 @@
   const resolveColor = (c: string | undefined, fallback?: string) =>
     c === "accent" ? (accent ?? fallback ?? "#ffffff") : (c ?? "#ffffff");
 
-  function sampleText(id: V2TextId): string {
+  function sampleText(id: V2ElementId): string {
+    const kind = kindOf(id) as V2TextId;
     const raw =
-      id === "duration"
+      kind === "duration"
         ? formatDurationText(SAMPLE_PROGRESS_MS, SAMPLE_DURATION_MS, config.fields.durationFormat ?? "both")
-        : SAMPLE[id];
-    return applyTextTransform(raw, config.theme.textTransform?.[id] ?? "none");
+        : SAMPLE[kind];
+    return applyTextTransform(raw, resolveTextProps(config, id).transform);
   }
 
-  function fontCss(id: V2TextId): { size: number; family: string; style: string; weight: number } {
-    const t = config.theme;
-    const st = t.textStyle?.[id];
+  function fontCss(id: V2ElementId): { size: number; family: string; style: string; weight: number } {
+    const r = resolveTextProps(config, id);
     return {
-      size: t.textSize?.[id] ?? DEFAULT_SIZE[id],
-      family: getTextFont(id, config),
-      style: st?.italic ? "italic" : "normal",
-      weight: st?.bold ? BOLD_WEIGHT[id] : 400,
+      size: r.size,
+      family: r.family,
+      style: r.italic ? "italic" : "normal",
+      weight: r.bold ? BOLD_WEIGHT[kindOf(id) as V2TextId] : 400,
     };
   }
 
@@ -92,7 +91,7 @@
     if (!els) return null;
     void fontsReady; // re-resolve once real fonts arrive
     const measured: Measured = {};
-    for (const id of TEXT_IDS) {
+    for (const id of Object.keys(els).filter(isText)) {
       const f = fontCss(id);
       measured[id] = {
         w: Math.ceil(textWidth(sampleText(id), `${f.style} ${f.weight} ${f.size}px ${f.family}`)),
@@ -110,15 +109,14 @@
   // placeholder renders as "playing", where the pause symbol is hidden).
   const childIds = $derived(
     els
-      ? V2_ELEMENT_IDS.filter((id) => id !== "background" && id !== "pause" && els[id].visible).sort(
-          (a, b) => els[a].z - els[b].z,
-        )
+      ? Object.keys(els)
+          .filter((id) => id !== "background" && kindOf(id) !== "pause" && els[id].visible)
+          .sort((a, b) => els[a].z - els[b].z)
       : [],
   );
 
-  const containerBg = $derived.by(() => {
-    if (!els) return "transparent";
-    const bg = els.background;
+  /** Solid fill for a background instance (the blurred art is its own layer). */
+  function bgColorOf(bg: V2Element): string {
     const fill = bg.fill ?? "color";
     if (fill === "none" || fill === "art") return "transparent";
     if (fill === "accent") {
@@ -126,12 +124,23 @@
       return o >= 1 ? accent : `color-mix(in srgb, ${accent} ${o * 100}%, transparent)`;
     }
     return resolveColor(bg.color, bg.fallbackColor);
-  });
+  }
 
-  function textStyleCss(id: V2TextId, el: V2Element, color: string): string {
+  /** Tint layer color for a background instance, or "" when it has none. */
+  function tintOf(bg: V2Element): string {
+    const t = bg.tint;
+    if (!t || !(t.opacity > 0)) return "";
+    const c = resolveColor(t.color, bg.fallbackColor);
+    const o = Math.min(100, t.opacity) / 100;
+    return o >= 1 ? c : `color-mix(in srgb, ${c} ${o * 100}%, transparent)`;
+  }
+
+  const containerBg = $derived(els ? bgColorOf(els.background) : "transparent");
+
+  function textStyleCss(id: V2ElementId, el: V2Element, color: string): string {
     const f = fontCss(id);
-    const st = config.theme.textStyle?.[id];
-    const deco = `${st?.underline ? "underline " : ""}${st?.strike ? " line-through" : ""}`.trim();
+    const r = resolveTextProps(config, id);
+    const deco = `${r.underline ? "underline " : ""}${r.strike ? " line-through" : ""}`.trim();
     const sh = elementShadowCSS(el.shadow, color);
     return [
       `font-family:${f.family}`,
@@ -157,6 +166,23 @@
   }
 </script>
 
+<!-- Blurred sample art + tint, mirroring the live widget's background layers. -->
+{#snippet bgLayers(bg: V2Element)}
+  {@const radius = bg.radius ?? 16}
+  {@const tint = tintOf(bg)}
+  {#if (bg.fill ?? "color") === "art" && bg.visible}
+    <div class="absolute inset-0 overflow-hidden" style="border-radius:{radius}px;z-index:0">
+      <div
+        class="absolute inset-0"
+        style="background:{SAMPLE_ART};transform:scale(1.18);filter:blur(18px);opacity:{(bg.fillOpacity ?? 100) / 100}"
+      ></div>
+    </div>
+  {/if}
+  {#if tint}
+    <div class="absolute inset-0" style="border-radius:{radius}px;background:{tint};z-index:0"></div>
+  {/if}
+{/snippet}
+
 <div
   class="canvas-checker relative h-14 w-full overflow-hidden rounded-md border border-border/60"
   bind:clientWidth={frameW}
@@ -172,20 +198,19 @@
         ? `box-shadow:${elementShadowCSS(els.background.shadow, containerBg)}`
         : ''}"
     >
-      {#if (els.background.fill ?? "color") === "art" && els.background.visible}
-        <!-- Blurred sample art fill, clipped to the frame like the live widget -->
-        <div class="absolute inset-0 overflow-hidden" style="border-radius:{els.background.radius ?? 16}px;z-index:0">
-          <div
-            class="absolute inset-0"
-            style="background:{SAMPLE_ART};transform:scale(1.18);filter:blur(18px);opacity:{(els.background
-              .fillOpacity ?? 100) / 100}"
-          ></div>
-        </div>
-      {/if}
+      {@render bgLayers(els.background)}
 
       {#each childIds as id (id)}
         {@const el = els[id]}
-        {#if id === "art"}
+        {@const kind = kindOf(id)}
+        {#if kind === "background"}
+          <div
+            class="absolute overflow-hidden"
+            style="{posCss(id, el)};border-radius:{el.radius ?? 16}px;background:{bgColorOf(el)}"
+          >
+            {@render bgLayers(el)}
+          </div>
+        {:else if kind === "art"}
           <div
             class="absolute"
             style="{posCss(id, el)};border-radius:{el.radius ?? 6}px;background:{SAMPLE_ART};{elementShadowCSS(
@@ -195,7 +220,7 @@
               ? `box-shadow:${elementShadowCSS(el.shadow, '#ffffff')}`
               : ''}"
           ></div>
-        {:else if id === "progress"}
+        {:else if kind === "progress"}
           {@const progColor = resolveColor(el.color, el.fallbackColor)}
           {@const sh = elementShadowCSS(el.shadow, progColor)}
           <div class="absolute" style="{posCss(id, el)};opacity:{(el.fillOpacity ?? 100) / 100}">

@@ -3,7 +3,13 @@
 // ---- v2 element-based layout (additive; legacy renderer ignores these) ----
 // `version` rides along in the encoded base64 so the renderer/editor know which
 // engine a design uses: absent/1 => legacy grid, 2 => v2 free-positioned.
-export const V2_ELEMENT_IDS = [
+//
+// A "kind" is what an element IS (a title, the album art). An "id" is one
+// INSTANCE of a kind: the first is the bare kind name, extras get a "#2"/"#3"
+// suffix. Designs saved before instances existed only ever carry bare names, so
+// they decode and render byte-identically, and `[data-el="title"]` in someone's
+// custom CSS keeps pointing at the same element it always did.
+export const V2_KINDS = [
   "background",
   "art",
   "title",
@@ -13,9 +19,61 @@ export const V2_ELEMENT_IDS = [
   "duration",
   "pause",
 ] as const;
-export type V2ElementId = (typeof V2_ELEMENT_IDS)[number];
+export type V2Kind = (typeof V2_KINDS)[number];
+/** One instance of a kind: "title", "title#2", "title#3". */
+export type V2ElementId = string;
 export const V2_TEXT_IDS = ["title", "artist", "album", "duration"] as const;
 export type V2TextId = (typeof V2_TEXT_IDS)[number];
+
+/** How many instances of one kind a design may carry (the base one included). */
+export const MAX_PER_KIND = 3;
+
+/** Instance id => the kind it is an instance of. */
+export function kindOf(id: V2ElementId): V2Kind {
+  const i = id.indexOf("#");
+  return (i === -1 ? id : id.slice(0, i)) as V2Kind;
+}
+
+/** True for the first instance of a kind, i.e. the bare "title" / "art" / … id. */
+export function isBaseId(id: V2ElementId): boolean {
+  return !id.includes("#");
+}
+
+/**
+ * Element ids arrive from a hand-editable URL hash, so anything that isn't a
+ * known kind with an in-range instance suffix gets dropped rather than trusted.
+ */
+export function isValidElementId(id: string): boolean {
+  const m = /^([a-z]+)(?:#(\d+))?$/.exec(id);
+  if (!m) return false;
+  if (!(V2_KINDS as readonly string[]).includes(m[1])) return false;
+  if (m[2] === undefined) return true;
+  const n = Number(m[2]);
+  return n >= 2 && n <= MAX_PER_KIND;
+}
+
+/** Every id of a kind present in an element map, base first. */
+export function instanceIds(elements: Record<V2ElementId, V2Element>, kind: V2Kind): V2ElementId[] {
+  return Object.keys(elements).filter((id) => kindOf(id) === kind);
+}
+
+/** The next free id for a kind, or null once the cap is reached. */
+export function nextInstanceId(
+  elements: Record<V2ElementId, V2Element>,
+  kind: V2Kind,
+): V2ElementId | null {
+  for (let n = 1; n <= MAX_PER_KIND; n++) {
+    const id = n === 1 ? kind : `${kind}#${n}`;
+    if (!elements[id]) return id;
+  }
+  return null;
+}
+
+/** Human label for one instance, e.g. "Title" / "Title 2". */
+export function instanceLabel(id: V2ElementId, kindLabel: string): string {
+  const i = id.indexOf("#");
+  return i === -1 ? kindLabel : `${kindLabel} ${id.slice(i + 1)}`;
+}
 
 /** Which edge of an element an axis anchors against. */
 export type V2Edge = "start" | "center" | "end";
@@ -65,6 +123,36 @@ export type V2Scroll = {
 /** Background fill mode (background element only). */
 export type V2Fill = "none" | "color" | "accent" | "art";
 
+/**
+ * A flat color painted over a background's fill but under everything else, so a
+ * blurred album cover can be darkened (or tinted) until the text on top of it
+ * reads. Without this the fill's opacity slider only fades the art toward
+ * whatever is BEHIND the widget, which on a stream is usually the game.
+ * Optional => absent means nothing is painted, so old configs are unchanged.
+ */
+export type V2Tint = {
+  color: string; // hex, or "accent"
+  opacity: number; // 0-100
+};
+
+/**
+ * Per-instance typography. Absent (the normal case for a design's first title /
+ * artist / album / duration) => the element uses the kind-wide theme settings,
+ * which is what every config saved before instances existed does. A duplicated
+ * text element carries its own block so "Title 2" can be a different size and
+ * font from "Title". `font: ""` means "use the widget's global font", which is
+ * distinct from an absent font (= follow the theme's per-kind font).
+ */
+export type V2TextOverride = {
+  size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  transform?: "none" | "uppercase" | "lowercase";
+  font?: string;
+};
+
 export type V2Element = {
   visible: boolean;
   x: number; // free position (px) from the widget's top-left
@@ -89,7 +177,11 @@ export type V2Element = {
   // Art element only: image URL to show when the song has no cover, or the cover
   // fails to load. Empty/absent => the art just disappears (existing behavior).
   fallbackArt?: string;
-  // Typography reuses theme.textSize/textStyle/textTransform/textFont[id].
+  // Background only: color layer over the fill (absent => none).
+  tint?: V2Tint;
+  // Text only: per-instance typography (absent => theme.textSize/textStyle/
+  // textTransform/textFont for this element's kind).
+  text?: V2TextOverride;
 };
 
 export type V2SwitchAnim = {
@@ -100,6 +192,7 @@ export type V2SwitchAnim = {
 };
 
 export type WidgetV2 = {
+  /** Keyed by instance id (see V2_KINDS): "title", "title#2", … */
   elements: Record<V2ElementId, V2Element>;
   switchAnim: V2SwitchAnim;
   // Runtime-only, set during merge (never encoded/edited): the decoded config
@@ -397,8 +490,35 @@ export function customCssActive(c: WidgetConfig | null | undefined): boolean {
   return !!c?.experimental?.enabled && !!c.experimental.css.trim();
 }
 
+/**
+ * Drop every element field that already equals the baseline `mergeConfig`
+ * rebuilds from the legacy fields when decoding, because it re-applies that
+ * baseline anyway. Lossless by construction: the legacy fields the baseline is
+ * derived from are themselves encoded in full, so both sides compute the same
+ * one.
+ *
+ * Worth doing because the whole design rides in the URL and an element spells
+ * out ~18 fields whether or not the design ever touched them. A default design
+ * drops from about 8k characters to under 3k, and that scales with how many
+ * element instances a design carries.
+ */
+function trimForEncode(c: WidgetConfig): WidgetConfig {
+  if (c.version !== 2 || !c.v2) return c;
+  const out = JSON.parse(JSON.stringify(c)) as WidgetConfig;
+  const baseline = migrateToV2(out).v2!.elements;
+  for (const [id, el] of Object.entries(out.v2!.elements)) {
+    const b = baseline[kindOf(id)] as unknown as Record<string, unknown> | undefined;
+    const kept: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(el)) {
+      if (JSON.stringify(v) !== JSON.stringify(b?.[k])) kept[k] = v;
+    }
+    out.v2!.elements[id] = kept as V2Element;
+  }
+  return out;
+}
+
 export function encodeConfig(c: WidgetConfig): string {
-  const json = JSON.stringify(c);
+  const json = JSON.stringify(trimForEncode(c));
   const b64 = btoa(unescape(encodeURIComponent(json)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   return b64;
@@ -498,7 +618,79 @@ export function getUsedFonts(config: WidgetConfig): string[] {
     });
   }
 
+  // Duplicated text elements carry their own font, which would otherwise never
+  // get requested from Google Fonts and would silently render as the fallback.
+  for (const el of Object.values(config.v2?.elements ?? {})) {
+    if (el.text?.font) fonts.add(el.text.font);
+  }
+
   return Array.from(fonts);
+}
+
+// ---- per-element typography ----
+
+export const DEFAULT_TEXT_SIZE: Record<V2TextId, number> = {
+  title: 16,
+  artist: 14,
+  album: 12,
+  duration: 11,
+};
+
+/** Weight used for a text kind when its style is bold. */
+export const BOLD_WEIGHT: Record<V2TextId, number> = {
+  title: 700,
+  artist: 600,
+  album: 600,
+  duration: 700,
+};
+
+export type ResolvedText = {
+  size: number;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  transform: "none" | "uppercase" | "lowercase";
+  font: string; // bare Google font key
+  family: string; // ready-to-use CSS font-family stack
+};
+
+/**
+ * The typography one text INSTANCE actually renders with: its own override when
+ * it has one, otherwise the kind-wide theme setting. Every renderer goes through
+ * this so a duplicated title can differ from the original while an untouched
+ * design keeps reading exactly the values it always did.
+ */
+export function resolveTextProps(cfg: WidgetConfig, id: V2ElementId): ResolvedText {
+  const kind = kindOf(id) as V2TextId;
+  const t = cfg.theme;
+  const o = cfg.v2?.elements?.[id]?.text;
+  const st = t.textStyle?.[kind];
+  // "" is an explicit "use the global font"; undefined falls through to the theme.
+  const font = (o?.font ?? t.textFont?.[kind]) || t.font;
+  return {
+    size: o?.size ?? t.textSize?.[kind] ?? DEFAULT_TEXT_SIZE[kind],
+    bold: o?.bold ?? st?.bold ?? false,
+    italic: o?.italic ?? st?.italic ?? false,
+    underline: o?.underline ?? st?.underline ?? false,
+    strike: o?.strike ?? st?.strike ?? false,
+    transform: o?.transform ?? t.textTransform?.[kind] ?? "none",
+    font,
+    family: `'${font}', ui-sans-serif, system-ui, -apple-system`,
+  };
+}
+
+/** The CSS a resolved text style turns into, shared by every renderer. */
+export function textPropsCss(r: ResolvedText, kind: V2TextId, color: string): string[] {
+  const deco = `${r.underline ? "underline " : ""}${r.strike ? " line-through" : ""}`.trim();
+  return [
+    `font-family:${r.family}`,
+    `font-size:${r.size}px`,
+    `font-style:${r.italic ? "italic" : "normal"}`,
+    `font-weight:${r.bold ? BOLD_WEIGHT[kind] : 400}`,
+    `text-decoration:${deco || "none"}`,
+    `color:${color}`,
+  ];
 }
 
 // ---- v2 migration ----

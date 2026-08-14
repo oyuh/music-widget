@@ -179,9 +179,12 @@
       // the free coordinate, so nudge that instead.
       if (e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const sel = editor.selected;
+        // Only the PRIMARY background is pinned (it's the widget frame); extra
+        // background instances nudge like any other element.
         if (!sel || sel === "background" || !editor.config.v2) return;
-        e.preventDefault();
         const el = editor.config.v2.elements[sel];
+        if (!el) return;
+        e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const sx = editor.snapActive(sel, "x") ? el.snapX : null;
         const sy = editor.snapActive(sel, "y") ? el.snapY : null;

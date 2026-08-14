@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
 import { elementStrokeCSS, reflowArtGone, resolveLayout, type Measured } from "../apps/web/src/lib/v2-layout";
 import {
-  V2_ELEMENT_IDS,
+  V2_KINDS,
   migrateToV2,
   defaultConfig,
   type V2Element,
@@ -34,7 +34,7 @@ function el(over: Partial<V2Element> = {}): V2Element {
 /** Build a full v2 layout from a few element overrides. */
 function v2(overrides: Partial<Record<V2ElementId, Partial<V2Element>>> = {}): WidgetV2 {
   const elements = {} as Record<V2ElementId, V2Element>;
-  for (const id of V2_ELEMENT_IDS) elements[id] = el(overrides[id]);
+  for (const id of V2_KINDS) elements[id] = el(overrides[id]);
   return { elements, switchAnim: { type: "fade", direction: "up", durationMs: 350, easing: "cubicOut" } };
 }
 
@@ -270,7 +270,7 @@ describe("migrateToV2", () => {
     const out = migrateToV2(defaultConfig);
     expect(out.version).toBe(2);
     expect(out.v2).toBeTruthy();
-    for (const id of V2_ELEMENT_IDS) expect(out.v2!.elements[id]).toBeTruthy();
+    for (const id of V2_KINDS) expect(out.v2!.elements[id]).toBeTruthy();
   });
 
   test("background box matches the legacy widget size; art uses artSize", () => {
