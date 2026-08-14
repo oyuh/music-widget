@@ -38,6 +38,7 @@ Every element in the widget has a `data-el` attribute. The wrapper carries posit
 | What | Wrapper | Inner bit |
 |------|---------|-----------|
 | Background / the whole frame | `[data-el="background"]` | (the frame itself) |
+| An extra background box | `[data-el="background#2"]` | (the box itself) |
 | Album art | `[data-el="art"]` | `[data-el="art"] > img` |
 | Title | `[data-el="title"]` | `[data-el="title"] > div` |
 | Artist | `[data-el="artist"]` | `[data-el="artist"] > div` |
@@ -47,6 +48,27 @@ Every element in the widget has a `data-el` attribute. The wrapper carries posit
 | Pause symbol | `[data-el="pause"]` | `[data-el="pause"] > div > div` is each bar |
 
 Not sure what a selector should be? Hit **Load current styles** in the panel. It dumps your widget's styles exactly as they're rendering right now, so you get a real, working starting point instead of guessing. Delete what you don't need (rules without `!important` do nothing anyway, and the whole thing gets packed into your widget URL).
+
+### Copies of an element
+
+You can have up to three of most elements. The first one keeps the plain name, and the copies get numbered:
+
+| Which one | Selector |
+|-----------|----------|
+| The first title | `[data-el="title"]` |
+| The second | `[data-el="title#2"]` |
+| The third | `[data-el="title#3"]` |
+
+Same for every kind: `[data-el="background#2"]`, `[data-el="art#2"]`, and so on. Everything else works the same, so `[data-el="title#2"] > div` is that copy's text.
+
+Because the first one never gets a number, CSS you wrote before copies existed keeps hitting exactly the element it always did.
+
+To style every copy at once, use a prefix match:
+
+```css
+/* all titles, numbered or not */
+[data-el^="title"] > div { letter-spacing: 0.04em; }
+```
 
 ### Scrolling text
 

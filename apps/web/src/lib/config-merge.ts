@@ -2,8 +2,11 @@ import {
   CSS_MAX,
   decodeConfig,
   defaultConfig,
+  isValidElementId,
+  kindOf,
+  MAX_PER_KIND,
   migrateToV2,
-  V2_ELEMENT_IDS,
+  V2_KINDS,
   type V2Element,
   type V2ElementId,
   type WidgetConfig,
@@ -107,19 +110,43 @@ export function mergeConfig(partial: Partial<WidgetConfig> | null | undefined): 
 function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<WidgetConfig, "version" | "v2"> {
   const base = migrateToV2(legacyMerged).v2!;
   const elements = {} as Record<V2ElementId, V2Element>;
-  for (const id of V2_ELEMENT_IDS) {
-    const b = base.elements[id];
-    const e: Partial<V2Element> = pv?.elements?.[id] ?? {};
-    elements[id] = {
-      ...b,
-      ...e,
-      shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
-      stroke: e.stroke ? { ...b.stroke!, ...e.stroke } : b.stroke,
-      scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
-      // snapX/snapY can legitimately be null; preserve an explicit value.
-      snapX: e.snapX !== undefined ? e.snapX : b.snapX,
-      snapY: e.snapY !== undefined ? e.snapY : b.snapY,
-    };
+
+  const merge = (b: V2Element, e: Partial<V2Element>): V2Element => ({
+    ...b,
+    ...e,
+    shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
+    stroke: e.stroke ? { ...b.stroke!, ...e.stroke } : b.stroke,
+    scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
+    // snapX/snapY can legitimately be null; preserve an explicit value.
+    snapX: e.snapX !== undefined ? e.snapX : b.snapX,
+    snapY: e.snapY !== undefined ? e.snapY : b.snapY,
+  });
+
+  // The base instance of every kind always exists, so a design can never decode
+  // into a widget with no background or no title to fall back on.
+  for (const kind of V2_KINDS) {
+    elements[kind] = merge(base.elements[kind], pv?.elements?.[kind] ?? {});
+  }
+
+  // Extra instances ("title#2"), keyed off the base element of their kind so a
+  // partial entry still lands on sane values. The hash is hand-editable, so an
+  // unknown kind, an out-of-range suffix, or more than the cap gets dropped
+  // rather than trusted into the renderer.
+  const perKind = new Map<string, number>(V2_KINDS.map((k) => [k, 1]));
+  for (const [id, e] of Object.entries(pv?.elements ?? {})) {
+    if (elements[id] || !isValidElementId(id) || !e) continue;
+    const kind = kindOf(id);
+    const used = perKind.get(kind) ?? 1;
+    if (used >= MAX_PER_KIND) continue;
+    perKind.set(kind, used + 1);
+    elements[id] = merge(base.elements[kind], e as Partial<V2Element>);
+  }
+
+  // A snap can only anchor to an element that survived the pass above; a
+  // dangling reference would otherwise silently pin the element at 0.
+  for (const el of Object.values(elements)) {
+    if (el.snapX && !elements[el.snapX.to]) el.snapX = null;
+    if (el.snapY && !elements[el.snapY.to]) el.snapY = null;
   }
   // Configs encoded before the pause element existed carry no `pause` entry.
   // Flag them (recomputed from presence, never trusted from the payload) so the

@@ -5,8 +5,9 @@
   import Segmented from "$lib/ui/Segmented.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
-  import { TEXT_ELEMENTS, type EditorState, type ElementId } from "$lib/editor.svelte";
-  import { checkArtUrl } from "$lib/config";
+  import { fly } from "svelte/transition";
+  import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
+  import { checkArtUrl, kindOf } from "$lib/config";
 
   interface Props {
     editor: EditorState;
@@ -18,23 +19,55 @@
   const v2 = $derived(cfg.v2!);
   const E = $derived(sel ? v2.elements[sel] : null);
 
-  const isTextSel = $derived(!!sel && (TEXT_ELEMENTS as readonly string[]).includes(sel));
-  const tel = $derived(sel as "title" | "artist" | "album" | "duration");
-  const isBg = $derived(sel === "background");
-  const isArt = $derived(sel === "art");
-  const isProgress = $derived(sel === "progress");
-  const isPause = $derived(sel === "pause");
+  // Everything switches on the element's KIND, so "title#2" gets the title's
+  // controls. The handful of widget-wide settings that live on the background
+  // panel key off the PRIMARY background instead, since there's only one widget.
+  const kind = $derived(sel ? kindOf(sel) : null);
+  const isTextSel = $derived(!!sel && isTextElement(sel));
+  const isBg = $derived(kind === "background");
+  const isPrimaryBg = $derived(sel === "background");
+  const isArt = $derived(kind === "art");
+  const isPrimaryArt = $derived(sel === "art");
+  const isProgress = $derived(kind === "progress");
+  const isPause = $derived(kind === "pause");
 
-  const labelOf: Record<ElementId, string> = {
-    background: "Background & widget",
-    art: "Album art",
-    title: "Title",
-    artist: "Artist",
-    album: "Album",
-    progress: "Progress bar",
-    duration: "Duration",
-    pause: "Pause symbol",
-  };
+  // One bindable view over this element's typography, so the controls below
+  // don't have to know whether they're writing the theme or a per-element
+  // override (see TextStyleView).
+  const typo = $derived(sel && isTextSel ? new TextStyleView(cfg, sel) : null);
+  const tint = $derived(E && isBg ? new TintView(E) : null);
+
+  const panelTitle = $derived(sel ? (isPrimaryBg ? "Background & widget" : labelFor(sel)) : "Widget");
+  const labelOfKind = $derived(ELEMENTS.find((e) => e.id === kind)?.label ?? "element");
+
+  // "Copy style": only worth showing once there's another instance of this kind
+  // to take a look from.
+  const siblings = $derived(sel ? editor.idsOf(kind!).filter((id) => id !== sel) : []);
+  let copyOpen = $state(false);
+  let copiedFrom = $state<string | null>(null);
+  // Close the menu when you move to a different element, so it doesn't linger
+  // open over one you never opened it for.
+  $effect(() => {
+    void sel;
+    copyOpen = false;
+    copiedFrom = null;
+  });
+  // Any click outside the menu dismisses it.
+  $effect(() => {
+    if (!copyOpen) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-copy-style]")) copyOpen = false;
+    };
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  });
+
+  function takeStyle(from: string) {
+    if (!sel || !editor.copyStyleFrom(sel, from)) return;
+    copiedFrom = labelFor(from);
+    copyOpen = false;
+    setTimeout(() => (copiedFrom = null), 1800);
+  }
 
   // Live check on the pasted fallback image. Format first (cheap), then actually
   // try to load it, because the usual mistake is a link to the *page* an image
@@ -42,7 +75,7 @@
   type Probe = { level: "ok" | "warn" | "bad" | "checking"; msg: string; src: string };
   let probe = $state<Probe>({ level: "bad", msg: "", src: "" });
   $effect(() => {
-    const url = (isArt ? (E?.fallbackArt ?? "") : "").trim();
+    const url = (isPrimaryArt ? (E?.fallbackArt ?? "") : "").trim();
     if (!url) {
       probe = { level: "bad", msg: "", src: "" };
       return;
@@ -98,25 +131,76 @@
 
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm *:shrink-0">
-  <div class="flex items-center gap-1.5 text-base font-semibold tracking-tight">
-    {sel ? labelOf[sel] : "Widget"}
-    {#if sel === "progress" || sel === "duration"}
-      <InfoTip
-        text="Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate."
-        label={labelOf[sel]}
-      />
+  <!-- pr-7 clears the panel's floating collapse button, which the copy-style
+       menu tucks in beside. -->
+  <div class="flex items-center gap-1.5 pr-7">
+    <div class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight">
+      <span class="truncate">{panelTitle}</span>
+      {#if kind === "progress" || kind === "duration"}
+        <InfoTip
+          text="Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate."
+          label={panelTitle}
+        />
+      {/if}
+    </div>
+
+    <!-- Only worth offering once there's another one of this kind to copy from. -->
+    {#if siblings.length}
+      <div class="relative ml-auto shrink-0" data-copy-style>
+        <button
+          type="button"
+          onclick={() => (copyOpen = !copyOpen)}
+          aria-expanded={copyOpen}
+          aria-haspopup="menu"
+          title="Take another {labelOfKind.toLowerCase()}'s look"
+          class="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] whitespace-nowrap transition-colors {copiedFrom
+            ? 'text-green-400'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+        >
+          {copiedFrom ? `Copied from ${copiedFrom}` : "Copy style"}
+          <svg
+            class="h-3 w-3 shrink-0 transition-transform duration-150 {copyOpen ? 'rotate-90' : ''}"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M4 2.5 L8 6 L4 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        {#if copyOpen}
+          <div
+            role="menu"
+            transition:fly={{ y: -4, duration: 140 }}
+            class="absolute top-full right-0 z-40 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-border bg-card p-1 shadow-md"
+          >
+            {#each siblings as id (id)}
+              <button
+                type="button"
+                role="menuitem"
+                onclick={() => takeStyle(id)}
+                class="rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+              >
+                from <b>{labelFor(id)}</b>
+              </button>
+            {/each}
+            <p class="px-2 pt-1 pb-0.5 text-[11px] leading-snug text-muted-foreground">
+              Takes its colors, outline, shadow and font. Position, size and layer stay put.
+            </p>
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 
   {#if !sel || !E}
     <p class="text-xs text-muted-foreground">Click an element on the canvas to edit it.</p>
   {:else}
-    {#if !isBg}
+    {#if !isPrimaryBg}
       <Toggle bind:checked={E.visible} label="Visible" hint="Show or hide this element on the live widget." />
     {/if}
 
     <!-- ===== Position ===== -->
-    {#if !isBg}
+    {#if !isPrimaryBg}
       <div>
         {@render header(
           "Position",
@@ -158,9 +242,11 @@
 
     <!-- ===== Size ===== -->
     {#if isBg}
+      <!-- The primary background IS the widget frame, so it can't shrink below a
+           usable size; an extra one is just a box and may be as small as you like. -->
       <div class="grid grid-cols-2 gap-2">
-        <Slider bind:value={E.w as number} min={120} max={900} label="Width" suffix="px" />
-        <Slider bind:value={E.h as number} min={60} max={700} label="Height" suffix="px" />
+        <Slider bind:value={E.w as number} min={isPrimaryBg ? 120 : 8} max={900} label="Width" suffix="px" />
+        <Slider bind:value={E.h as number} min={isPrimaryBg ? 60 : 8} max={700} label="Height" suffix="px" />
       </div>
     {:else if isArt}
       <div class="grid grid-cols-2 gap-2">
@@ -236,7 +322,7 @@
           { value: "right", label: "Right" },
         ]}
       />
-      <Slider bind:value={cfg.theme.textSize![tel]} min={8} max={72} label="Font size" suffix="px" />
+      <Slider bind:value={typo!.size} min={8} max={72} label="Font size" suffix="px" />
 
       <div>
         <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -246,37 +332,37 @@
         <div class="flex gap-1">
           <button
             type="button"
-            class="flex-1 rounded-md border px-2 py-1 font-bold {cfg.theme.textStyle![tel].bold
+            class="flex-1 rounded-md border px-2 py-1 font-bold {typo!.bold
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border hover:bg-muted'}"
-            onclick={() => (cfg.theme.textStyle![tel].bold = !cfg.theme.textStyle![tel].bold)}>B</button
+            onclick={() => (typo!.bold = !typo!.bold)}>B</button
           >
           <button
             type="button"
-            class="flex-1 rounded-md border px-2 py-1 italic {cfg.theme.textStyle![tel].italic
+            class="flex-1 rounded-md border px-2 py-1 italic {typo!.italic
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border hover:bg-muted'}"
-            onclick={() => (cfg.theme.textStyle![tel].italic = !cfg.theme.textStyle![tel].italic)}>I</button
+            onclick={() => (typo!.italic = !typo!.italic)}>I</button
           >
           <button
             type="button"
-            class="flex-1 rounded-md border px-2 py-1 underline {cfg.theme.textStyle![tel].underline
+            class="flex-1 rounded-md border px-2 py-1 underline {typo!.underline
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border hover:bg-muted'}"
-            onclick={() => (cfg.theme.textStyle![tel].underline = !cfg.theme.textStyle![tel].underline)}>U</button
+            onclick={() => (typo!.underline = !typo!.underline)}>U</button
           >
           <button
             type="button"
-            class="flex-1 rounded-md border px-2 py-1 line-through {cfg.theme.textStyle![tel].strike
+            class="flex-1 rounded-md border px-2 py-1 line-through {typo!.strike
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border hover:bg-muted'}"
-            onclick={() => (cfg.theme.textStyle![tel].strike = !cfg.theme.textStyle![tel].strike)}>S</button
+            onclick={() => (typo!.strike = !typo!.strike)}>S</button
           >
         </div>
       </div>
 
       <Segmented
-        bind:value={cfg.theme.textTransform![tel]}
+        bind:value={typo!.transform}
         label="Case"
         hint="Force the text to UPPERCASE or lowercase, or leave it as-is."
         options={[
@@ -291,8 +377,8 @@
           Font
           <InfoTip text="Use a different font for just this text. 'Default' keeps the widget's global font." label="Font" />
         </div>
-        <select bind:value={cfg.theme.textFont![tel]} class={inputCls}>
-          <option value={undefined}>Default (global)</option>
+        <select bind:value={typo!.font} class={inputCls}>
+          <option value="">Default (global)</option>
           {#each GOOGLE_FONTS as f (f)}
             <option value={f}>{f}</option>
           {/each}
@@ -317,7 +403,7 @@
         <Slider bind:value={E.scroll.gapPx} min={0} max={120} label="Gap" suffix="px" hint="Space between the end and start of the looping text." />
       {/if}
 
-      {#if tel === "duration"}
+      {#if kind === "duration"}
         <hr class="border-border" />
         <Segmented
           bind:value={cfg.fields.durationFormat!}
@@ -334,37 +420,46 @@
       <hr class="border-border" />
       <Slider bind:value={E.radius} min={0} max={100} label="Corner radius" suffix="px" hint="Round the album art's corners. Max makes it a circle." />
 
-      <hr class="border-border" />
-      {@render header(
-        "Fallback image",
-        "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
-        "fallback",
-      )}
-      <input
-        class={inputCls}
-        type="url"
-        spellcheck="false"
-        placeholder="https://example.com/cover.png"
-        aria-label="Fallback image URL"
-        bind:value={E.fallbackArt}
-      />
-      {#if probe.msg}
-        <div class="flex items-start gap-2">
-          {#if probe.src}
-            <img src={probe.src} alt="" class="h-9 w-9 shrink-0 rounded border border-border object-cover" />
-          {/if}
-          <p
-            class="text-[11px] leading-snug {probe.level === 'ok'
-              ? 'text-green-400'
-              : probe.level === 'warn'
-                ? 'text-amber-400'
-                : probe.level === 'checking'
-                  ? 'text-muted-foreground'
-                  : 'text-red-400'}"
-          >
-            {probe.msg}
-          </p>
-        </div>
+      <!-- One cover, one fallback: every art instance shows the same image, so the
+           fallback URL stays on the first one instead of being asked for twice. -->
+      {#if isPrimaryArt}
+        <hr class="border-border" />
+        {@render header(
+          "Fallback image",
+          "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
+          "fallback",
+        )}
+        <input
+          class={inputCls}
+          type="url"
+          spellcheck="false"
+          placeholder="https://example.com/cover.png"
+          aria-label="Fallback image URL"
+          bind:value={E.fallbackArt}
+        />
+        {#if probe.msg}
+          <div class="flex items-start gap-2">
+            {#if probe.src}
+              <img src={probe.src} alt="" class="h-9 w-9 shrink-0 rounded border border-border object-cover" />
+            {/if}
+            <p
+              class="text-[11px] leading-snug {probe.level === 'ok'
+                ? 'text-green-400'
+                : probe.level === 'warn'
+                  ? 'text-amber-400'
+                  : probe.level === 'checking'
+                    ? 'text-muted-foreground'
+                    : 'text-red-400'}"
+            >
+              {probe.msg}
+            </p>
+          </div>
+        {/if}
+      {:else}
+        <p class="text-[11px] leading-snug text-muted-foreground">
+          Shows the same cover as the first album art, so you can frame it, echo it somewhere else, or
+          stack a blurred copy behind things. The fallback image is set on the first one and covers them all.
+        </p>
       {/if}
     {:else if isProgress}
       <hr class="border-border" />
@@ -456,8 +551,8 @@
       <hr class="border-border" />
       <Segmented
         bind:value={E.fill}
-        label="Background"
-        hint="What fills the widget behind everything: nothing, a solid color, the accent color, or a blurred album cover."
+        label={isPrimaryBg ? "Background" : "Fill"}
+        hint="What fills this box: nothing, a solid color, the accent color, or a blurred album cover."
         options={[
           { value: "none", label: "None" },
           { value: "color", label: "Color" },
@@ -476,10 +571,27 @@
           diagram="fallback"
         />
       {:else if E.fill === "art"}
-        <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" diagram="fill-art" hint="A blurred album cover, scaled to the widget width, fills the background." />
+        <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" diagram="fill-art" hint="A blurred album cover, scaled to the widget width, fills the background. This fades it toward whatever is BEHIND the widget, so use Tint below to darken it instead." />
       {/if}
       <Slider bind:value={E.radius} min={0} max={64} label="Corner radius" suffix="px" />
 
+      <!-- ===== Tint ===== -->
+      {#if E.fill !== "none"}
+        <hr class="border-border" />
+        {@render header(
+          "Tint",
+          "A flat color laid over the background but under everything else. This is how you darken a blurred album cover until the text on top of it reads: the fill's own opacity only fades it toward whatever is behind the widget, which on a stream is your game.",
+          "",
+        )}
+        <Slider bind:value={tint!.opacity} min={0} max={100} label="Strength" suffix="%" />
+        {#if E.tint}
+          <ColorInput bind:value={tint!.color} label="Tint color" allowAccent />
+        {/if}
+      {/if}
+    {/if}
+
+    <!-- ===== Widget-wide (only on the primary background: there's one widget) ===== -->
+    {#if isPrimaryBg}
       <hr class="border-border" />
       <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
       <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />

@@ -9,7 +9,7 @@
 // Sizes are position-independent, so there is no feedback loop between sizes and
 // positions: measure once, then resolve positions.
 import {
-  V2_ELEMENT_IDS,
+  kindOf,
   type V2Edge,
   type V2Element,
   type V2ElementId,
@@ -30,7 +30,7 @@ export function effectiveSizes(
   measured: Measured,
 ): Record<V2ElementId, { w: number; h: number }> {
   const out = {} as Record<V2ElementId, { w: number; h: number }>;
-  for (const id of V2_ELEMENT_IDS) {
+  for (const id of Object.keys(v2.elements)) {
     const el = v2.elements[id];
     out[id] = {
       w: el?.w ?? measured[id]?.w ?? 0,
@@ -88,7 +88,7 @@ function resolveAxis(
     return result[id];
   };
 
-  for (const id of V2_ELEMENT_IDS) resolve(id);
+  for (const id of Object.keys(els)) resolve(id);
   return result;
 }
 
@@ -98,7 +98,7 @@ export function resolveLayout(v2: WidgetV2, measured: Measured): Record<V2Elemen
   const xs = resolveAxis("x", v2.elements, size);
   const ys = resolveAxis("y", v2.elements, size);
   const out = {} as Record<V2ElementId, Box>;
-  for (const id of V2_ELEMENT_IDS) {
+  for (const id of Object.keys(v2.elements)) {
     out[id] = { x: xs[id], y: ys[id], w: size[id].w, h: size[id].h };
   }
   return out;
@@ -126,6 +126,9 @@ function goneSide(el: V2Element, artNearLeft: boolean): "left" | "right" {
  * Auto-width elements move as-is. Elements snapped to a re-anchored element ride
  * along by the movement of the specific anchor edge they snap to; a stretched
  * anchor's far edge hasn't moved, so an end-snapped follower stays where it is.
+ *
+ * Only the PRIMARY art drives this. Extra art instances are decoration: they
+ * disappear on failure like any other image and nothing re-anchors to them.
  */
 export function reflowArtGone(
   v2: WidgetV2,
@@ -146,8 +149,11 @@ export function reflowArtGone(
     return shift < 0 ? { ...b, x: b.x + shift, w: b.w - shift } : { ...b, w: b.w + shift };
   };
 
-  for (const id of V2_ELEMENT_IDS) {
-    if (id === "art" || id === "background") continue;
+  const ids = Object.keys(v2.elements);
+  const skip = (id: V2ElementId) => kindOf(id) === "art" || kindOf(id) === "background";
+
+  for (const id of ids) {
+    if (skip(id)) continue;
     const el = v2.elements[id];
     if (!el.visible || el.snapX?.to !== "art") continue;
     const b = raw[id];
@@ -162,10 +168,10 @@ export function reflowArtGone(
   // Ripple down snapX chains: a follower moves by however far the anchor edge it
   // snaps to moved (zero for a stretched anchor's far edge).
   const edgeX = (b: Box, e: V2Edge) => b.x + edgeFactor(e) * b.w;
-  for (let pass = 0; pass < V2_ELEMENT_IDS.length; pass++) {
+  for (let pass = 0; pass < ids.length; pass++) {
     let changed = false;
-    for (const id of V2_ELEMENT_IDS) {
-      if (id === "art" || id === "background" || movedIds.has(id)) continue;
+    for (const id of ids) {
+      if (skip(id) || movedIds.has(id)) continue;
       const el = v2.elements[id];
       const snap = el.snapX;
       if (!el.visible || !snap || !movedIds.has(snap.to)) continue;
