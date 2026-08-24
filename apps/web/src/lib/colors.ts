@@ -212,3 +212,102 @@ export async function extractDominantColor(imgUrl: string): Promise<string | nul
   if (direct) return direct;
   return extractFrom(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`, true);
 }
+
+// ---- perceptual brightness normalization ----
+// Album art swings wildly in brightness: a dark cover yields a near-black accent
+// that vanishes against a dark widget, a washed-out cover yields a near-white one.
+// These helpers re-light an extracted color to a fixed PERCEIVED brightness while
+// keeping its hue, so the accent stays recognizably "from the art" but the
+// progress bar reads the same on every track.
+
+export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return { h, s, l };
+}
+
+export function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  if (s === 0) {
+    const v = l * 255;
+    return { r: v, g: v, b: v };
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const hue = (t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return { r: hue(h + 1 / 3) * 255, g: hue(h) * 255, b: hue(h - 1 / 3) * 255 };
+}
+
+/**
+ * CIE L* (0-100) for a color: how bright it LOOKS, not how bright it is.
+ * Raw luminance is a poor stand-in here (pure yellow and pure blue read as
+ * wildly different "brightness" at the same HSL lightness); L* tracks the eye.
+ */
+export function perceivedLightness(hex: string): number | null {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const Y = getLuminance(rgb.r, rgb.g, rgb.b);
+  return Y <= 0.008856 ? Y * 903.3 : 116 * Math.cbrt(Y) - 16;
+}
+
+/**
+ * Re-light `hex` until it hits `targetL` perceived lightness (CIE L*, 0-100),
+ * keeping its hue and as much saturation as the target allows. L* rises
+ * monotonically with HSL lightness for a fixed hue/saturation, so a short binary
+ * search lands within a fraction of a step. Colors we can't parse (and an
+ * out-of-range target) come back untouched. An 8-digit hex keeps its alpha.
+ */
+export function normalizeLightness(hex: string, targetL: number): string {
+  const raw = hex.trim();
+  // Preserve a trailing alpha pair so accents carrying opacity survive the round trip.
+  const m = raw.replace('#', '').match(/^([0-9a-f]{6})([0-9a-f]{2})$/i);
+  const base = m ? `#${m[1]}` : raw;
+  const alpha = m ? m[2] : '';
+
+  const rgb = hexToRgb(base);
+  if (!rgb) return hex;
+  const target = Math.max(0, Math.min(100, targetL));
+  const { h, s } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+  let lo = 0;
+  let hi = 1;
+  let mid = 0.5;
+  for (let i = 0; i < 24; i++) {
+    mid = (lo + hi) / 2;
+    const c = hslToRgb(h, s, mid);
+    const Y = getLuminance(c.r, c.g, c.b);
+    const L = Y <= 0.008856 ? Y * 903.3 : 116 * Math.cbrt(Y) - 16;
+    if (L < target) lo = mid;
+    else hi = mid;
+  }
+  const out = hslToRgb(h, s, (lo + hi) / 2);
+  return rgbToHex(out.r, out.g, out.b) + alpha;
+}
+
+/**
+ * Apply the theme's "consistent brightness" setting to an accent color that came
+ * FROM the album art. A hand-picked accent is deliberate and never re-lit, so
+ * callers should only pass art-derived colors here.
+ */
+export function applyAccentBrightness(
+  hex: string,
+  theme: { accentNormalize?: boolean; accentBrightness?: number }
+): string {
+  if (!theme?.accentNormalize) return hex;
+  return normalizeLightness(hex, theme.accentBrightness ?? 58);
+}

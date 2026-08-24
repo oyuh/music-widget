@@ -595,6 +595,25 @@
       <hr class="border-border" />
       <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
       <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />
+      {#if cfg.theme.autoFromArt}
+        <Toggle
+          bind:checked={cfg.theme.accentNormalize!}
+          label="Consistent brightness"
+          hint="Album art swings from near-black to near-white, and the accent pulled from it swings with it, so the progress bar is barely visible on some covers and washed out on others. This keeps the art's hue but re-lights it to one fixed brightness, so the accent reads the same on every track."
+          diagram="accent-brightness"
+        />
+        {#if cfg.theme.accentNormalize}
+          <Slider
+            bind:value={cfg.theme.accentBrightness!}
+            min={0}
+            max={100}
+            label="Accent brightness"
+            suffix="%"
+            hint="How bright every album accent is normalized to. Raise it for a light background, lower it for a light widget on a dark stream. Only affects colors taken from the art, never a hand-picked accent."
+            diagram="accent-brightness"
+          />
+        {/if}
+      {/if}
 
       <hr class="border-border" />
       <label class="block">

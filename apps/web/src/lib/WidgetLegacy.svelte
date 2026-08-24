@@ -7,6 +7,7 @@
     type WidgetConfig,
   } from "./config";
   import {
+    applyAccentBrightness,
     extractDominantColor,
     generateDropShadowCSS,
     generateElementDropShadowCSS,
@@ -63,7 +64,12 @@
   });
   // Seed from the user's fallback/accent (not a hardcoded green) so a failed art
   // fetch lands on the configured fallback instead of a green flash.
-  let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
+  let rawAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
+  // True only while `rawAccent` came off the album art; art colors get re-lit to
+  // the theme's target brightness, hand-picked accents/fallbacks don't.
+  let accentFromArt = $state(false);
+  // Derived so the brightness slider re-lights the current art color live.
+  const computedAccent = $derived(accentFromArt ? applyAccentBrightness(rawAccent, cfg.theme) : rawAccent);
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
 
@@ -78,14 +84,16 @@
     (async () => {
       if (!auto) {
         computedText = { ...cfg.theme.text };
-        computedAccent = cfg.theme.accent;
+        rawAccent = cfg.theme.accent;
+        accentFromArt = false;
         lastExtractedColor = null;
         lastImageUrl = "";
         return;
       }
       if (!source) {
         computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
-        computedAccent = fallbackAccent;
+        rawAccent = fallbackAccent;
+        accentFromArt = false;
         lastExtractedColor = null;
         lastImageUrl = "";
         return;
@@ -98,14 +106,16 @@
       if (color) {
         const textColor = bgEnabled ? getReadableTextOn(bg) : "#ffffff";
         computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
-        computedAccent = color;
+        rawAccent = color;
+        accentFromArt = true;
         lastExtractedColor = color;
         lastImageUrl = source;
       } else {
         // Extraction failed (art couldn't be fetched / read), so use the configured
         // fallback color instead of leaving a stale or default-green accent.
         computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
-        computedAccent = fallbackAccent;
+        rawAccent = fallbackAccent;
+        accentFromArt = false;
         lastExtractedColor = null;
         lastImageUrl = source;
       }
@@ -141,10 +151,12 @@
       const toHex = (n: number) => n.toString(16).padStart(2, "0");
       const textColor = (cfg.theme.bgEnabled ?? true) ? getReadableTextOn(cfg.theme.bg) : "#ffffff";
       computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
-      computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      rawAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      accentFromArt = true;
     } catch {
       // Couldn't read the pixels (e.g. tainted canvas), so fall back to the user color.
-      computedAccent = cfg.fallbackAccent || cfg.theme.accent;
+      rawAccent = cfg.fallbackAccent || cfg.theme.accent;
+      accentFromArt = false;
     }
   }
 
