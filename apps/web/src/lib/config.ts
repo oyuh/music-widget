@@ -225,6 +225,12 @@ export type WidgetConfig = {
     bg: string;
     accent: string;
     autoFromArt: boolean; // when true, apply dominant album color to selected targets
+    // Album art swings wildly in brightness, so the extracted accent does too: a
+    // dark cover gives a near-black progress bar, a pale one a washed-out bar.
+    // With this on, the art's color keeps its hue but is re-lit to a fixed
+    // perceived brightness, so the accent reads the same across every album.
+    accentNormalize?: boolean;
+    accentBrightness?: number; // target perceived lightness (CIE L*), 0-100
     autoTargets?: { title: boolean; artist: boolean; album: boolean; meta: boolean };
     font: string; // Global Google font key (fallback for texts without individual fonts)
     text: { title: string; artist: string; album: string; meta: string; duration: string };
@@ -361,6 +367,8 @@ export const defaultConfig: WidgetConfig = {
     bg: "#000000CC",
     accent: "#1db954",
     autoFromArt: false,
+    accentNormalize: false, // off by default so existing designs render unchanged
+    accentBrightness: 58,
     autoTargets: { title: false, artist: true, album: false, meta: false },
     font: "Inter",
     text: { title: "#ffffff", artist: "#e5e5e5", album: "#cfcfcf", meta: "#bdbdbd", duration: "#a0a0a0" },

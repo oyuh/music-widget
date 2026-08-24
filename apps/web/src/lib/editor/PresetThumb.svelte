@@ -12,6 +12,7 @@
     type WidgetConfig,
   } from "$lib/config";
   import { elementShadowCSS, resolveLayout, type Measured } from "$lib/v2-layout";
+  import { applyAccentBrightness } from "$lib/colors";
 
   // Static mini-render of a preset config, mirroring WidgetV2's render path
   // (real snap-resolved layout, fonts, colors, shadows) with the editor
@@ -63,7 +64,9 @@
   const els = $derived(config.v2?.elements);
 
   const accent = $derived(
-    config.theme.autoFromArt ? SAMPLE_ART_ACCENT : config.theme.accent || config.fallbackAccent || "#1db954",
+    config.theme.autoFromArt
+      ? applyAccentBrightness(SAMPLE_ART_ACCENT, config.theme)
+      : config.theme.accent || config.fallbackAccent || "#1db954",
   );
   const resolveColor = (c: string | undefined, fallback?: string) =>
     c === "accent" ? (accent ?? fallback ?? "#ffffff") : (c ?? "#ffffff");

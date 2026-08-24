@@ -107,6 +107,19 @@ export const TIP_DIAGRAMS: Record<string, string> = {
     <rect x="138" y="38" width="56" height="42" rx="7" fill="#3b82f6" stroke="${C.hi}"/>
   </svg>`,
 
+  // Three covers of very different brightness landing on one accent brightness.
+  "accent-brightness": `<svg viewBox="0 0 220 110" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="12" width="30" height="30" rx="4" fill="#3d1020"/>
+    <rect x="14" y="48" width="30" height="30" rx="4" fill="#a8264c"/>
+    <rect x="14" y="84" width="30" height="18" rx="4" fill="#f4a8c0"/>
+    <path d="M54 30 h22 M70 25 l7 5 -7 5" fill="none" stroke="${C.line}" stroke-width="1.4"/>
+    <path d="M54 63 h22 M70 58 l7 5 -7 5" fill="none" stroke="${C.line}" stroke-width="1.4"/>
+    <path d="M54 93 h22 M70 88 l7 5 -7 5" fill="none" stroke="${C.line}" stroke-width="1.4"/>
+    <rect x="88" y="24" width="118" height="12" rx="6" fill="#d63a68"/>
+    <rect x="88" y="57" width="118" height="12" rx="6" fill="#d63a68"/>
+    <rect x="88" y="87" width="118" height="12" rx="6" fill="#d63a68"/>
+  </svg>`,
+
   // Fallback accent used when the album art can't be fetched / read.
   fallback: `<svg viewBox="0 0 220 110" xmlns="http://www.w3.org/2000/svg">
     <rect x="26" y="30" width="58" height="58" rx="7" fill="${C.fillBox}" stroke="${C.line}"/>

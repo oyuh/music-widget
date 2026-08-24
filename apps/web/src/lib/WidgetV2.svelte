@@ -15,7 +15,7 @@
     type V2TextId,
     type WidgetConfig,
   } from "./config";
-  import { extractDominantColor, hexToRgb } from "./colors";
+  import { applyAccentBrightness, extractDominantColor, hexToRgb } from "./colors";
   import {
     resolveLayout,
     reflowArtGone,
@@ -126,7 +126,15 @@
   // Seed from the user's fallback/accent (not a hardcoded green) so there's no
   // green flash before the first extraction resolves, and a failed fetch lands on
   // the configured fallback instead.
-  let computedAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
+  let rawAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
+  // True only while `rawAccent` is a color read off the album art. Art colors get
+  // re-lit to the theme's target brightness; hand-picked accents and fallbacks are
+  // deliberate choices and pass through untouched.
+  let accentFromArt = $state(false);
+  // The accent everything renders with. Derived (not assigned alongside the
+  // extraction) so dragging the brightness slider re-lights the current art color
+  // immediately, with no re-extraction.
+  const computedAccent = $derived(accentFromArt ? applyAccentBrightness(rawAccent, cfg.theme) : rawAccent);
   let lastExtractedColor: string | null = null;
   let lastImageUrl = "";
   // True when "auto from art" is on but no color could be read from the art; in
@@ -142,14 +150,16 @@
     (async () => {
       if (!auto) {
         // Not deriving from art; the configured accent is intentional, not a failure.
-        computedAccent = cfg.theme.accent;
+        rawAccent = cfg.theme.accent;
+        accentFromArt = false;
         accentFailed = false;
         lastExtractedColor = null;
         lastImageUrl = "";
         return;
       }
       if (!source) {
-        computedAccent = fallbackAccent;
+        rawAccent = fallbackAccent;
+        accentFromArt = false;
         accentFailed = true;
         lastExtractedColor = null;
         lastImageUrl = "";
@@ -159,14 +169,16 @@
       const color = await extractDominantColor(source);
       if (cancelled) return;
       if (color) {
-        computedAccent = color;
+        rawAccent = color;
+        accentFromArt = true;
         accentFailed = false;
         lastExtractedColor = color;
         lastImageUrl = source;
       } else {
         // Extraction failed (art couldn't be fetched / read), so use the configured
         // fallback color instead of leaving a stale or default-green accent.
-        computedAccent = fallbackAccent;
+        rawAccent = fallbackAccent;
+        accentFromArt = false;
         accentFailed = true;
         lastExtractedColor = null;
         lastImageUrl = source;
@@ -207,7 +219,8 @@
       for (const [k, val] of counts) if (val > max) ((max = val), (best = k));
       const [r, g, b] = best.split(",").map(Number);
       const toHex = (n: number) => n.toString(16).padStart(2, "0");
-      computedAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      rawAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      accentFromArt = true;
       accentFailed = false;
     } catch {
       // Cross-origin art taints the canvas here; that's expected. The $effect above

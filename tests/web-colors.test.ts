@@ -1,5 +1,9 @@
 import { test, expect, describe } from "bun:test";
 import {
+  applyAccentBrightness,
+  normalizeLightness,
+  perceivedLightness,
+  rgbToHsl,
   hexToRgb,
   rgbToHex,
   getReadableTextOn,
@@ -55,5 +59,52 @@ describe("drop shadow CSS", () => {
     expect(generateElementDropShadowCSS({ ...base, enabled: false }, undefined, "#000000")).toBe("");
     expect(generateElementDropShadowCSS(base, { enabled: false }, "#000000")).toBe("");
     expect(generateElementDropShadowCSS(base, { enabled: true }, "#000000")).toContain("rgba(255, 255, 255, 0.5)");
+  });
+});
+
+describe("accent brightness normalization", () => {
+  const at = (hex: string) => perceivedLightness(hex)!;
+
+  test("very dark and very bright colors land on the same perceived lightness", () => {
+    const dark = normalizeLightness("#0b0b18", 58); // near-black cover
+    const light = normalizeLightness("#f4e8d0", 58); // washed-out cover
+    expect(at(dark)).toBeCloseTo(58, 0);
+    expect(at(light)).toBeCloseTo(58, 0);
+  });
+
+  test("holds across hues, where raw luminance would not", () => {
+    for (const hex of ["#0000ff", "#ffff00", "#1db954", "#e03070", "#7a5230"]) {
+      expect(at(normalizeLightness(hex, 58))).toBeCloseTo(58, 0);
+    }
+  });
+
+  test("keeps the hue of the original color", () => {
+    const src = rgbToHsl(224, 48, 112); // #e03070
+    const out = hexToRgb(normalizeLightness("#e03070", 58))!;
+    expect(rgbToHsl(out.r, out.g, out.b).h).toBeCloseTo(src.h, 2);
+  });
+
+  test("grayscale stays gray at any source lightness", () => {
+    expect(normalizeLightness("#ffffff", 58)).toBe(normalizeLightness("#000000", 58));
+  });
+
+  test("target follows the slider, and clamps to the ends", () => {
+    expect(at(normalizeLightness("#e03070", 20))).toBeCloseTo(20, 0);
+    expect(at(normalizeLightness("#e03070", 85))).toBeCloseTo(85, 0);
+    expect(normalizeLightness("#e03070", -50)).toBe("#000000");
+    expect(normalizeLightness("#e03070", 250)).toBe("#ffffff");
+  });
+
+  test("preserves an 8-digit hex's alpha and passes unparseable colors through", () => {
+    expect(normalizeLightness("#0b0b18cc", 58)).toBe(normalizeLightness("#0b0b18", 58) + "cc");
+    expect(normalizeLightness("accent", 58)).toBe("accent");
+  });
+
+  test("applyAccentBrightness is a no-op unless the theme opts in", () => {
+    expect(applyAccentBrightness("#0b0b18", {})).toBe("#0b0b18");
+    expect(applyAccentBrightness("#0b0b18", { accentNormalize: false, accentBrightness: 90 })).toBe("#0b0b18");
+    expect(at(applyAccentBrightness("#0b0b18", { accentNormalize: true, accentBrightness: 70 }))).toBeCloseTo(70, 0);
+    // Missing brightness falls back to the default target rather than going black.
+    expect(at(applyAccentBrightness("#0b0b18", { accentNormalize: true }))).toBeCloseTo(58, 0);
   });
 });
