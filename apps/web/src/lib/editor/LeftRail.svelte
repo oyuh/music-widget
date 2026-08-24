@@ -4,6 +4,7 @@
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
+  import { CREDITS } from "$lib/credits";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
   // Progress / duration ride on Last.fm, which doesn't report exact playback
@@ -447,6 +448,7 @@
       <InfoTip
         text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
         label="Elements"
+        credit={CREDITS.instances}
       />
     </div>
     {#each ELEMENTS as kind (kind.id)}

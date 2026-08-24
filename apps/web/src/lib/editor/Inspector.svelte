@@ -4,6 +4,7 @@
   import Toggle from "$lib/ui/Toggle.svelte";
   import Segmented from "$lib/ui/Segmented.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
+  import { CREDITS, type Credit } from "$lib/credits";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
@@ -122,10 +123,10 @@
   const edgeLabel = (e: "start" | "center" | "end") => (e === "start" ? "start" : e === "end" ? "end" : "center");
 </script>
 
-{#snippet header(title: string, hint: string, diagram: string)}
+{#snippet header(title: string, hint: string, diagram: string, credit?: Credit)}
   <div class="flex items-center gap-1 font-pixel text-xs font-medium text-muted-foreground uppercase">
     {title}
-    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} label={title} />{/if}
+    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} label={title} {credit} />{/if}
   </div>
 {/snippet}
 
@@ -428,6 +429,7 @@
           "Fallback image",
           "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
           "fallback",
+          CREDITS.fallbackArt,
         )}
         <input
           class={inputCls}
@@ -494,7 +496,12 @@
     <!-- ===== Outline (every element) ===== -->
     {#if E.stroke}
       <hr class="border-border" />
-      {@render header("Outline", "A stroke around this element. Handy for keeping text readable on top of busy backgrounds like a game.", "")}
+      {@render header(
+        "Outline",
+        "A stroke around this element. Handy for keeping text readable on top of busy backgrounds like a game.",
+        "",
+        CREDITS.outline,
+      )}
       <Toggle bind:checked={E.stroke.enabled} label="Enable" />
       {#if E.stroke.enabled}
         <Slider bind:value={E.stroke.width} min={0} max={12} step={0.5} label="Thickness" suffix="px" hint="How far the outline reaches past the edge." />
@@ -601,6 +608,7 @@
           label="Consistent brightness"
           hint="Album art swings from near-black to near-white, and the accent pulled from it swings with it, so the progress bar is barely visible on some covers and washed out on others. This keeps the art's hue but re-lights it to one fixed brightness, so the accent reads the same on every track."
           diagram="accent-brightness"
+          credit={CREDITS.accentBrightness}
         />
         {#if cfg.theme.accentNormalize}
           <Slider
