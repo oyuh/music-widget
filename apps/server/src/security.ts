@@ -89,6 +89,7 @@ const ALLOWED_IMAGE_HOST_SUFFIXES = [
   "googleusercontent.com",
   "cdninstagram.com",
   "fbcdn.net",
+  "pinimg.com" // pinterest image (primarily for fall back)
 ];
 
 export function isAllowedImageHost(hostname: string): boolean {
