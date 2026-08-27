@@ -6,6 +6,7 @@ import type { AppEnv } from "./types";
 import { handleProxyImage, handleRecent, handleSession, handleSignRecent, handleTrackInfo } from "./lastfm";
 import { handleContact, handleCronCleanup, handleFeedback, handleWidgetLog } from "./analytics";
 import { handleSiteStats, startStatsRefresh } from "./stats";
+import { handleGithubStars, startGithubStarsRefresh } from "./github";
 import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk, rateLimitUsage } from "./security";
@@ -126,6 +127,7 @@ app.post("/api/contact", handleContact);
 app.post("/api/feedback", handleFeedback);
 app.post("/api/cron/cleanup", handleCronCleanup);
 app.get("/api/site-stats", handleSiteStats);
+app.get("/api/github-stars", handleGithubStars);
 
 app.all("/api/*", () => json({ error: "Not found" }, { status: 404 }));
 
@@ -272,6 +274,9 @@ const port = Number(process.env.PORT) || 8787;
 
 // Begin the in-memory usage-count refresh loop (no-op without a database).
 startStatsRefresh();
+
+// Begin the in-memory GitHub star-count refresh loop (footer Star button).
+startGithubStarsRefresh();
 
 log("info", "server.start", {
   port,

@@ -9,8 +9,11 @@
   }
   let { lfmUser = "" }: Props = $props();
 
+  // Version is what people see; the exact build sha lives in the tooltip and the
+  // link target, so a bug report can still be pinned to one commit.
   const commit = __APP_COMMIT__;
-  const repo = "https://github.com/oyuh/applem-util";
+  const version = __APP_VERSION__;
+  const repo = "https://github.com/oyuh/music-widget";
 
   let feedbackOpen = $state(false);
   // Hide the button for a week after someone submits (checked on mount because
@@ -26,53 +29,19 @@
     return serviceStatus.start();
   });
 
-  const dotColor = $derived(
-    serviceStatus.state === "operational"
-      ? "bg-green-500"
-      : serviceStatus.state === "degraded"
-        ? "bg-amber-500"
-        : serviceStatus.state === "offline"
-          ? "bg-red-500"
-          : "bg-zinc-500",
-  );
-  const label = $derived(
-    serviceStatus.state === "operational"
-      ? "Operational"
-      : serviceStatus.state === "degraded"
-        ? "Degraded"
-        : serviceStatus.state === "offline"
-          ? "Offline"
-          : "Checking…",
-  );
-
-  const lfmDot = $derived(
-    serviceStatus.lastfm === "ok"
-      ? "bg-green-500"
-      : serviceStatus.lastfm === "rate-limited"
-        ? "bg-amber-500"
-        : serviceStatus.lastfm === "unknown"
-          ? "bg-zinc-500"
-          : "bg-red-500",
-  );
-  // Your own IP's share of the server rate limit, from /api/usage. Quiet while
-  // low, amber as it climbs; the throttled branch below takes over at a 429.
-  const usageFrac = $derived(
-    serviceStatus.usage && serviceStatus.usage.max > 0
-      ? serviceStatus.usage.used / serviceStatus.usage.max
-      : 0,
-  );
-
-  const lfmLabel = $derived(
-    serviceStatus.lastfm === "ok"
-      ? "Last.fm OK"
-      : serviceStatus.lastfm === "rate-limited"
-        ? "Last.fm busy"
-        : serviceStatus.lastfm === "key-suspended"
-          ? "Last.fm key suspended"
-          : serviceStatus.lastfm === "down"
-            ? "Last.fm down"
-            : "Last.fm …",
-  );
+  // One line, one signal. The backend's health, Last.fm's health, and whether
+  // this client is being throttled all collapse into a single dot + message:
+  // the worst of the three wins, so there's never more than one thing to read.
+  const status = $derived.by(() => {
+    const s = serviceStatus;
+    if (s.state === "offline") return { dot: "bg-red-500", label: "Server offline" };
+    if (s.lastfm === "down") return { dot: "bg-red-500", label: "Last.fm down" };
+    if (s.lastfm === "key-suspended") return { dot: "bg-red-500", label: "Last.fm key suspended" };
+    if (s.state === "checking" || s.lastfm === "unknown") return { dot: "bg-zinc-500", label: "Checking…" };
+    if (s.state === "degraded") return { dot: "bg-amber-500", label: "Degraded" };
+    if (s.rateLimited || s.lastfm === "rate-limited") return { dot: "bg-amber-500", label: "Rate limited" };
+    return { dot: "bg-green-500", label: "Operational" };
+  });
 </script>
 
 <!-- Feedback: opens a modal for free-form notes + an optional alert opt-in.
@@ -103,33 +72,19 @@
   </div>
 {/if}
 
-<div class="flex items-center justify-between">
-  <span class="flex items-center gap-1.5">
-    <span class="h-1.5 w-1.5 rounded-full {dotColor}" title="Service status"></span>
-    <span>{label}{serviceStatus.redis ? ` · cache ${serviceStatus.redis}` : ""}</span>
-  </span>
-  <!-- Your IP's live usage against the server rate limit: low-key when quiet,
-       amber as it climbs, and "throttled" once a 429 has actually been seen. -->
-  {#if serviceStatus.rateLimited}
-    <span class="text-amber-500/80" title="You're being rate-limited. Ease off for a moment.">throttled</span>
-  {:else if serviceStatus.usage}
-    <span
-      class={usageFrac >= 0.7 ? "text-amber-500/80" : "opacity-35"}
-      title="Your IP's usage of the server API: {serviceStatus.usage.used}/{serviceStatus.usage.max} requests in the current {serviceStatus.usage.windowSeconds}s window."
-    >
-      {serviceStatus.usage.used}/{serviceStatus.usage.max}
-    </span>
-  {:else}
-    <span class="opacity-35" title="Usage looks healthy.">ok</span>
-  {/if}
+<div class="flex items-center gap-1.5">
+  <span class="h-1.5 w-1.5 shrink-0 rounded-full {status.dot}" title="Service status"></span>
+  <span>{status.label}</span>
 </div>
-<div class="mt-1 flex items-center justify-between opacity-70">
-  <span class="flex items-center gap-1.5" title="Last.fm API status">
-    <span class="h-1.5 w-1.5 rounded-full {lfmDot}"></span>
-    <span>{lfmLabel}</span>
-  </span>
-  <a href="{repo}/commit/{commit}" target="_blank" rel="noopener noreferrer" class="hover:text-foreground">
-    build {commit}
+<div class="mt-1 flex items-center opacity-70">
+  <a
+    href="{repo}/commit/{commit}"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="hover:text-foreground"
+    title="View this build on GitHub"
+  >
+    v{version} · build {commit}
   </a>
 </div>
 

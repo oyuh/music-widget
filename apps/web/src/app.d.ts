@@ -10,6 +10,9 @@ declare global {
 
   /** Build-time commit SHA injected by Vite `define`. */
   const __APP_COMMIT__: string;
+
+  /** App version from the root package.json, injected by Vite `define`. */
+  const __APP_VERSION__: string;
 }
 
 export {};
