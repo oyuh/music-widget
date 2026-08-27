@@ -7,20 +7,16 @@ const SHARED_KEY: string = import.meta.env.VITE_LFM_KEY || "";
 /**
  * Live health of the backend + the Last.fm API, shared across the app. Polls
  * /api/health, pings Last.fm, and tracks whether the client is being
- * rate-limited (a 429 was seen).
+ * rate-limited (a 429 was seen). The editor collapses all three into a single
+ * status line, so nothing here is reported per-source any more.
  */
 class ServiceStatus {
   state = $state<ServiceState>("checking");
-  redis = $state("");
   lastfm = $state<LastfmState>("unknown");
   rateLimited = $state(false);
-  // This visitor's own rate-limit usage (their IP's request count in the
-  // server's current window); null until known or when the server can't say.
-  usage = $state<{ used: number; max: number; windowSeconds: number } | null>(null);
 
   #timer: ReturnType<typeof setInterval> | null = null;
   #lfmTimer: ReturnType<typeof setInterval> | null = null;
-  #usageTimer: ReturnType<typeof setInterval> | null = null;
   #rlTimer: ReturnType<typeof setTimeout> | null = null;
   #started = false;
 
@@ -41,12 +37,10 @@ class ServiceStatus {
     const check = async () => {
       try {
         const r = await fetch("/api/health", { cache: "no-store" });
-        const d = (await r.json().catch(() => ({}))) as { ok?: boolean; redis?: string };
-        this.redis = d?.redis ?? "";
+        const d = (await r.json().catch(() => ({}))) as { ok?: boolean };
         this.state = r.ok && d?.ok ? "operational" : "degraded";
       } catch {
         this.state = "offline";
-        this.redis = "";
       }
     };
 
@@ -62,31 +56,10 @@ class ServiceStatus {
       }
     };
 
-    // The visitor's own per-IP usage, straight from the server's counter.
-    const checkUsage = async () => {
-      try {
-        const r = await fetch("/api/usage", { cache: "no-store" });
-        const d = (await r.json().catch(() => null)) as {
-          used?: number;
-          max?: number;
-          windowSeconds?: number;
-          enabled?: boolean;
-        } | null;
-        this.usage =
-          r.ok && d?.enabled && typeof d.used === "number" && typeof d.max === "number"
-            ? { used: d.used, max: d.max, windowSeconds: d.windowSeconds ?? 10 }
-            : null;
-      } catch {
-        this.usage = null;
-      }
-    };
-
     void check();
     void pingLfm();
-    void checkUsage();
     this.#timer = setInterval(check, 30_000);
     this.#lfmTimer = setInterval(pingLfm, 90_000);
-    this.#usageTimer = setInterval(checkUsage, 15_000);
   }
 
   /** Flagged when an API call returns 429; auto-clears after a cool-off. */

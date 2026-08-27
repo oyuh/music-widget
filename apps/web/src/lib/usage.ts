@@ -193,6 +193,26 @@ export async function fetchSiteUserCount(): Promise<number | null> {
   }
 }
 
+/**
+ * The project's GitHub star count, for the footer's Star button. The server
+ * refreshes this in the background and serves it from memory, so this is a
+ * single cheap call on load with nothing to poll. Returns null on any failure
+ * (or before the server's first refresh lands) so the caller can show the button
+ * without a count rather than a bare "0".
+ */
+export async function fetchGithubStars(): Promise<number | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const r = await fetch("/api/github-stars");
+    if (!r.ok) return null;
+    const d = (await r.json()) as { stars?: unknown };
+    const n = typeof d.stars === "number" ? d.stars : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- "Recently gave feedback" flag --------------------------------------
 // After someone submits feedback we hide the sidebar button for a week so we
 // don't nag them. Stored as a single timestamp in localStorage; treated as
