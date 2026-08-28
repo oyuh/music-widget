@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tip } from "$lib/ui/tooltip.svelte";
   import { onMount, onDestroy, untrack } from "svelte";
   import { slide, fly } from "svelte/transition";
   import LeftRail from "$lib/editor/LeftRail.svelte";
@@ -10,7 +11,6 @@
   import { ensureGoogleFonts } from "$lib/fonts";
   import { isMobileDevice } from "$lib/device";
   import MobileGate from "$lib/MobileGate.svelte";
-  import WelcomeModal from "$lib/editor/WelcomeModal.svelte";
   import SignInDialog, { type AuthResult } from "$lib/editor/SignInDialog.svelte";
   import { KEYWORDS_META } from "$lib/keywords";
 
@@ -273,7 +273,12 @@
   <MobileGate />
 {:else}
   <div class="font-mono-ui relative flex h-screen overflow-hidden bg-background text-foreground">
-    <WelcomeModal bind:open={welcomeOpen} {editor} />
+    <!-- Loaded when it opens: first-run only, so it shouldn't sit in the editor bundle. -->
+    {#if welcomeOpen}
+      {#await import("$lib/editor/WelcomeModal.svelte") then M}
+        <M.default bind:open={welcomeOpen} {editor} />
+      {/await}
+    {/if}
     <SignInDialog bind:result={authResult} />
     {#if leftOpen}
       <aside
@@ -285,7 +290,7 @@
         <div class="relative h-full" style="width:{leftW}px">
           <button
             onclick={() => togglePanel("left")}
-            title="Hide sidebar"
+            use:tip={"Hide sidebar"}
             aria-label="Hide left sidebar"
             class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
@@ -298,7 +303,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           onpointerdown={(e) => startPanelResize("left", e)}
-          title="Drag to resize. Drag all the way in to hide."
+          use:tip={"Drag to resize. Drag all the way in to hide."}
           class="absolute inset-y-0 -right-px z-20 w-1.5 cursor-col-resize transition-colors hover:bg-ring/50 {resizing === 'left' ? 'bg-ring/50' : ''}"
         ></div>
       </aside>
@@ -328,7 +333,7 @@
         <div class="relative ml-auto h-full" style="width:{rightW}px">
           <button
             onclick={() => togglePanel("right")}
-            title="Hide sidebar"
+            use:tip={"Hide sidebar"}
             aria-label="Hide right sidebar"
             class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
@@ -341,7 +346,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           onpointerdown={(e) => startPanelResize("right", e)}
-          title="Drag to resize. Drag all the way in to hide."
+          use:tip={"Drag to resize. Drag all the way in to hide."}
           class="absolute inset-y-0 -left-px z-20 w-1.5 cursor-col-resize transition-colors hover:bg-ring/50 {resizing === 'right' ? 'bg-ring/50' : ''}"
         ></div>
       </aside>
@@ -352,7 +357,7 @@
       <button
         transition:fly={{ x: -16, duration: 180, delay: 120 }}
         onclick={() => togglePanel("left")}
-        title="Show sidebar"
+        use:tip={"Show sidebar"}
         aria-label="Show left sidebar"
         class="absolute top-1/2 left-0 z-40 -translate-y-1/2 rounded-r-md border border-l-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
       >
@@ -365,7 +370,7 @@
       <button
         transition:fly={{ x: 16, duration: 180, delay: 120 }}
         onclick={() => togglePanel("right")}
-        title="Show sidebar"
+        use:tip={"Show sidebar"}
         aria-label="Show right sidebar"
         class="absolute top-1/2 right-0 z-40 -translate-y-1/2 rounded-l-md border border-r-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
       >

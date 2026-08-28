@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { tip } from "$lib/ui/tooltip.svelte";
   import { onMount } from "svelte";
   import { fly, slide } from "svelte/transition";
   import Widget from "$lib/Widget.svelte";
   import ColorInput from "$lib/ui/ColorInput.svelte";
-  import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
+  import { ICONS } from "$lib/ui/icons";
   import { type EditorState, type ElementId } from "$lib/editor.svelte";
   import { kindOf, type V2Edge } from "$lib/config";
   import { fetchGithubStars } from "$lib/usage";
@@ -251,6 +252,14 @@
     bmac: "https://buymeacoffee.com/lawsonhart",
     kofi: "https://ko-fi.com/lawsonhart",
   };
+  // Left side of the footer. Privacy and Terms have no pages yet, so they point
+  // at the repo for now: swap the hrefs once those exist.
+  const FOOTER_LINKS = [
+    { label: "Creator", icon: "user", href: "https://lawsonhart.me/", external: true },
+    { label: "Help", icon: "help", href: "https://www.last.fm/about/trackmymusic", external: true },
+    { label: "Privacy", icon: "shield", href: "/privacy", external: false },
+    { label: "Terms", icon: "document", href: "/terms", external: false },
+  ];
   // Live GitHub star count for the Star button, fetched once on mount (the server
   // refreshes it in the background and serves it from memory, so there's nothing
   // to poll). null until it arrives or on failure, and the button then just reads
@@ -280,7 +289,7 @@
     return () => window.removeEventListener("pointerdown", close);
   });
   const ftBtn =
-    "flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-[11px] text-foreground/70 shadow-sm transition hover:bg-muted hover:text-foreground";
+    "flex h-6 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-[11px] text-foreground/70 shadow-sm transition hover:bg-muted hover:text-foreground";
 
   // ---- zoom ----
   let zoom = $state(1);
@@ -313,7 +322,7 @@
       onpointerdown={(e) => e.stopPropagation()}
       onclick={() => editor.undo()}
       disabled={!editor.canUndo}
-      title="Undo (Ctrl+Z)"
+      use:tip={"Undo (Ctrl+Z)"}
       aria-label="Undo"
       class="rounded-md border border-border bg-card px-2.5 py-1 text-sm shadow-sm transition hover:bg-muted disabled:opacity-40"
     >
@@ -323,7 +332,7 @@
       onpointerdown={(e) => e.stopPropagation()}
       onclick={() => editor.redo()}
       disabled={!editor.canRedo}
-      title="Redo (Ctrl+Shift+Z)"
+      use:tip={"Redo (Ctrl+Shift+Z)"}
       aria-label="Redo"
       class="rounded-md border border-border bg-card px-2.5 py-1 text-sm shadow-sm transition hover:bg-muted disabled:opacity-40"
     >
@@ -337,21 +346,21 @@
       ? 'pointer-events-none opacity-0'
       : ''}"
   >
-    <span class="flex items-center gap-1" title="Click an element to select it">
+    <span class="flex items-center gap-1" use:tip={"Click an element to select it"}>
       <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" /><path d="m13 13 6 6" />
       </svg>
       select
     </span>
     <span>·</span>
-    <span class="flex items-center gap-1" title="Drag an element to move it">
+    <span class="flex items-center gap-1" use:tip={"Drag an element to move it"}>
       <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M5 9 2 12l3 3" /><path d="m9 5 3-3 3 3" /><path d="m15 19-3 3-3-3" /><path d="m19 9 3 3-3 3" /><path d="M2 12h20" /><path d="M12 2v20" />
       </svg>
       drag
     </span>
     <span>·</span>
-    <span class="flex items-center gap-1" title="Hold Shift while dragging to snap to other elements">
+    <span class="flex items-center gap-1" use:tip={"Hold Shift while dragging to snap to other elements"}>
       <b>Shift</b>
       <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15" /><path d="m5 8 4 4" /><path d="m12 15 4 4" />
@@ -359,7 +368,7 @@
       snap
     </span>
     <span>·</span>
-    <span class="flex items-center gap-1" title="Drag a handle to resize">
+    <span class="flex items-center gap-1" use:tip={"Drag a handle to resize"}>
       <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="m21 3-7 7" /><path d="m3 21 7-7" />
       </svg>
@@ -374,20 +383,20 @@
         transition:slide={{ axis: "x", duration: 220 }}
         class="flex items-center gap-0.5 overflow-hidden rounded-lg border border-border bg-card p-1 shadow-sm"
       >
-        <button onpointerdown={stop} onclick={() => (canvasBg = "checker")} title="Checkerboard" aria-label="Checkerboard backdrop" class="{bdBtn} {canvasBg === 'checker' ? bdActive : ''}">
+        <button onpointerdown={stop} onclick={() => (canvasBg = "checker")} use:tip={"Checkerboard"} aria-label="Checkerboard backdrop" class="{bdBtn} {canvasBg === 'checker' ? bdActive : ''}">
           <svg viewBox="0 0 16 16" class="h-4 w-4" aria-hidden="true">
             <rect x="1.5" y="1.5" width="13" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.2" />
             <rect x="1.5" y="1.5" width="6.5" height="6.5" fill="currentColor" opacity="0.85" />
             <rect x="8" y="8" width="6.5" height="6.5" fill="currentColor" opacity="0.85" />
           </svg>
         </button>
-        <button onpointerdown={stop} onclick={() => (canvasBg = "#000000")} title="Black" aria-label="Black backdrop" class="{bdBtn} {canvasBg === '#000000' ? bdActive : ''}">
+        <button onpointerdown={stop} onclick={() => (canvasBg = "#000000")} use:tip={"Black"} aria-label="Black backdrop" class="{bdBtn} {canvasBg === '#000000' ? bdActive : ''}">
           <svg viewBox="0 0 16 16" class="h-4 w-4" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="currentColor" /></svg>
         </button>
-        <button onpointerdown={stop} onclick={() => (canvasBg = "#ffffff")} title="White" aria-label="White backdrop" class="{bdBtn} {canvasBg === '#ffffff' ? bdActive : ''}">
+        <button onpointerdown={stop} onclick={() => (canvasBg = "#ffffff")} use:tip={"White"} aria-label="White backdrop" class="{bdBtn} {canvasBg === '#ffffff' ? bdActive : ''}">
           <svg viewBox="0 0 16 16" class="h-4 w-4" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.4" /></svg>
         </button>
-        <button onpointerdown={stop} onclick={randomBg} title="Random color" aria-label="Random backdrop" class={bdBtn}>
+        <button onpointerdown={stop} onclick={randomBg} use:tip={"Random color"} aria-label="Random backdrop" class={bdBtn}>
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" /><path d="m15 15 6 6" /><path d="m4 4 5 5" />
           </svg>
@@ -401,7 +410,7 @@
         <button
           onpointerdown={stop}
           onclick={() => (simPaused = !simPaused)}
-          title="Preview how the widget looks when paused / stopped"
+          use:tip={"Preview how the widget looks when paused / stopped"}
           aria-label="Paused preview"
           class="{bdBtn} {previewPaused ? bdActive : ''}"
         >
@@ -414,7 +423,7 @@
         <button
           onpointerdown={stop}
           onclick={() => (experimentalOpen = true)}
-          title="Experimental features"
+          use:tip={"Experimental features"}
           aria-label="Experimental features"
           class="{bdBtn} {experimentalOn ? 'text-amber-500 hover:text-amber-500' : ''}"
         >
@@ -447,13 +456,13 @@
 
     <!-- Zoom controls -->
     <div class="flex items-center gap-0.5 rounded-lg border border-border bg-card p-1 shadow-sm">
-      <button onpointerdown={stop} onclick={() => setZoom(zoom - 0.25)} title="Zoom out" aria-label="Zoom out" class={bdBtn}>
+      <button onpointerdown={stop} onclick={() => setZoom(zoom - 0.25)} use:tip={"Zoom out"} aria-label="Zoom out" class={bdBtn}>
         <svg viewBox="0 0 16 16" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 8h9" /></svg>
       </button>
-      <button onpointerdown={stop} onclick={() => setZoom(1)} title="Reset zoom (scroll over the preview to zoom)" aria-label="Reset zoom" class="min-w-[3rem] rounded-md px-1.5 py-1 text-center text-xs tabular-nums text-foreground/80 transition hover:bg-muted hover:text-foreground">
+      <button onpointerdown={stop} onclick={() => setZoom(1)} use:tip={"Reset zoom (scroll over the preview to zoom)"} aria-label="Reset zoom" class="min-w-[3rem] rounded-md px-1.5 py-1 text-center text-xs tabular-nums text-foreground/80 transition hover:bg-muted hover:text-foreground">
         {Math.round(zoom * 100)}%
       </button>
-      <button onpointerdown={stop} onclick={() => setZoom(zoom + 0.25)} title="Zoom in" aria-label="Zoom in" class={bdBtn}>
+      <button onpointerdown={stop} onclick={() => setZoom(zoom + 0.25)} use:tip={"Zoom in"} aria-label="Zoom in" class={bdBtn}>
         <svg viewBox="0 0 16 16" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9" /></svg>
       </button>
     </div>
@@ -494,7 +503,7 @@
         <!-- bottom-right (w+h) -->
         <button
           aria-label="resize width and height"
-          title="Drag to resize"
+          use:tip={"Drag to resize"}
           class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "br")}
@@ -502,7 +511,7 @@
         <!-- right-middle (width) -->
         <button
           aria-label="resize width"
-          title="Drag to resize width"
+          use:tip={"Drag to resize width"}
           class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
           onpointerdown={(e) => startResize(e, "r")}
@@ -510,7 +519,7 @@
         <!-- bottom-middle (height) -->
         <button
           aria-label="resize height"
-          title="Drag to resize height"
+          use:tip={"Drag to resize height"}
           class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-blue-500"
           style="left:{selRect.x + selRect.w / 2 - 5}px;top:{selRect.y + selRect.h - 5}px"
           onpointerdown={(e) => startResize(e, "b")}
@@ -522,10 +531,22 @@
   <footer class="font-mono-ui relative z-20 flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
     <!-- Connect blurb, stuck to the left / sidebar side -->
     <div class="min-w-0">
-      <div class="mt-0.5">
-        <a class="underline hover:text-foreground" href="https://lawsonhart.me/" target="_blank" rel="noopener noreferrer">Made by Lawson Hart</a>
-        |
-        <a class="underline hover:text-foreground" href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noopener noreferrer">How to set up scrobbling</a>
+      <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        {#each FOOTER_LINKS as l, i (l.label)}
+          {#if i}<span class="text-border">|</span>{/if}
+          <a
+            class="flex items-center gap-1 hover:text-foreground"
+            href={l.href}
+            target={l.external ? "_blank" : null}
+            rel={l.external ? "noopener noreferrer" : null}
+          >
+            <svg viewBox="0 0 24 24" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+              {@html ICONS[l.icon]}
+            </svg>
+            <span class="underline underline-offset-2">{l.label}</span>
+          </a>
+        {/each}
       </div>
       <div class="opacity-75">Not affiliated with Last.fm, Spotify, or Apple · respect artwork &amp; content copyright.</div>
     </div>
@@ -542,7 +563,7 @@
 
     <!-- Community / support buttons, stuck to the right / inspector side -->
     <div class="flex shrink-0 items-center gap-1.5" data-support>
-      <a href={LINKS.discord} target="_blank" rel="noopener noreferrer" title="Discord" onpointerdown={stop} class={ftBtn}>
+      <a href={LINKS.discord} target="_blank" rel="noopener noreferrer" use:tip={"Discord"} onpointerdown={stop} class={ftBtn}>
         <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
           <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
         </svg>
@@ -553,7 +574,7 @@
         href={LINKS.github}
         target="_blank"
         rel="noopener noreferrer"
-        title="Star this project on GitHub"
+        use:tip={"Star this project on GitHub"}
         onpointerdown={stop}
         class={ftBtn}
       >
@@ -569,7 +590,7 @@
         <button
           onpointerdown={stop}
           onclick={() => (supportOpen = !supportOpen)}
-          title="Support Jamlog"
+          use:tip={"Support Jamlog"}
           aria-haspopup="menu"
           aria-expanded={supportOpen}
           class={ftBtn}
@@ -632,4 +653,8 @@
 </div>
 
 <!-- Sibling of the canvas so clicks in the modal don't reach the deselect handler -->
-<ExperimentalModal bind:open={experimentalOpen} {editor} />
+{#if experimentalOpen}
+  {#await import("$lib/editor/ExperimentalModal.svelte") then M}
+    <M.default bind:open={experimentalOpen} {editor} />
+  {/await}
+{/if}

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { TIP_DIAGRAMS } from "./tip-diagrams";
   import { creditUrl, type Credit } from "$lib/credits";
 
   interface Props {
@@ -20,7 +19,18 @@
   let y = $state(0);
 
   const TW = 248; // tooltip width
-  const svg = $derived(diagram ? TIP_DIAGRAMS[diagram] : undefined);
+  // The diagram markup is a few KB of authored SVG that most tooltips never
+  // show, and the legal pages never show at all, so it's its own chunk fetched
+  // on first hover. Layout doesn't wait on it: `diagram` (the key) is enough to
+  // reserve the space, so the card is placed the same either way.
+  let svg = $state<string | undefined>(undefined);
+  let loadedFor: string | undefined;
+  async function loadDiagram() {
+    if (!diagram || loadedFor === diagram) return;
+    loadedFor = diagram;
+    const mod = await import("./tip-diagrams");
+    if (loadedFor === diagram) svg = mod.TIP_DIAGRAMS[diagram];
+  }
   const href = $derived(credit ? creditUrl(credit) : null);
   // A link is only reachable if the card accepts the pointer, which in turn means
   // the card has to hold itself open while the pointer crosses to it. Credits
@@ -35,13 +45,14 @@
     let left = r.left - TW - 10;
     if (left < 8) left = Math.min(window.innerWidth - TW - 8, r.right + 10);
     x = Math.max(8, left);
-    const h = (svg ? 190 : 96) + (credit ? 20 : 0);
+    const h = (diagram ? 190 : 96) + (credit ? 20 : 0);
     y = Math.max(8, Math.min(r.top - 4, window.innerHeight - h - 8));
   }
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   function show() {
     clearTimeout(hideTimer);
+    void loadDiagram();
     place();
     open = true;
   }
@@ -87,9 +98,14 @@
     e.stopPropagation();
   }}
   aria-label={label ? `Help: ${label}` : "Help"}
-  class="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-border text-[9px] leading-none text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+  class="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground"
 >
-  ?
+  <!-- Drawn rather than typed: a "?" glyph never centers in a 16px box (font
+       ascender/descender push it off), an SVG path always does. -->
+  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9.1 8.4a3 3 0 0 1 5.8 1c0 2-3 2.7-3 4" />
+    <path d="M12 16.8h.01" />
+  </svg>
 </button>
 
 {#if open}
@@ -103,10 +119,15 @@
       : 'pointer-events-none'}"
     style="left:{x}px;top:{y}px"
   >
-    {#if svg}
+    {#if diagram}
       <div class="mb-2 overflow-hidden rounded-md border border-border bg-zinc-900/60 p-1">
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
-        {@html svg}
+        {#if svg}
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html svg}
+        {:else}
+          <!-- Same 220x110 box the diagram fills, so nothing shifts when it lands. -->
+          <div class="aspect-[2/1] w-full"></div>
+        {/if}
       </div>
     {/if}
     <p class="text-[11px] leading-snug text-muted-foreground">{text}</p>

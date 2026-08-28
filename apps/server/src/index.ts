@@ -156,8 +156,14 @@ const SITEMAP_LASTMOD = new Date().toISOString().slice(0, 10);
 
 app.get("/sitemap.xml", (c) => {
   const origin = getOrigin(c);
-  // Only the editor home page; /w and /callback are noindexed app-state pages.
-  const urls = [{ loc: `${origin}/`, priority: 1.0 }];
+  // The editor plus the two legal pages; /w and /callback are noindexed
+  // app-state pages and stay out.
+  const urls = [
+    { loc: `${origin}/`, priority: 1.0 },
+    { loc: `${origin}/privacy`, priority: 0.3 },
+    { loc: `${origin}/terms`, priority: 0.3 },
+    { loc: `${origin}/credits`, priority: 0.3 },
+  ];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(

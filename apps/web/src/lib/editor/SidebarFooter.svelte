@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { tip } from "$lib/ui/tooltip.svelte";
   import { onMount } from "svelte";
   import { serviceStatus } from "$lib/status.svelte";
-  import FeedbackModal from "$lib/editor/FeedbackModal.svelte";
   import { feedbackRecentlySent, fetchSiteUserCount } from "$lib/usage";
 
   interface Props {
@@ -62,7 +62,7 @@
 <!-- Usage count: how many people have built a widget here. Hidden until the
      count loads (and when storage is off, so it never shows a bare "0"). -->
 {#if userCount !== null}
-  <div class="mb-2 flex items-center gap-1.5 text-foreground/80" title="Distinct Last.fm users who've used the widget">
+  <div class="mb-2 flex items-center gap-1.5 text-foreground/80" use:tip={"Distinct Last.fm users who've used the widget"}>
     <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
@@ -73,7 +73,7 @@
 {/if}
 
 <div class="flex items-center gap-1.5">
-  <span class="h-1.5 w-1.5 shrink-0 rounded-full {status.dot}" title="Service status"></span>
+  <span class="h-1.5 w-1.5 shrink-0 rounded-full {status.dot}" use:tip={"Service status"}></span>
   <span>{status.label}</span>
 </div>
 <div class="mt-1 flex items-center opacity-70">
@@ -82,10 +82,14 @@
     target="_blank"
     rel="noopener noreferrer"
     class="hover:text-foreground"
-    title="View this build on GitHub"
+    use:tip={"View this build on GitHub"}
   >
     v{version} · build {commit}
   </a>
 </div>
 
-<FeedbackModal bind:open={feedbackOpen} {lfmUser} onSubmitted={() => (feedbackHidden = true)} />
+{#if feedbackOpen}
+  {#await import("$lib/editor/FeedbackModal.svelte") then M}
+    <M.default bind:open={feedbackOpen} {lfmUser} onSubmitted={() => (feedbackHidden = true)} />
+  {/await}
+{/if}

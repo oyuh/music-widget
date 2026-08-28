@@ -1,6 +1,6 @@
 {
   "name": "music-widget",
-  "version": "2.2.36",
+  "version": "2.3.09",
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {
