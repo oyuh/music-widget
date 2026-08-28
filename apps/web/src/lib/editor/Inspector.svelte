@@ -5,6 +5,7 @@
   import Segmented from "$lib/ui/Segmented.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
+  import { tip } from "$lib/ui/tooltip.svelte";
   import { CREDITS, type Credit } from "$lib/credits";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
   import { fly } from "svelte/transition";
@@ -179,7 +180,7 @@
           onclick={() => (copyOpen = !copyOpen)}
           aria-expanded={copyOpen}
           aria-haspopup="menu"
-          title="Take another {labelOfKind.toLowerCase()}'s look"
+          use:tip={`Take another ${labelOfKind.toLowerCase()}'s look`}
           class="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] whitespace-nowrap transition-colors {copiedFrom
             ? 'text-green-400'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"

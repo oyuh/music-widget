@@ -438,7 +438,7 @@
     <button
       onpointerdown={stop}
       onclick={() => (controlsOpen = !controlsOpen)}
-      title={controlsOpen ? "Hide canvas controls" : "Show canvas controls"}
+      use:tip={controlsOpen ? "Hide canvas controls" : "Show canvas controls"}
       aria-label={controlsOpen ? "Hide canvas controls" : "Show canvas controls"}
       aria-expanded={controlsOpen}
       class="rounded-md border border-border bg-card p-1 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"

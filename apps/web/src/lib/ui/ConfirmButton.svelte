@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tip } from "./tooltip.svelte";
   interface Props {
     label: string;
     confirmLabel?: string;
@@ -24,6 +25,6 @@
   }
 </script>
 
-<button type="button" {title} onclick={click} class="{cls} {armed ? 'ring-1 ring-amber-400 text-amber-300' : ''}">
+<button type="button" use:tip={title} onclick={click} class="{cls} {armed ? 'ring-1 ring-amber-400 text-amber-300' : ''}">
   {armed ? confirmLabel : label}
 </button>

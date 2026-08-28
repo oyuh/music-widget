@@ -397,7 +397,7 @@
         type="button"
         onclick={savePreset}
         disabled={!editor.canSavePreset}
-        title={editor.canSavePreset ? "Save current look" : "Limit of 10 reached"}
+        use:tip={editor.canSavePreset ? "Save current look" : "Limit of 10 reached"}
         class="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-40"
       >
         Save
@@ -406,7 +406,7 @@
 
     {#each editor.customPresets as p (p.id)}
       <div class="rounded-md border border-border p-2">
-        <div class="mb-1.5 truncate text-xs font-medium" title={p.name}>{p.name}</div>
+        <div class="mb-1.5 truncate text-xs font-medium" use:tip={p.name}>{p.name}</div>
         <div class="flex flex-wrap gap-1">
           <ConfirmButton
             label="Apply"
@@ -458,9 +458,9 @@
           <button
             type="button"
             disabled={inactive}
-            title={inactive
+            use:tip={inactive
               ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it."
-              : undefined}
+              : ""}
             onclick={() => editor.select(id)}
             class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
             id
@@ -490,7 +490,7 @@
               type="button"
               disabled={inactive || !editor.canAdd(kind.id)}
               onclick={() => editor.duplicate(id)}
-              title={editor.canAdd(kind.id)
+              use:tip={editor.canAdd(kind.id)
                 ? `Add another ${kind.label.toLowerCase()} (copies this one)`
                 : `You can have up to ${MAX_PER_KIND} of these`}
               aria-label="Add another {kind.label}"
