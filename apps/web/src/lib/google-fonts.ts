@@ -27,4 +27,5 @@ export const GOOGLE_FONTS = [
   "Pacifico",
   "Lobster",
   "Caveat",
+  "Pixelify Sans",
 ] as const;

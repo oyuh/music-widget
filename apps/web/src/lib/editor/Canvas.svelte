@@ -333,7 +333,7 @@
 
   <!-- Editing hint -->
   <div
-    class="font-pixel absolute top-3 left-1/2 z-20 flex max-w-[55%] -translate-x-1/2 cursor-default items-center gap-2 text-[11px] text-muted-foreground transition-opacity duration-200 {controlsOpen
+    class="font-mono-ui absolute top-3 left-1/2 z-20 flex max-w-[55%] -translate-x-1/2 cursor-default items-center gap-2 text-[11px] text-muted-foreground transition-opacity duration-200 {controlsOpen
       ? 'pointer-events-none opacity-0'
       : ''}"
   >
@@ -519,7 +519,7 @@
     </div>
   </div>
 
-  <footer class="font-pixel relative z-20 flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+  <footer class="font-mono-ui relative z-20 flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
     <!-- Connect blurb, stuck to the left / sidebar side -->
     <div class="min-w-0">
       <div class="mt-0.5">

@@ -111,7 +111,7 @@
       <div class="flex min-h-0 flex-col gap-4 overflow-y-auto p-4">
         <!-- The URL + recommended size, always visible -->
         <div class="flex flex-col gap-2 rounded-md border border-border bg-zinc-900/50 p-3">
-          <div class="font-pixel text-[11px] text-muted-foreground uppercase">Your widget URL</div>
+          <div class="font-mono-ui text-[11px] text-muted-foreground uppercase">Your widget URL</div>
           <div class="flex gap-2">
             <input
               type="text"

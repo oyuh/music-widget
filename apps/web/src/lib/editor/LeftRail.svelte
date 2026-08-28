@@ -211,7 +211,7 @@
 
   <!-- Last.fm account -->
   <section class="flex flex-col gap-2">
-    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Last.fm</div>
+    <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Last.fm</div>
     <input
       type="text"
       placeholder="username"
@@ -249,7 +249,7 @@
 
   <!-- Share -->
   <section class="flex flex-col gap-2">
-    <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Share</div>
+    <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Share</div>
     <div class="flex gap-2">
       <button
         type="button"
@@ -341,7 +341,7 @@
   {#if isDev}
     <!-- Dev tools (never rendered in production builds) -->
     <section class="flex flex-col gap-2 rounded-md border border-dashed border-amber-500/40 p-2">
-      <div class="font-pixel text-xs font-medium text-amber-500/80 uppercase">Dev</div>
+      <div class="font-mono-ui text-xs font-medium text-amber-500/80 uppercase">Dev</div>
       <div class="flex gap-2">
         <button
           type="button"
@@ -443,7 +443,7 @@
        looking at, up to MAX_PER_KIND. The first instance can't be deleted (hide
        it instead), so a design always has a background, a title and so on. -->
   <section class="flex flex-col gap-1">
-    <div class="flex items-center gap-1 font-pixel text-xs font-medium text-muted-foreground uppercase">
+    <div class="flex items-center gap-1 font-mono-ui text-xs font-medium text-muted-foreground uppercase">
       Elements
       <InfoTip
         text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
@@ -510,7 +510,7 @@
   </section>
 
   <!-- Sidebar footer -->
-  <footer class="font-pixel mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+  <footer class="font-mono-ui mt-auto border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
     <SidebarFooter lfmUser={editor.config.lfmUser} />
   </footer>
 </div>

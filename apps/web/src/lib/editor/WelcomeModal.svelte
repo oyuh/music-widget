@@ -102,7 +102,7 @@
 
       <div class="mt-3 flex flex-col gap-1.5">
         <div class="flex items-center justify-between gap-2">
-          <label for="welcome-user" class="font-pixel text-xs text-muted-foreground">Last.fm username</label>
+          <label for="welcome-user" class="font-mono-ui text-xs text-muted-foreground">Last.fm username</label>
           <button
             type="button"
             onclick={() => (helpOpen = !helpOpen)}
@@ -185,7 +185,7 @@
       </div>
 
       <div class="mt-3 flex flex-col gap-2">
-        <div class="font-pixel text-xs font-medium text-muted-foreground uppercase">Pick a preset</div>
+        <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Pick a preset</div>
         <div class="grid grid-cols-2 gap-2">
           {#each PRESETS as p (p.name)}
             <button

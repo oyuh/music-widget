@@ -17,7 +17,7 @@
     aria-expanded={open}
     class="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left transition-colors hover:bg-muted/60"
   >
-    <span class="font-pixel text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</span>
+    <span class="font-mono-ui text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</span>
     <span class="flex items-center gap-2">
       {#if badge}<span class="text-[11px] text-muted-foreground tabular-nums">{badge}</span>{/if}
       <svg
