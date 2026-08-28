@@ -1,6 +1,6 @@
 {
   "name": "@music-widget/server",
-  "version": "2.2.36",
+  "version": "2.3.15",
   "private": true,
   "type": "module",
   "scripts": {

@@ -94,11 +94,7 @@
     <p class={p}>
       This is a free service run by one person, provided as-is, with no warranty and no uptime guarantee. It can break
       mid-stream, features can change, and it leans entirely on Last.fm's API, which has its own outages and limits.
-      The status dot in the editor's sidebar is the honest current answer.
-    </p>
-    <p class={p}>
-      Keep a backup plan for a broadcast that matters. As far as the law allows, we aren't liable for what comes out of
-      using it, including a stream that went out with a broken overlay.
+      The status dot in the editor's sidebar is the true status.
     </p>
   </Collapsible>
 
@@ -112,7 +108,7 @@
 
   <Collapsible title="Changes to these terms" icon="clock" bind:open={open.changes}>
     <p class={p}>
-      These can change. The date at the top moves when they do, and every edit shows up in the project's commit
+      The date at the top moves when they do, and every edit shows up in the project's commit
       history. Carrying on using the widget after a change means you're fine with the new version.
     </p>
   </Collapsible>
