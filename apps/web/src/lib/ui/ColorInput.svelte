@@ -211,7 +211,7 @@
       type="button"
       bind:this={btn}
       onclick={toggle}
-      title={compact ? label || "Custom color" : undefined}
+      use:tip={compact ? label || "Custom color" : ""}
       aria-label="{label || 'color'} picker"
       class="relative shrink-0 overflow-hidden rounded-md border border-border {compact ? 'h-7 w-7' : 'h-8 w-8'} {isAccent
         ? ''

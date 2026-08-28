@@ -58,7 +58,8 @@ export function tip(node: HTMLElement, text: string) {
   return {
     update(next: string) {
       label = next;
-      if (card) card.textContent = next;
+      if (!next) hide();
+      else if (card) card.textContent = next;
     },
     destroy() {
       hide();
