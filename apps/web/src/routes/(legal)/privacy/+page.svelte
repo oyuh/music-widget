@@ -29,8 +29,7 @@
 <p class="font-mono-ui mt-1 text-xs text-muted-foreground">Last updated: August 28, 2026</p>
 
 <p class="{p} mt-4 mb-6">
-  There are no accounts and no cookies here. Everything below is what the site actually does, section by section, and
-  you can check any of it against
+  There are no accounts and no cookies here, everything below is the only thing <Term def="Lawson Hart the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term> collect.
   <Term def="The whole site, editor and server, is public on GitHub." href="https://github.com/oyuh/music-widget">the source</Term>.
 </p>
 
@@ -46,10 +45,10 @@
     <ul class="list-inside list-disc space-y-1.5">
       <li class={li}><code class={key}>mw:config</code> your current widget design, saved as you edit</li>
       <li class={li}><code class={key}>mw:presets</code> the designs you saved under My Presets</li>
-      <li class={li}><code class={key}>mw:feedbackSentAt</code> when you last sent feedback, so the modal stops asking</li>
+      <li class={li}><code class={key}>mw:feedbackSentAt</code> when you last sent feedback</li>
       <li class={li}>
         <code class={key}>lfm_session_key</code> only if you signed into Last.fm for a
-        <Term def="A Last.fm profile set to private. Signing in lets the widget read it; a public profile needs no sign-in at all.">private profile</Term>
+        <Term def="A Last.fm profile set to private. Signing in lets the widget read your private profile.">private profile</Term>
       </li>
     </ul>
     <p class={p}>
@@ -63,14 +62,13 @@
       <Term
         def="The part of a URL after the # sign. Browsers keep it client-side and never send it to the server, which is why your design never reaches us."
         href="https://developer.mozilla.org/en-US/docs/Web/API/URL/hash">fragment</Term
-      >, along with the Last.fm username it reads from. We never receive that part, but anyone you hand the link to can
+      >, along with the Last.fm username it reads from. We never get that part, but anyone you hand the link to can
       open it and see exactly what you see.
     </p>
     <p class={p}>
-      Two things ride along in there if you set them: your Last.fm session key, and your own
+      Two things are in there if you set them: your Last.fm session key, and your own
       <Term def="Bring your own key. The editor lets you paste a personal Last.fm API key so your widget gets its own rate limit instead of sharing ours.">API key</Term>.
-      Treat that link like a password. Paste it into your broadcaster, don't post it in a Discord channel or leave it
-      on screen while you stream.
+      Remember this is your personal API key, don't share it.
     </p>
   </Collapsible>
 
@@ -89,8 +87,7 @@
       <li class={li}>how many times you've been seen, and when you were first and last seen</li>
     </ul>
     <p class={p}>
-      Coming back doesn't add rows, it bumps the count. Visits with no username set are skipped completely, rows go
-      away automatically after a year with no sign of you, and the tracks you play are never recorded.
+      We need these records to see anaylitical history, all logs are deleted/ compressed after a year. Compressing the logs removes all identifying information.
     </p>
   </Collapsible>
 
@@ -101,8 +98,8 @@
       can be matched to the widget it's about.
     </p>
     <p class={p}>
-      Handing over an email for outage alerts stores that address and links it to your Last.fm username, so an email
-      about a broken widget can say which one. Nothing else is ever sent to it, and asking gets it deleted.
+      Handing over an email for outage alerts stores that address and links it to your Last.fm username, so <Term def="Lawson Hart the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term>
+      can notify people what the status of the systems are.
     </p>
   </Collapsible>
 
@@ -114,7 +111,7 @@
         through their API, so their privacy policy covers that half.
       </li>
       <li class={li}>
-        <span class="text-foreground">Album art</span> loads through our own proxy, so your viewers' IP addresses never
+        <span class="text-foreground">Album art</span> loads through our own proxy, so your IP address doesn't
         reach the image host.
       </li>
       <li class={li}>
