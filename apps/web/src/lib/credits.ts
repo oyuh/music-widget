@@ -21,6 +21,12 @@ export type Credit = {
   handle?: string;
   /** Which platform the handle belongs to; picks the profile URL below. */
   platform?: Platform;
+  /** The setting this became, as it's labelled in the editor. */
+  setting?: string;
+  /** What they asked for, in their own words from the feedback form. */
+  asked?: string;
+  /** What shipped, and where to find it. */
+  shipped?: string;
 };
 
 /**
@@ -45,12 +51,32 @@ export function creditUrl(credit: Credit): string | null {
  * Each one ships in a commit that lands days after the note that asked for it.
  */
 export const CREDITS = {
-  /** "If there was some sort of placeholder icon when no album art is available" */
-  fallbackArt: { name: "leo" },
-  /** "adding the feature to outline the fonts ... the text kinda not legible at all" */
-  outline: { name: "Brian" },
-  /** "I wish I could have more than one of an element" */
-  instances: { name: "DISTORTICON" },
-  /** "I would like the album accent color to have a consistent brightness" */
-  accentBrightness: { name: "ytmn6" },
+  fallbackArt: {
+    name: "leo",
+    setting: "Fallback image",
+    asked: "If there was some sort of placeholder icon when no album art is available",
+    shipped:
+      "Select the album art, then Album art › Fallback image. Paste a link to any image and it stands in whenever the real cover can't be fetched: a track with no artwork, a broken cover, or nothing playing yet. The link gets checked as you type, so a page URL pasted instead of an image URL gets caught right there.",
+  },
+  outline: {
+    name: "Brian",
+    setting: "Outline",
+    asked: "adding the feature to outline the fonts ... the text kinda not legible at all",
+    shipped:
+      "Every element has an Outline section now: thickness, opacity and color, plus inside/center/outside placement on the shapes. Text outlines are drawn around the letters rather than over them, so words stay readable on a busy game background.",
+  },
+  instances: {
+    name: "DISTORTICON",
+    setting: "Multiple elements",
+    asked: "I wish I could have more than one of an element",
+    shipped:
+      "The + beside each element in the left rail adds another one of that kind. Each copy carries its own position, size and styling, and Copy style in the inspector lifts the look from a sibling so a second title doesn't have to be restyled from scratch.",
+  },
+  accentBrightness: {
+    name: "ytmn6",
+    setting: "Consistent brightness",
+    asked: "I would like the album accent color to have a consistent brightness",
+    shipped:
+      "Under Accent color, with Auto color from album art on. Album covers swing from near-black to near-white and the accent swung with them. This keeps the cover's hue but re-lights it to one fixed brightness, with a slider to set where that sits.",
+  },
 } satisfies Record<string, Credit>;

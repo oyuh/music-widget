@@ -205,27 +205,16 @@ button {
   font-family: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
-/* ---- Sleek global scrollbars ---- */
+/* ---- No scrollbars ---- */
+/* Wheel / trackpad / keyboard scrolling all still work; only the bar is gone,
+   since it kept crowding the sidebars and looked bad doing it. */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-width: none;
 }
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
-  background-clip: padding-box;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* ---- Vamped range slider (editor) ---- */

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tip } from "$lib/ui/tooltip.svelte";
   import { ELEMENTS, freshConfig, labelFor, type EditorState } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
@@ -11,8 +12,6 @@
   // position, so they're estimates. Surfaced as a tooltip in a few places.
   const LASTFM_TIMING_HINT =
     "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
-  import SetupModal from "$lib/editor/SetupModal.svelte";
-  import ExperimentalModal from "$lib/editor/ExperimentalModal.svelte";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
   import { recordWidgetCopy } from "$lib/usage";
 
@@ -309,7 +308,7 @@
         <button
           type="button"
           onclick={loadCurrentStyles}
-          title="Replace the box with your widget's current styles"
+          use:tip={"Replace the box with your widget's current styles"}
           class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
         >
           Load current styles
@@ -632,12 +631,20 @@
   </div>
 {/if}
 
-<ExperimentalModal bind:open={experimentalOpen} {editor} />
+{#if experimentalOpen}
+  {#await import("$lib/editor/ExperimentalModal.svelte") then M}
+    <M.default bind:open={experimentalOpen} {editor} />
+  {/await}
+{/if}
 
-<SetupModal
-  bind:open={setupOpen}
-  url={shareUrl}
-  width={editor.config.layout.w}
-  height={editor.config.layout.h}
-  lfmUser={editor.config.lfmUser}
-/>
+{#if setupOpen}
+  {#await import("$lib/editor/SetupModal.svelte") then M}
+    <M.default
+      bind:open={setupOpen}
+      url={shareUrl}
+      width={editor.config.layout.w}
+      height={editor.config.layout.h}
+      lfmUser={editor.config.lfmUser}
+    />
+  {/await}
+{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tip } from "$lib/ui/tooltip.svelte";
   import InfoTip from "./InfoTip.svelte";
   interface Props {
     value?: string;
@@ -230,7 +231,7 @@
         <button
           type="button"
           onclick={() => (value = isAccent ? hex6 : "accent")}
-          title="Use accent / album-art color"
+          use:tip={"Use accent / album-art color"}
           class="shrink-0 rounded-md border px-2 py-1.5 text-xs {isAccent
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-border hover:bg-muted'}"
