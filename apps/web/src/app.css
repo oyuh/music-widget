@@ -204,11 +204,6 @@ button {
 .font-mono-ui {
   font-family: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
-/* "Geist Pixel" isn't a standard web font; Pixelify Sans is the loaded pixel
-   fallback. Swap the first family if you have a real Geist Pixel face. */
-.font-pixel {
-  font-family: "Geist Pixel", "Pixelify Sans", "Geist Mono", ui-monospace, monospace;
-}
 
 /* ---- Sleek global scrollbars ---- */
 * {

@@ -124,7 +124,7 @@
 </script>
 
 {#snippet header(title: string, hint: string, diagram: string, credit?: Credit)}
-  <div class="flex items-center gap-1 font-pixel text-xs font-medium text-muted-foreground uppercase">
+  <div class="flex items-center gap-1 font-mono-ui text-xs font-medium text-muted-foreground uppercase">
     {title}
     {#if hint}<InfoTip text={hint} diagram={diagram || undefined} label={title} {credit} />{/if}
   </div>

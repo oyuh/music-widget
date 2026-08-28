@@ -31,7 +31,7 @@
   <div class="w-full max-w-xl text-card-foreground">
     <!-- header -->
     <div class="flex items-center justify-between px-6 py-4">
-      <span class="font-pixel text-lg tracking-tight">fast.jamlog.lol</span>
+      <span class="font-mono-ui text-lg tracking-tight">fast.jamlog.lol</span>
       <span class="inline-flex items-center gap-2 font-mono-ui text-xs text-muted-foreground">
         <span class="size-2 animate-pulse rounded-full bg-amber-500"></span>
         desktop only
