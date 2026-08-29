@@ -135,7 +135,13 @@
     font: false,
     anim: false,
     paused: false,
+    ghosts: false,
   });
+
+  // Every element instance, in the element-list order. Used by the ghost-outline
+  // switches, which are per instance (each copy draws its own outline).
+  const allIds = $derived(ELEMENTS.flatMap((e) => editor.idsOf(e.id)));
+  const ghostsOff = $derived(allIds.filter((id) => !editor.ghosting(id)).length);
 
   const EASINGS = ["linear", "sineOut", "cubicOut", "quintOut", "backOut", "elasticOut"];
   const inputCls = "w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-sm";
@@ -157,11 +163,117 @@
   </div>
 {/snippet}
 
+<!-- Settings for the widget as a whole. Shown on the primary background (which IS
+     the widget frame) and with nothing selected, since they're not about any one
+     element and there'd otherwise be nothing in the panel. -->
+{#snippet wholeWidget()}
+  <div class="mt-1 flex items-center gap-2 px-0.5">
+    <span class="font-mono-ui text-[10px] tracking-wide text-muted-foreground/70 uppercase">Whole widget</span>
+    <hr class="flex-1 border-border" />
+  </div>
+
+  <Collapsible title="Accent color" icon="palette" bind:open={open.accent} hint="The color any element set to 'auto' follows, and the accent background fill.">
+    <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
+    <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />
+    {#if cfg.theme.autoFromArt}
+      <Toggle
+        bind:checked={cfg.theme.accentNormalize!}
+        label="Consistent brightness"
+        hint="Album art swings from near-black to near-white, and the accent pulled from it swings with it, so the progress bar is barely visible on some covers and washed out on others. This keeps the art's hue but re-lights it to one fixed brightness, so the accent reads the same on every track."
+        diagram="accent-brightness"
+        credit={CREDITS.accentBrightness}
+      />
+      {#if cfg.theme.accentNormalize}
+        <Slider
+          bind:value={cfg.theme.accentBrightness!}
+          min={0}
+          max={100}
+          label="Accent brightness"
+          suffix="%"
+          hint="How bright every album accent is normalized to. Raise it for a light background, lower it for a light widget on a dark stream. Only affects colors taken from the art, never a hand-picked accent."
+          diagram="accent-brightness"
+        />
+      {/if}
+    {/if}
+  </Collapsible>
+
+  <Collapsible title="Global font" icon="type" bind:open={open.font} badge={cfg.theme.font} hint="The default font for all text. Each text element can override it under its own Font setting.">
+    <select bind:value={cfg.theme.font} class={inputCls} aria-label="Global font">
+      {#each GOOGLE_FONTS as f (f)}
+        <option value={f}>{f}</option>
+      {/each}
+    </select>
+  </Collapsible>
+
+  <Collapsible
+    title="Song-switch animation"
+    icon="sparkles"
+    bind:open={open.anim}
+    badge={v2.switchAnim.type === "none" ? undefined : v2.switchAnim.type}
+    hint="How the widget transitions when the playing song changes."
+    diagram="switch-anim"
+  >
+    <Segmented
+      bind:value={v2.switchAnim.type}
+      label="Type"
+      options={[
+        { value: "none", label: "None" },
+        { value: "fade", label: "Fade" },
+        { value: "slide", label: "Slide" },
+      ]}
+    />
+    {#if v2.switchAnim.type === "slide"}
+      <Segmented
+        bind:value={v2.switchAnim.direction}
+        label="Direction"
+        options={[
+          { value: "up", label: "Up" },
+          { value: "down", label: "Down" },
+          { value: "left", label: "Left" },
+          { value: "right", label: "Right" },
+        ]}
+      />
+    {/if}
+    {#if v2.switchAnim.type !== "none"}
+      <Slider bind:value={v2.switchAnim.durationMs} min={0} max={1500} step={50} label="Duration" suffix="ms" />
+      <label class="block">
+        <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+          Easing
+          <InfoTip text="The speed curve of the animation. For example, cubicOut eases out and backOut overshoots slightly." label="Easing" />
+        </div>
+        <select bind:value={v2.switchAnim.easing} class={inputCls}>
+          {#each EASINGS as e (e)}
+            <option value={e}>{e}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+  </Collapsible>
+
+  <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint="What the widget does when nothing is playing: show the pause symbol, or hide the whole widget.">
+    <Segmented
+      bind:value={cfg.fields.pausedMode!}
+      options={[
+        { value: "label", label: "Show paused" },
+        { value: "transparent", label: "Hide widget" },
+      ]}
+    />
+    {#if (cfg.fields.pausedMode ?? "label") === "label"}
+      <p class="text-[11px] leading-snug text-muted-foreground">
+        Select the <b>Pause symbol</b> element to change its color, size and position. The widget keeps
+        showing the last song you actually played.
+      </p>
+    {:else}
+      <p class="text-[11px] leading-snug text-muted-foreground">
+        The whole widget hides while nothing is playing.
+      </p>
+    {/if}
+  </Collapsible>
+{/snippet}
+
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
 <div class="flex h-full flex-col gap-2 overflow-y-auto p-3 text-sm *:shrink-0">
-  <!-- pr-7 clears the panel's floating collapse button, which the copy-style
-       menu tucks in beside. -->
-  <div class="flex items-center gap-1.5 pr-7">
+  <div class="flex items-center gap-1.5">
     <div class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight">
       <span class="truncate">{panelTitle}</span>
       {#if kind === "progress" || kind === "duration"}
@@ -221,7 +333,32 @@
   </div>
 
   {#if !sel || !E}
-    <p class="text-xs text-muted-foreground">Click an element on the canvas to edit it.</p>
+    <p class="text-xs text-muted-foreground">
+      Click an element on the canvas to edit it. These settings cover the whole widget.
+    </p>
+    {@render wholeWidget()}
+
+    <!-- Editor-only, so it lives down here with nothing selected rather than on
+         any one element's panel. -->
+    <div class="mt-1 flex items-center gap-2 px-0.5">
+      <span class="font-mono-ui text-[10px] tracking-wide text-muted-foreground/70 uppercase">Editor</span>
+      <hr class="flex-1 border-border" />
+    </div>
+
+    <Collapsible
+      title="Ghost outlines"
+      icon="outline"
+      bind:open={open.ghosts}
+      badge={ghostsOff ? `${ghostsOff} off` : undefined}
+      hint="While you drag an edge or corner to resize, nearby elements draw a gray outline so you can see what you're lining up with. Turn one off here if it's more noise than help. This only changes the editor, never the widget itself."
+    >
+      {#each allIds as id (id)}
+        <Toggle
+          bind:checked={() => editor.ghosting(id), (v) => editor.setGhosting(id, v)}
+          label={labelFor(id)}
+        />
+      {/each}
+    </Collapsible>
   {:else}
     {#if !isPrimaryBg}
       <Toggle bind:checked={E.visible} label="Visible" hint="Show or hide this element on the live widget." />
@@ -653,108 +790,7 @@
 
     <!-- ===== Widget-wide (only on the primary background: there's one widget) ===== -->
     {#if isPrimaryBg}
-      <div class="mt-1 flex items-center gap-2 px-0.5">
-        <span class="font-mono-ui text-[10px] tracking-wide text-muted-foreground/70 uppercase">Whole widget</span>
-        <hr class="flex-1 border-border" />
-      </div>
-
-      <Collapsible title="Accent color" icon="palette" bind:open={open.accent} hint="The color any element set to 'auto' follows, and the accent background fill.">
-        <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
-        <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />
-        {#if cfg.theme.autoFromArt}
-          <Toggle
-            bind:checked={cfg.theme.accentNormalize!}
-            label="Consistent brightness"
-            hint="Album art swings from near-black to near-white, and the accent pulled from it swings with it, so the progress bar is barely visible on some covers and washed out on others. This keeps the art's hue but re-lights it to one fixed brightness, so the accent reads the same on every track."
-            diagram="accent-brightness"
-            credit={CREDITS.accentBrightness}
-          />
-          {#if cfg.theme.accentNormalize}
-            <Slider
-              bind:value={cfg.theme.accentBrightness!}
-              min={0}
-              max={100}
-              label="Accent brightness"
-              suffix="%"
-              hint="How bright every album accent is normalized to. Raise it for a light background, lower it for a light widget on a dark stream. Only affects colors taken from the art, never a hand-picked accent."
-              diagram="accent-brightness"
-            />
-          {/if}
-        {/if}
-      </Collapsible>
-
-      <Collapsible title="Global font" icon="type" bind:open={open.font} badge={cfg.theme.font} hint="The default font for all text. Each text element can override it under its own Font setting.">
-        <select bind:value={cfg.theme.font} class={inputCls} aria-label="Global font">
-          {#each GOOGLE_FONTS as f (f)}
-            <option value={f}>{f}</option>
-          {/each}
-        </select>
-      </Collapsible>
-
-      <Collapsible
-        title="Song-switch animation"
-        icon="sparkles"
-        bind:open={open.anim}
-        badge={v2.switchAnim.type === "none" ? undefined : v2.switchAnim.type}
-        hint="How the widget transitions when the playing song changes."
-        diagram="switch-anim"
-      >
-        <Segmented
-          bind:value={v2.switchAnim.type}
-          label="Type"
-          options={[
-            { value: "none", label: "None" },
-            { value: "fade", label: "Fade" },
-            { value: "slide", label: "Slide" },
-          ]}
-        />
-        {#if v2.switchAnim.type === "slide"}
-          <Segmented
-            bind:value={v2.switchAnim.direction}
-            label="Direction"
-            options={[
-              { value: "up", label: "Up" },
-              { value: "down", label: "Down" },
-              { value: "left", label: "Left" },
-              { value: "right", label: "Right" },
-            ]}
-          />
-        {/if}
-        {#if v2.switchAnim.type !== "none"}
-          <Slider bind:value={v2.switchAnim.durationMs} min={0} max={1500} step={50} label="Duration" suffix="ms" />
-          <label class="block">
-            <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-              Easing
-              <InfoTip text="The speed curve of the animation. For example, cubicOut eases out and backOut overshoots slightly." label="Easing" />
-            </div>
-            <select bind:value={v2.switchAnim.easing} class={inputCls}>
-              {#each EASINGS as e (e)}
-                <option value={e}>{e}</option>
-              {/each}
-            </select>
-          </label>
-        {/if}
-      </Collapsible>
-
-      <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint="What the widget does when nothing is playing: show the pause symbol, or hide the whole widget.">
-        <Segmented
-          bind:value={cfg.fields.pausedMode!}
-          options={[
-            { value: "label", label: "Show paused" },
-            { value: "transparent", label: "Hide widget" },
-          ]}
-        />
-        {#if (cfg.fields.pausedMode ?? "label") === "label"}
-          <p class="text-[11px] leading-snug text-muted-foreground">
-            Select the <b>Pause symbol</b> element to change its color, size and position. The widget keeps
-            showing the last song you actually played.
-          </p>
-        {:else}
-          <p class="text-[11px] leading-snug text-muted-foreground">
-            The whole widget hides while nothing is playing.
-          </p>
-        {/if}
-      </Collapsible>
+      {@render wholeWidget()}
     {/if}
   {/if}
 </div>

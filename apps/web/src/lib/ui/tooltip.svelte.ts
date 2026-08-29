@@ -9,6 +9,7 @@ const DELAY = 350;
 
 export function tip(node: HTMLElement, text: string) {
   let label = text;
+  let over = false;
   let card: HTMLDivElement | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -44,12 +45,17 @@ export function tip(node: HTMLElement, text: string) {
   }
 
   const onEnter = () => {
+    over = true;
     clearTimeout(timer);
     timer = setTimeout(show, DELAY);
   };
+  const onLeave = () => {
+    over = false;
+    hide();
+  };
 
   node.addEventListener("mouseenter", onEnter);
-  node.addEventListener("mouseleave", hide);
+  node.addEventListener("mouseleave", onLeave);
   node.addEventListener("pointerdown", hide);
   node.addEventListener("focus", show);
   node.addEventListener("blur", hide);
@@ -60,11 +66,15 @@ export function tip(node: HTMLElement, text: string) {
       label = next;
       if (!next) hide();
       else if (card) card.textContent = next;
+      // Clicking hides the card, so a button that changes its tooltip on click
+      // (the confirm buttons' "click again") would say nothing until you moved
+      // away and back. Still hovering means it's still worth reading.
+      else if (over) onEnter();
     },
     destroy() {
       hide();
       node.removeEventListener("mouseenter", onEnter);
-      node.removeEventListener("mouseleave", hide);
+      node.removeEventListener("mouseleave", onLeave);
       node.removeEventListener("pointerdown", hide);
       node.removeEventListener("focus", show);
       node.removeEventListener("blur", hide);

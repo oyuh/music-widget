@@ -49,6 +49,7 @@ export const TEXT_ELEMENTS = ["title", "artist", "album", "duration"] as const;
 export type TextElementId = (typeof TEXT_ELEMENTS)[number];
 
 const STORAGE_KEY = "mw:config";
+const GHOSTS_KEY = "mw:ghosts";
 
 /**
  * A fully-defaulted, deeply-cloned config, always in v2 form. JSON round-tripping
@@ -81,6 +82,30 @@ export class EditorState {
   // Custom presets (localStorage), up to 10.
   customPresets = $state<{ id: string; name: string; config: WidgetConfig }[]>([]);
 
+  /**
+   * Editor-only: elements left OUT of the gray ghost outlines the canvas draws
+   * while you resize something. Stores the exceptions, so a design you've never
+   * touched this on ghosts everything. Deliberately not part of the config: it's
+   * a preference about the editor, not the widget, so it stays out of undo
+   * history, presets and share links.
+   */
+  ghostOff = $state<Record<ElementId, boolean>>({});
+
+  /** True when this element should draw a ghost outline while resizing. */
+  ghosting(id: ElementId): boolean {
+    return !this.ghostOff[id];
+  }
+
+  setGhosting(id: ElementId, on: boolean) {
+    this.ghostOff[id] = !on;
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(GHOSTS_KEY, JSON.stringify(this.ghostOff));
+    } catch {
+      /* ignore */
+    }
+  }
+
   /** Load from the URL hash, then localStorage, then defaults; apply any connected session. */
   load() {
     if (typeof window === "undefined") return;
@@ -101,6 +126,13 @@ export class EditorState {
       } catch {
         /* ignore */
       }
+    }
+
+    try {
+      const g = localStorage.getItem(GHOSTS_KEY);
+      if (g) this.ghostOff = JSON.parse(g);
+    } catch {
+      /* ignore */
     }
 
     // Pick up a connected Last.fm session stored by the /callback flow.

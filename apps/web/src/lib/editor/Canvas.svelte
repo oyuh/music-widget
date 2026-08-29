@@ -36,6 +36,9 @@
   }: Props = $props();
 
   let wrapperEl = $state<HTMLDivElement | null>(null);
+  // Canvas scale. Declared up here because the selection overlay sizes itself
+  // against it; the rest of the zoom controls live further down.
+  let zoom = $state(1);
   let selRect = $state<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // Simulate the paused/stopped state so the pause symbol (and hide-widget behavior)
@@ -76,11 +79,10 @@
     return { x: (r.left - wr.left) / zoom, y: (r.top - wr.top) / zoom, w: r.width / zoom, h: r.height / zoom };
   }
 
-  const edgeVal = (b: Box, edge: V2Edge, axis: "x" | "y") => {
-    const base = axis === "x" ? b.x : b.y;
-    const len = axis === "x" ? b.w : b.h;
-    return base + (edge === "start" ? 0 : edge === "center" ? len / 2 : len);
-  };
+  const factor = (edge: V2Edge) => (edge === "start" ? 0 : edge === "center" ? 0.5 : 1);
+
+  const edgeVal = (b: Box, edge: V2Edge, axis: "x" | "y") =>
+    (axis === "x" ? b.x : b.y) + factor(edge) * (axis === "x" ? b.w : b.h);
 
   type SnapCand = { to: ElementId; myEdge: V2Edge; toEdge: V2Edge; diff: number; guide: number } | null;
 
@@ -206,29 +208,116 @@
   }
 
   // ---- resize ----
-  function startResize(e: PointerEvent, kind: "br" | "r" | "b") {
+  // Every side and corner of the selection box is grabbable. Directions are the
+  // compass letters in the handle name, so "nw" moves the top and left edges.
+  type HandleDir = "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
+
+  // Grayed-out boxes of the widget frame and whatever the resized element is near,
+  // so you can see what you're lining up with while dragging an edge.
+  let ghosts = $state<Box[]>([]);
+  const GHOST_PX = 24;
+
+  function updateGhosts(id: ElementId) {
+    const me = localBox(id);
+    if (!me) return;
+    const out: Box[] = [];
+    for (const aid of Object.keys(editor.v2.elements)) {
+      if (aid === id || !editor.el(aid).visible || !editor.ghosting(aid)) continue;
+      const b = localBox(aid);
+      if (!b) continue;
+      const near =
+        me.x - GHOST_PX < b.x + b.w &&
+        b.x - GHOST_PX < me.x + me.w &&
+        me.y - GHOST_PX < b.y + b.h &&
+        b.y - GHOST_PX < me.y + me.h;
+      // The widget frame is always worth seeing while resizing.
+      if (near || aid === "background") out.push(b);
+    }
+    ghosts = out;
+  }
+
+  function startResize(e: PointerEvent, dir: HandleDir) {
     e.preventDefault();
     e.stopPropagation();
     const id = editor.selected;
     if (!id) return;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const dom = localBox(id);
-    const el = editor.el(id);
-    const baseW = el.w ?? dom?.w ?? 0;
-    const baseH = el.h ?? dom?.h ?? 0;
+    const base = localBox(id);
+    if (!base) return;
+    const el0 = editor.el(id);
+    const baseW = el0.w ?? base.w;
+    const baseH = el0.h ?? base.h;
+    // Offsets at drag start, so a snapped axis re-derives from these each event
+    // (no incremental rounding drift), same as startDrag.
+    const baseOffX = el0.snapX?.offset ?? 0;
+    const baseOffY = el0.snapY?.offset ?? 0;
     // Only the PRIMARY background is the widget frame; an extra one is a box and
     // can go as small as anything else.
     const minW = id === "background" ? 120 : 8;
     const minH = id === "background" ? 60 : 8;
+    const west = dir.includes("w");
+    const east = dir.includes("e");
+    const north = dir.includes("n");
+    const south = dir.includes("s");
+    const startX = e.clientX;
+    const startY = e.clientY;
     const z = zoom;
-    bindDrag((ev) => {
-      const dx = (ev.clientX - startX) / z;
-      const dy = (ev.clientY - startY) / z;
-      if (kind === "br" || kind === "r") editor.el(id).w = Math.max(minW, Math.round(baseW + dx));
-      if (kind === "br" || kind === "b") editor.el(id).h = Math.max(minH, Math.round(baseH + dy));
-    });
+
+    updateGhosts(id);
+    bindDrag(
+      (ev) => {
+        const el = editor.el(id);
+        const dx = (ev.clientX - startX) / z;
+        const dy = (ev.clientY - startY) / z;
+
+        // The dragged edge follows the pointer and the opposite one stays put, so
+        // the box always grows the way you pull it. A snapped axis keeps its snap
+        // and absorbs the movement into its offset (dragging never severs a snap,
+        // that's the Inspector's Unsnap button) — note the resolved position also
+        // shifts by the size change unless the snapped edge is the start one.
+        if (east || west) {
+          const w = Math.max(minW, Math.round(baseW + (east ? dx : -dx)));
+          const x = base.x + (west ? baseW - w : 0);
+          el.w = w;
+          if (editor.snapActive(id, "x"))
+            el.snapX!.offset = Math.round(baseOffX + (x - base.x) + factor(el.snapX!.myEdge) * (w - baseW));
+          else el.x = Math.round(x);
+        }
+        if (north || south) {
+          const h = Math.max(minH, Math.round(baseH + (south ? dy : -dy)));
+          const y = base.y + (north ? baseH - h : 0);
+          el.h = h;
+          if (editor.snapActive(id, "y"))
+            el.snapY!.offset = Math.round(baseOffY + (y - base.y) + factor(el.snapY!.myEdge) * (h - baseH));
+          else el.y = Math.round(y);
+        }
+        updateGhosts(id);
+      },
+      () => (ghosts = []),
+    );
   }
+
+  // Hit zones sit mostly OUTSIDE the selection box, so the element's own middle
+  // stays grabbable for moving it even when it's only a few px tall. Everything
+  // the selection draws is divided by the zoom, because it lives inside the
+  // scaled wrapper and should stay the same size on SCREEN at any zoom.
+  const GRAB_OUT = $derived(7 / zoom);
+  const GRAB_IN = $derived(3 / zoom);
+  const GRAB = $derived(GRAB_OUT + GRAB_IN);
+  // [dir, cursor, css box] for each side and corner, in wrapper-local px.
+  const handles = $derived(
+    selRect
+      ? ([
+          ["n", "ns-resize", `left:${selRect.x - GRAB_OUT}px;top:${selRect.y - GRAB_OUT}px;width:${selRect.w + GRAB * 2}px;height:${GRAB}px`],
+          ["s", "ns-resize", `left:${selRect.x - GRAB_OUT}px;top:${selRect.y + selRect.h - GRAB_IN}px;width:${selRect.w + GRAB * 2}px;height:${GRAB}px`],
+          ["w", "ew-resize", `left:${selRect.x - GRAB_OUT}px;top:${selRect.y - GRAB_OUT}px;width:${GRAB}px;height:${selRect.h + GRAB * 2}px`],
+          ["e", "ew-resize", `left:${selRect.x + selRect.w - GRAB_IN}px;top:${selRect.y - GRAB_OUT}px;width:${GRAB}px;height:${selRect.h + GRAB * 2}px`],
+          ["nw", "nwse-resize", `left:${selRect.x - GRAB_OUT}px;top:${selRect.y - GRAB_OUT}px;width:${GRAB}px;height:${GRAB}px`],
+          ["ne", "nesw-resize", `left:${selRect.x + selRect.w - GRAB_IN}px;top:${selRect.y - GRAB_OUT}px;width:${GRAB}px;height:${GRAB}px`],
+          ["sw", "nesw-resize", `left:${selRect.x - GRAB_OUT}px;top:${selRect.y + selRect.h - GRAB_IN}px;width:${GRAB}px;height:${GRAB}px`],
+          ["se", "nwse-resize", `left:${selRect.x + selRect.w - GRAB_IN}px;top:${selRect.y + selRect.h - GRAB_IN}px;width:${GRAB}px;height:${GRAB}px`],
+        ] as [HandleDir, string, string][])
+      : [],
+  );
 
   // ---- preview backdrop ----
   let canvasBg = $state("checker");
@@ -292,7 +381,6 @@
     "flex h-6 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-[11px] text-foreground/70 shadow-sm transition hover:bg-muted hover:text-foreground";
 
   // ---- zoom ----
-  let zoom = $state(1);
   let zoomAreaEl = $state<HTMLDivElement | null>(null);
   function setZoom(z: number) {
     zoom = Math.min(4, Math.max(0.5, Math.round(z * 100) / 100));
@@ -368,7 +456,7 @@
       snap
     </span>
     <span>·</span>
-    <span class="flex items-center gap-1" use:tip={"Drag a handle to resize"}>
+    <span class="flex items-center gap-1" use:tip={"Drag any edge or corner of the selection to resize"}>
       <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="m21 3-7 7" /><path d="m3 21 7-7" />
       </svg>
@@ -492,38 +580,47 @@
         <div class="pointer-events-none absolute right-0 left-0 z-30" style="top:{guideY}px;height:1px;background:#22d3ee"></div>
       {/if}
 
-      <!-- Selection outline + resize handles -->
-      {#if selRect}
+      <!-- Ghosts: what the element being resized is lining up against -->
+      {#each ghosts as g, i (i)}
         <div
           class="pointer-events-none absolute z-10"
-          style="left:{selRect.x - 1}px;top:{selRect.y - 1}px;width:{selRect.w + 2}px;height:{selRect.h +
-            2}px;border:2px solid #3b82f6;border-radius:4px"
+          style="left:{g.x}px;top:{g.y}px;width:{g.w}px;height:{g.h}px;border:1px dashed rgba(148,163,184,0.75);border-radius:4px"
+        ></div>
+      {/each}
+
+      <!-- Selection outline + invisible grab zones on every side and corner.
+           Widths are in SCREEN px (hence /zoom): the wrapper is scaled, so a flat
+           2px outline turns into a 8px slab at 400% otherwise. -->
+      {#if selRect}
+        <!-- A border thinner than 1px gets clamped by the browser, so both widths
+             would collapse to the same hairline when zoomed in and the corner
+             would stop reading as bolder. The floors keep them 2:1 at any zoom. -->
+        {@const line = Math.max(1, 1.5 / zoom)}
+        {@const bold = Math.max(2, 3 / zoom)}
+        {@const arm = Math.max(6, 11 / zoom)}
+        <div
+          class="pointer-events-none absolute z-10"
+          style="left:{selRect.x - line}px;top:{selRect.y - line}px;width:{selRect.w + line * 2}px;height:{selRect.h +
+            line * 2}px;border:{line}px solid #3b82f6;border-radius:{3 / zoom}px"
         ></div>
 
-        <!-- bottom-right (w+h) -->
-        <button
-          aria-label="resize width and height"
-          use:tip={"Drag to resize"}
-          class="absolute z-20 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500"
-          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h - 5}px"
-          onpointerdown={(e) => startResize(e, "br")}
-        ></button>
-        <!-- right-middle (width) -->
-        <button
-          aria-label="resize width"
-          use:tip={"Drag to resize width"}
-          class="absolute z-20 h-3 w-3 cursor-ew-resize rounded-sm border border-white bg-blue-500"
-          style="left:{selRect.x + selRect.w - 5}px;top:{selRect.y + selRect.h / 2 - 5}px"
-          onpointerdown={(e) => startResize(e, "r")}
-        ></button>
-        <!-- bottom-middle (height) -->
-        <button
-          aria-label="resize height"
-          use:tip={"Drag to resize height"}
-          class="absolute z-20 h-3 w-3 cursor-ns-resize rounded-sm border border-white bg-blue-500"
-          style="left:{selRect.x + selRect.w / 2 - 5}px;top:{selRect.y + selRect.h - 5}px"
-          onpointerdown={(e) => startResize(e, "b")}
-        ></button>
+        <!-- The bottom-right corner drawn heavier than the rest of the outline: the
+             only hint that the box is resizable, since the grab zones themselves
+             are invisible. Decoration only, the "se" zone under it does the work. -->
+        <div
+          class="pointer-events-none absolute z-20"
+          style="left:{selRect.x + selRect.w + line - arm}px;top:{selRect.y + selRect.h + line - arm}px;width:{arm}px;height:{arm}px;border-right:{bold}px solid #3b82f6;border-bottom:{bold}px solid #3b82f6;border-bottom-right-radius:{3 /
+            zoom}px"
+        ></div>
+
+        {#each handles as [dir, cursor, box] (dir)}
+          <button
+            aria-label="resize {dir}"
+            class="absolute {dir.length === 2 ? 'z-30' : 'z-20'}"
+            style="{box};cursor:{cursor}"
+            onpointerdown={(e) => startResize(e, dir)}
+          ></button>
+        {/each}
       {/if}
     </div>
   </div>

@@ -5,6 +5,7 @@
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
+  import { ICONS } from "$lib/ui/icons";
   import { CREDITS } from "$lib/credits";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
@@ -93,9 +94,8 @@
   // toolbar, so the row reads as one line instead of a strip of little boxes.
   const rowAdd =
     "flex h-6 w-6 shrink-0 items-center justify-center rounded text-base leading-none text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
-  // Not fixed-width: it grows into "Delete?" once armed.
   const rowDel =
-    "shrink-0 rounded px-1.5 py-1 text-xs leading-none text-muted-foreground transition hover:bg-muted hover:text-red-400";
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-red-400";
 
   // The pause symbol only renders in "Show paused" mode, so dim + disable its row
   // when the widget is set to hide entirely while paused (nothing to style there).
@@ -475,17 +475,37 @@
           </button>
 
           {#if !isBaseId(id)}
+            <!-- Click once to arm, again to delete: the can goes red and flashes
+                 while it's waiting for that second click. -->
             <ConfirmButton
-              label="✕"
-              confirmLabel="Delete?"
               title="Remove this one"
+              confirmTitle="Click again to delete it"
               class={rowDel}
+              armedClass="text-red-500 animate-pulse"
               onconfirm={() => editor.removeInstance(id)}
-            />
+            >
+              {#snippet children(armed: boolean)}
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width={armed ? 2.4 : 1.75}
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-label={armed ? "Delete this one?" : "Remove this one"}
+                  role="img"
+                >
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+                  {@html ICONS.trash}
+                </svg>
+              {/snippet}
+            </ConfirmButton>
           {/if}
 
-          <!-- The + hangs off the LAST instance, so it reads as "add another". -->
-          {#if id === ids[ids.length - 1]}
+          <!-- The + stays on the FIRST instance: it's the original, and the copies
+               hanging under it each carry their own delete instead. -->
+          {#if isBaseId(id)}
             <button
               type="button"
               disabled={inactive || !editor.canAdd(kind.id)}
