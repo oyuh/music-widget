@@ -288,13 +288,16 @@
       >
         <!-- Fixed-width inner box so content doesn't reflow while the panel slides -->
         <div class="relative h-full" style="width:{leftW}px">
+          <!-- Hangs off the editor-facing edge, mirroring the restore tab that
+               takes its place once the panel is hidden. z-30 so it sits over the
+               drag-to-resize strip rather than under it. -->
           <button
             onclick={() => togglePanel("left")}
             use:tip={"Hide sidebar"}
             aria-label="Hide left sidebar"
-            class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            class="absolute top-1/2 right-0 z-30 -translate-y-1/2 translate-x-full rounded-r-md border border-l-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
           >
-            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" />
             </svg>
           </button>
@@ -335,9 +338,9 @@
             onclick={() => togglePanel("right")}
             use:tip={"Hide sidebar"}
             aria-label="Hide right sidebar"
-            class="absolute top-2.5 right-2 z-10 rounded-md border border-border p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            class="absolute top-1/2 left-0 z-30 -translate-y-1/2 -translate-x-full rounded-l-md border border-r-0 border-border bg-card px-0.5 py-3 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
           >
-            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m6 17 5-5-5-5" /><path d="m13 17 5-5-5-5" />
             </svg>
           </button>
