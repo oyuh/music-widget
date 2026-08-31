@@ -6,7 +6,6 @@
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import { tip } from "$lib/ui/tooltip.svelte";
-  import { CREDITS, type Credit } from "$lib/credits";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
@@ -148,10 +147,10 @@
   const edgeLabel = (e: "start" | "center" | "end") => (e === "start" ? "start" : e === "end" ? "end" : "center");
 </script>
 
-{#snippet header(title: string, hint: string, diagram: string, credit?: Credit)}
+{#snippet header(title: string, hint: string, diagram: string)}
   <div class="flex items-center gap-1 font-mono-ui text-xs font-medium text-muted-foreground uppercase">
     {title}
-    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} label={title} {credit} />{/if}
+    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} label={title} />{/if}
   </div>
 {/snippet}
 
@@ -181,7 +180,6 @@
         label="Consistent brightness"
         hint="Album art swings from near-black to near-white, and the accent pulled from it swings with it, so the progress bar is barely visible on some covers and washed out on others. This keeps the art's hue but re-lights it to one fixed brightness, so the accent reads the same on every track."
         diagram="accent-brightness"
-        credit={CREDITS.accentBrightness}
       />
       {#if cfg.theme.accentNormalize}
         <Slider
@@ -604,7 +602,6 @@
             "Fallback image",
             "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
             "fallback",
-            CREDITS.fallbackArt,
           )}
           <input
             class={inputCls}
@@ -711,7 +708,7 @@
           icon="droplet"
           bind:open={open.tint}
           badge={tint!.opacity ? `${tint!.opacity}%` : undefined}
-          hint="A flat color laid over the background but under everything else. This is how you darken a blurred album cover until the text on top of it reads: the fill's own opacity only fades it toward whatever is behind the widget, which on a stream is your game."
+          hint="A flat color laid over the background but under everything else. Use this to darken a blurred album cover until the text on top of it reads. The fill's own Opacity won't do that job, since it fades the cover toward whatever sits behind the widget, which on a stream is your game."
         >
           <Slider bind:value={tint!.opacity} min={0} max={100} label="Strength" suffix="%" />
           {#if E.tint}
@@ -729,7 +726,6 @@
         bind:open={open.outline}
         badge={E.stroke.enabled ? "on" : undefined}
         hint="A stroke around this element. Handy for keeping text readable on top of busy backgrounds like a game."
-        credit={CREDITS.outline}
       >
         <Toggle bind:checked={E.stroke.enabled} label="Enable" />
         {#if E.stroke.enabled}

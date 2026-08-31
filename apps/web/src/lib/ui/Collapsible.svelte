@@ -2,7 +2,6 @@
   import type { Snippet } from "svelte";
   import InfoTip from "./InfoTip.svelte";
   import { ICONS } from "./icons";
-  import type { Credit } from "$lib/credits";
 
   interface Props {
     title: string;
@@ -14,10 +13,9 @@
     /** Optional InfoTip next to the title, same args as InfoTip itself. */
     hint?: string;
     diagram?: string;
-    credit?: Credit;
     children?: Snippet;
   }
-  let { title, open = $bindable(false), badge, icon, hint, diagram, credit, children }: Props = $props();
+  let { title, open = $bindable(false), badge, icon, hint, diagram, children }: Props = $props();
 </script>
 
 <section class="overflow-hidden rounded-md border border-border/60 bg-zinc-900/40">
@@ -53,7 +51,7 @@
       <!-- Reads as its own segment of the header: divider, hover state, the lot.
            There's nothing to click, it just answers to the pointer. -->
       <span class="flex items-center self-stretch border-l border-border/60 px-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-        <InfoTip text={hint} {diagram} label={title} {credit} />
+        <InfoTip text={hint} {diagram} label={title} />
       </span>
     {/if}
   </div>

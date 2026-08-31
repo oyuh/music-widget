@@ -5,12 +5,10 @@
   // actually useful here sitting inline above the content.
   let { children } = $props();
 
-  // Three tabs, all reachable from each other. Credits stays off the site footer
-  // on purpose; this switch is how you get to it.
+  // Both pages, reachable from each other.
   const TABS = [
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
-    { href: "/credits", label: "Credits" },
   ];
   const here = $derived(page.url.pathname);
   const tab = "rounded-md px-2.5 py-1 transition-colors";

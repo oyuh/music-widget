@@ -16,7 +16,7 @@
 
   // Static mini-render of a preset config, mirroring WidgetV2's render path
   // (real snap-resolved layout, fonts, colors, shadows) with the editor
-  // canvas's placeholder track — so a thumbnail looks like the canvas will
+  // canvas's placeholder track, so a thumbnail looks like the canvas will
   // after applying the preset. No marquee, animations, or art fetches.
 
   // Same placeholder content the editor canvas shows before a real track loads

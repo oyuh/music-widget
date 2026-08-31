@@ -162,7 +162,6 @@ app.get("/sitemap.xml", (c) => {
     { loc: `${origin}/`, priority: 1.0 },
     { loc: `${origin}/privacy`, priority: 0.3 },
     { loc: `${origin}/terms`, priority: 0.3 },
-    { loc: `${origin}/credits`, priority: 0.3 },
   ];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls

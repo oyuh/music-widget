@@ -42,8 +42,7 @@
     <div class="space-y-6 px-6 py-8">
       <p class="font-mono-ui text-sm leading-relaxed text-muted-foreground">
         The widget editor needs a mouse and a wider screen, so it only runs on a computer.
-        Drop your email and I'll let you know when I've got something for mobile ready!
-        (only about that and outages, nothing else).
+        Leave your email and I'll tell you when there's a mobile version. That and outages, nothing else.
       </p>
 
       <!-- email capture -->

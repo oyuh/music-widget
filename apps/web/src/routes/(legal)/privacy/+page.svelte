@@ -29,7 +29,8 @@
 <p class="font-mono-ui mt-1 text-xs text-muted-foreground">Last updated: August 28, 2026</p>
 
 <p class="{p} mt-4 mb-6">
-  There are no accounts and no cookies here, everything below is the only thing <Term def="Lawson Hart the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term> collect.
+  No accounts, no cookies. Everything below is the whole list of what <Term def="Lawson Hart, the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term> collect, and you
+  can check every claim on this page against
   <Term def="The whole site, editor and server, is public on GitHub." href="https://github.com/oyuh/music-widget">the source</Term>.
 </p>
 
@@ -87,7 +88,8 @@
       <li class={li}>how many times you've been seen, and when you were first and last seen</li>
     </ul>
     <p class={p}>
-      We need these records to see anaylitical history, all logs are deleted/ compressed after a year. Compressing the logs removes all identifying information.
+      We keep these to see how usage changes over time. After a year we either delete a row or compress it, and
+      compressing strips everything that identifies you.
     </p>
   </Collapsible>
 
@@ -98,8 +100,8 @@
       can be matched to the widget it's about.
     </p>
     <p class={p}>
-      Handing over an email for outage alerts stores that address and links it to your Last.fm username, so <Term def="Lawson Hart the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term>
-      can notify people what the status of the systems are.
+      Handing over an email for outage alerts stores that address and links it to your Last.fm username, so <Term def="Lawson Hart, the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term>
+      can tell you when something breaks.
     </p>
   </Collapsible>
 
@@ -111,8 +113,9 @@
         through their API, so their privacy policy covers that half.
       </li>
       <li class={li}>
-        <span class="text-foreground">Album art</span> loads through our own proxy, so your IP address doesn't
-        reach the image host.
+        <span class="text-foreground">Album art</span> loads straight from Last.fm's image CDN to your browser, so
+        that host sees your IP the same way any image on any page would. Our proxy only steps in when the direct
+        load fails.
       </li>
       <li class={li}>
         <span class="text-foreground">Google Fonts</span> serves whichever font you pick, which means your browser
