@@ -272,7 +272,7 @@
         // The dragged edge follows the pointer and the opposite one stays put, so
         // the box always grows the way you pull it. A snapped axis keeps its snap
         // and absorbs the movement into its offset (dragging never severs a snap,
-        // that's the Inspector's Unsnap button) — note the resolved position also
+        // that's the Inspector's Unsnap button). Note the resolved position also
         // shifts by the size change unless the snapped edge is the start one.
         if (east || west) {
           const w = Math.max(minW, Math.round(baseW + (east ? dx : -dx)));

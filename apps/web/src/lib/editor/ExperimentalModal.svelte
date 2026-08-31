@@ -53,13 +53,13 @@
       </div>
 
       <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
-        Turns on a Custom CSS panel in the sidebar with your widget's styles in it, to add to, remove
-        or rewrite however you want. Everything the normal settings do is an inline style, so they
-        keep winning over your CSS unless a rule says <code>!important</code>.
+        Adds a Custom CSS panel to the sidebar, loaded with your widget's current styles. Add to them, delete them,
+        rewrite them. Everything the normal settings do is an inline style, so they keep winning over your CSS
+        unless a rule says <code>!important</code>.
       </p>
       <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
-        It's easy to break your own widget in here. Switching this off puts it back exactly how it
-        was and keeps your CSS around for later.
+        You can break your own widget in here, and a rule that works today might not survive the next release.
+        Switching this off puts everything back how it was and keeps your CSS for later.
       </p>
 
       <p class="mt-2 text-xs">

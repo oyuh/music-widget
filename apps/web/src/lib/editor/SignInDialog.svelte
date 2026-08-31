@@ -42,9 +42,9 @@
       <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
         {#if result.ok}
           Connected to Last.fm{#if result.name}&nbsp;as <span class="font-medium text-foreground">{result.name}</span>{/if}.
-          The widget can now read your listening even if your profile is private.
+          The widget can read your scrobbles now, even with your profile set to private.
         {:else}
-          {result.error || "Something went wrong."} You can try again with “Connect” in the sidebar.
+          {result.error || "Something went wrong."} You can try again with "Connect" in the sidebar.
         {/if}
       </p>
 

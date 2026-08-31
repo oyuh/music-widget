@@ -66,7 +66,7 @@
         "Any app with a Browser / Web page source works (Lightstream, Twitch Studio, vMix…).",
         "Add a browser/web source and paste your widget URL.",
         "Set its size to {W} × {H}.",
-        "The background is transparent, so it overlays your scene cleanly.",
+        "The background is transparent, so only the widget itself draws over your scene.",
       ],
     },
   };
@@ -95,7 +95,7 @@
         <div>
           <h2 class="text-base font-semibold tracking-tight">Add the widget to your stream</h2>
           <p class="mt-0.5 text-xs text-muted-foreground">
-            It's just a browser source. Paste the URL into your streaming software and you're set.
+            It's a browser source. Paste the URL into your streaming software and the widget shows up.
           </p>
         </div>
         <button
@@ -160,8 +160,8 @@
         </ol>
 
         <p class="text-[11px] text-muted-foreground">
-          Edited your design? Re-copy the URL. It changes whenever your settings do, so update the source
-          to see the new look.
+          The URL changes whenever your settings do. Once you've edited the design, copy it again and paste it
+          back into the same source.
         </p>
       </div>
     </div>

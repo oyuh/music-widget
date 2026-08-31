@@ -3,7 +3,7 @@
 // a title attribute: `use:tip={"Hide sidebar"}`.
 //
 // InfoTip stays a separate component: it's a visible affordance with a diagram
-// and credits inside it. This one is invisible until you hover the control.
+// inside it. This one is invisible until you hover the control.
 
 const DELAY = 350;
 

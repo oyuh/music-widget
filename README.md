@@ -15,37 +15,37 @@ Technically it's a TypeScript monorepo: a SvelteKit editor and widget SPA, a Bun
 
 ## Contents
 
-- [How It Works](#how-it-works)
-  - [The Editor](#the-editor)
-  - [The Widget URL](#the-widget-url)
-  - [Layout Engines](#layout-engines)
-  - [Polling and Progress](#polling-and-progress)
-  - [Browser-Direct Last.fm Calls](#browser-direct-lastfm-calls)
-- [Repository Layout](#repository-layout)
+- [How it works](#how-it-works)
+  - [The editor](#the-editor)
+  - [The widget URL](#the-widget-url)
+  - [Layout engines](#layout-engines)
+  - [Polling and progress](#polling-and-progress)
+  - [Browser-direct Last.fm calls](#browser-direct-lastfm-calls)
+- [Repository layout](#repository-layout)
 - [Architecture](#architecture)
-  - [Web App: `apps/web`](#web-app-appsweb)
-  - [Server App: `apps/server`](#server-app-appsserver)
-- [Local Development](#local-development)
-- [Environment Variables](#environment-variables)
-- [Common Commands](#common-commands)
-- [API Surface](#api-surface)
+  - [Web app: `apps/web`](#web-app-appsweb)
+  - [Server app: `apps/server`](#server-app-appsserver)
+- [Local development](#local-development)
+- [Environment variables](#environment-variables)
+- [Common commands](#common-commands)
+- [API endpoints](#api-endpoints)
 - [Deployment](#deployment)
-- [Operational Notes](#operational-notes)
-- [Known Constraints](#known-constraints)
+- [Operational notes](#operational-notes)
+- [Known constraints](#known-constraints)
 - [Contributing](#contributing)
 - [License](#license)
 
-## How It Works
+## How it works
 
-### The Editor
+### The editor
 
 The editor (`/`) is a canvas for laying out the widget's pieces: album art, title, artist, album, a progress bar, and an elapsed/remaining time readout. Elements can be dragged, resized, and snapped to each other, and each one carries its own font, colors, outline, and shadow, plus a per-track-change animation. State autosaves to `localStorage` on every change, so closing the tab doesn't lose work.
 
-### The Widget URL
+### The widget URL
 
 The full config is serialized to JSON, base64url-encoded, and packed into the widget URL's hash (`/w#<blob>`). The widget page (`/w`) decodes the hash, polls Last.fm for the current track, and renders. Because the config lives entirely in the hash, the URL *is* the document: copy it into OBS and it renders, no server round-trip for the design itself.
 
-### Layout Engines
+### Layout engines
 
 There are two layout engines, and the `version` flag in the encoded config picks which renderer runs:
 
@@ -68,13 +68,13 @@ Two behaviors deliberately follow the *primary* instance rather than every copy,
 
 Element ids arrive from a hand-editable URL hash, so `mergeConfig` validates each one (`isValidElementId`), drops unknown kinds and over-cap instances, and nulls out snaps that point at anything that didn't survive.
 
-### Polling and Progress
+### Polling and progress
 
 Last.fm has no push API, so the widget polls `user.getRecentTracks` and watches the `nowplaying` flag. Since every widget polls from its viewer's own IP (see [below](#browser-direct-lastfm-calls)), the cadence is a flat 1 second regardless of playback state, so track changes, pauses, and playback starting all land within about a second ([`nowplaying.svelte.ts`](apps/web/src/lib/nowplaying.svelte.ts)). The only backoff is a hidden tab (5s), which OBS browser sources never trigger because they always report as visible.
 
 Between polls the progress bar ticks locally off the track's reported duration, with pause detection and a resume-position estimate so the bar doesn't freeze or jump.
 
-### Browser-Direct Last.fm Calls
+### Browser-direct Last.fm calls
 
 Last.fm rate-limits at roughly 5 requests per second per IP. If every viewer fetched through the server, they'd all share the server's single IP, and any streamer with a real audience going live would throttle everyone at once.
 
@@ -82,7 +82,7 @@ So public lookups (recent tracks, track info) go straight from each viewer's bro
 
 Private profiles go browser-direct too, with one extra step. A hidden listening profile requires a signed call, and the signature needs the Last.fm shared secret, which never leaves the server. Last.fm signatures carry no timestamp or nonce, so the server signs the recent-tracks URL once (`GET /api/lastfm/sign-recent`) and the browser reuses that pre-signed URL for every poll, straight against Last.fm from the viewer's IP ([`lastfm.ts`](apps/server/src/lastfm.ts)). The signed proxy routes remain as the fallback if signing or the direct call fails.
 
-## Repository Layout
+## Repository layout
 
 ```text
 .
@@ -100,7 +100,7 @@ Private profiles go browser-direct too, with one extra step. A hidden listening 
 
 ## Architecture
 
-### Web App: `apps/web`
+### Web app: `apps/web`
 
 A SvelteKit single-page application built with `adapter-static` (pure SPA, CSR only), Svelte 5 runes, and Tailwind v4.
 
@@ -119,7 +119,7 @@ Key files:
 - [`lastfm-client.ts`](apps/web/src/lib/lastfm-client.ts): browser-direct Last.fm client
 - [`WidgetLegacy.svelte`](apps/web/src/lib/WidgetLegacy.svelte) / [`WidgetV2.svelte`](apps/web/src/lib/WidgetV2.svelte): renderers
 
-### Server App: `apps/server`
+### Server app: `apps/server`
 
 A Bun-powered Hono service. In production it serves both the static build and the API on one port; in dev, Vite serves the UI and proxies `/api` to it. Redis (`Bun.redis`) is a small cache in front of the signed/proxied Last.fm paths, and Postgres (Drizzle, `drizzle-orm/bun-sql`) backs the optional usage analytics and contact emails.
 
@@ -138,7 +138,7 @@ Key files:
 - [`security.ts`](apps/server/src/security.ts): rate limiting, image-proxy allowlist
 - [`schema.ts`](apps/server/src/schema.ts): Drizzle schema
 
-## Local Development
+## Local development
 
 **Prerequisites**
 
@@ -155,7 +155,7 @@ bun run dev           # Vite UI on :5173, Hono API on :8787
 
 Then open `http://localhost:5173`.
 
-## Environment Variables
+## Environment variables
 
 Config is read from a repo-root `.env` (server) and `.env.local` (frontend `VITE_*` values). Copy [`.env.example`](.env.example) to get started.
 
@@ -169,7 +169,7 @@ Config is read from a repo-root `.env` (server) and `.env.local` (frontend `VITE
 | `VITE_LFM_KEY` | frontend (build) | public Last.fm key for browser-direct calls |
 | `VITE_LFM_CALLBACK` | frontend (build) | Last.fm auth callback URL |
 
-## Common Commands
+## Common commands
 
 Run these from the repository root.
 
@@ -184,7 +184,7 @@ Run these from the repository root.
 | `bun run db:migrate` | Apply Drizzle migrations |
 | `bun run cron:cleanup` | Run visitor-log housekeeping by hand |
 
-## API Surface
+## API endpoints
 
 Everything lives under `/api`. The Last.fm proxy routes mostly exist as the fallback; the common case (public and private alike) polls Last.fm directly and never touches them.
 
@@ -211,11 +211,11 @@ The whole thing ships as one Railway service plus the Redis and Postgres plugins
 2. Set the service variables: `LFM_API_KEY`, `LFM_SHARED_SECRET`, `REDIS_URL=${{Redis.REDIS_URL}}`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, plus the build-time `VITE_LFM_KEY` and `VITE_LFM_CALLBACK=https://<domain>/callback`.
 3. Deploy. Drizzle migrations run on the server's first write, so there's no manual migrate step.
 
-### Database Migrations
+### Database migrations
 
 After changing [`schema.ts`](apps/server/src/schema.ts), run `bun run db:generate` and commit the generated file under `apps/server/drizzle/`. To apply migrations by hand, point `DATABASE_URL` at the target and run `bun run db:migrate`.
 
-## Operational Notes
+## Operational notes
 
 **Caching.** The proxy cache is deliberately short: recent-tracks responses live for 1 second, track-info for 24 hours.
 
@@ -225,7 +225,7 @@ After changing [`schema.ts`](apps/server/src/schema.ts), run `bun run db:generat
 
 **Fail-open services.** Redis and Postgres are both optional. If either is unreachable, the widget keeps serving; you lose caching/rate limiting or visitor logging until it's back.
 
-## Known Constraints
+## Known constraints
 
 - The design lives entirely in the URL hash. No accounts, no server-side saves. Lose the URL, lose the design (the editor keeps a `localStorage` autosave as a safety net).
 - Last.fm calls go browser-direct by design, public and private alike (private via a one-time server-signed URL). The server proxy is only the fallback.

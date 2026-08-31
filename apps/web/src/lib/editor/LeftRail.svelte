@@ -6,7 +6,6 @@
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import { ICONS } from "$lib/ui/icons";
-  import { CREDITS } from "$lib/credits";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
   // Progress / duration ride on Last.fm, which doesn't report exact playback
@@ -242,7 +241,7 @@
         ? 'text-green-400'
         : 'text-muted-foreground'} hover:text-foreground"
     >
-      {editor.config.apiKey ? "✓ Using your own API key · edit" : "Use your own API key (faster) →"}
+      {editor.config.apiKey ? "✓ Using your own API key · edit" : "Use your own Last.fm API key →"}
     </button>
   </section>
 
@@ -447,7 +446,6 @@
       <InfoTip
         text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
         label="Elements"
-        credit={CREDITS.instances}
       />
     </div>
     {#each ELEMENTS as kind (kind.id)}
@@ -551,7 +549,9 @@
     >
       <h2 class="text-base font-semibold tracking-tight">Use your own Last.fm API key</h2>
       <p class="mt-1 text-xs text-muted-foreground">
-        Optional. Your widget makes its requests with your own key, so updates are faster and you're isolated from everyone else.
+        Optional, and most people never need it. Last.fm counts requests against the key making them, so your own
+        key gives your widget its own budget instead of sharing the default one. Worth setting if you're seeing
+        rate-limit warnings.
       </p>
       <ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
         <li>

@@ -1,21 +1,18 @@
 <script lang="ts">
   import InfoTip from "./InfoTip.svelte";
-  import type { Credit } from "$lib/credits";
   interface Props {
     checked?: boolean;
     label?: string;
     hint?: string;
     diagram?: string;
-    /** Passed through to the hint tooltip's "Suggested by" line. */
-    credit?: Credit;
   }
-  let { checked = $bindable(false), label = "", hint = "", diagram = "", credit = undefined }: Props = $props();
+  let { checked = $bindable(false), label = "", hint = "", diagram = "" }: Props = $props();
 </script>
 
 <div class="flex w-full items-center justify-between gap-3">
   <span class="flex items-center gap-1 text-sm">
     {#if label}{label}{/if}
-    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} {label} {credit} />{/if}
+    {#if hint}<InfoTip text={hint} diagram={diagram || undefined} {label} />{/if}
   </span>
   <button
     type="button"

@@ -39,7 +39,7 @@
     </p>
     <p class={p}>
       Nothing to buy, no account to make, no watermark to remove, no trial to cancel. The whole thing is
-      <Term def="Read the code that runs this site, including everything the privacy page claims." href="https://github.com/oyuh/music-widget">open source</Term>.
+      <Term def="Every line that runs this site is public on GitHub, free to read and self-host. Redistributing it or selling it needs permission, so it's source-available rather than open source." href="https://github.com/oyuh/music-widget">source-available</Term>.
     </p>
   </Collapsible>
 
