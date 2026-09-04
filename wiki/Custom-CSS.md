@@ -1,6 +1,6 @@
 # Custom CSS
 
-**Experimental.** Custom CSS lets you write real CSS against your own widget, so you can do things the editor doesn't have buttons for: gradients, animations, borders, filters, blend modes, whatever you can think of.
+**Experimental.** Custom CSS lets you write real CSS against your own widget. Gradients, animations, borders, filters, blend modes, anything the editor has no button for.
 
 It's off by default. Turning it on doesn't change how your widget looks, and turning it back off puts everything exactly how it was.
 
@@ -47,11 +47,11 @@ Every element in the widget has a `data-el` attribute. The wrapper carries posit
 | Duration text | `[data-el="duration"]` | `[data-el="duration"] > div` |
 | Pause symbol | `[data-el="pause"]` | `[data-el="pause"] > div > div` is each bar |
 
-Not sure what a selector should be? Hit **Load current styles** in the panel. It dumps your widget's styles exactly as they're rendering right now, so you get a real, working starting point instead of guessing. Delete what you don't need (rules without `!important` do nothing anyway, and the whole thing gets packed into your widget URL).
+When you are unsure what a selector should be, hit **Load current styles** in the panel. It dumps your widget's styles exactly as they're rendering right now, so you get a real, working starting point instead of guessing. Delete what you don't need (rules without `!important` do nothing anyway, and the whole thing gets packed into your widget URL).
 
 ### Copies of an element
 
-You can have up to three of most elements. The first one keeps the plain name, and the copies get numbered:
+You can have up to three of most elements, added from the [Elements](Elements#copies) list. The first one keeps the plain name, and the copies get numbered:
 
 | Which one | Selector |
 |-----------|----------|
@@ -168,7 +168,7 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 
 ## Sharing and OBS
 
-Your CSS is part of the design, so it rides along in the widget URL like everything else. Copy the URL, paste it into an OBS browser source, and it renders there exactly like it does in the editor preview. Nothing is stored on a server.
+Your CSS is part of the design, so it rides along in the widget URL like everything else. [Getting started](Getting-Started#3-add-it-to-your-stream) has the browser source steps. Copy the URL, paste it into an OBS browser source, and it renders there exactly like it does in the editor preview. Nothing is stored on a server.
 
 Because it's in the URL, editing your CSS gives you a **new URL**. Re-copy it and update your browser source, or your stream keeps showing the old version.
 
@@ -186,4 +186,4 @@ If you send someone your URL, they get your CSS too. Worth a look before you pas
 
 **"I broke my widget."** Turn the feature off with the flask icon in the canvas controls. Your CSS is kept, so you can turn it back on and fix it. The editor UI can never be styled by your CSS, so that button is always reachable.
 
-**"My animation doesn't run."** Make sure the `@keyframes` block is in the panel too, not just the `animation:` line, and that the names match.
+**"My animation doesn't run."** Make sure the `@keyframes` block is in the panel too, not only the `animation:` line, and that the names match.
