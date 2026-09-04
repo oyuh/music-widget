@@ -46,7 +46,7 @@ flowchart LR
   D --> E["Poll and render"]
 ```
 
-Eight element kinds are available: `background`, `art`, `title`, `artist`, `album`, `progress`, `duration`, and `pause`. Each carries its own position, size, color, outline, shadow, and per-track-change animation, and text elements add typography. The editor autosaves to `localStorage` on every change.
+Eight element kinds are available: `background`, `art`, `title`, `artist`, `album`, `progress`, `duration`, and `pause`. Each carries its own position, size, color, fill, outline, shadow, and corner radius, and text elements add typography. The track-change animation is one setting for the whole widget (`v2.switchAnim`), not per element. The editor autosaves to `localStorage` on every change.
 
 ### The widget URL
 
