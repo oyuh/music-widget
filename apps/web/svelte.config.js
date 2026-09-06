@@ -5,6 +5,13 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 const config = {
   preprocess: vitePreprocess(),
   kit: {
+    prerender: {
+      handleMissingId: ({ path, id, message }) => {
+        // Playground links carry editable CSS in the fragment, not a heading id.
+        if (path === "/wiki/playground" && id.startsWith("css=")) return;
+        throw new Error(message);
+      },
+    },
     // Pure SPA: a single index.html shell that the Hono server serves for every
     // non-/api route, with client-side routing taking over.
     adapter: adapter({

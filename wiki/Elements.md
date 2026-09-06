@@ -19,13 +19,15 @@ Every element has a **Visible** toggle, so you can drop one out of the design wi
 
 You can have up to three of most elements: a second background box behind the art, a title repeated in another font, and so on. Use the **+** on the element's row to add one, which copies the element you already have.
 
-The first one keeps its plain name and the copies get numbered. That numbering is what [custom CSS selectors](Custom-CSS#copies-of-an-element) target.
+The first one keeps its plain name and the copies get numbered. That numbering is what [custom CSS selectors](/wiki/custom-css#copies-of-an-element) target.
 
 Two settings always follow the first copy, because they apply to the widget rather than one box: the fallback image URL, and the reflow when album art goes missing. Extra album art copies show the same cover.
 
 ## Position and size
 
 Drag an element to move it and use its handles to resize. Elements snap to each other as you drag.
+
+Select an element and use the arrow keys to move it 1 pixel, or Shift + arrow for 10 pixels. Try dragging and numeric position controls in the [playground](/wiki/playground).
 
 **Anchor** pins an element to another one, so moving the parent takes the child with it. **Layer** decides what draws on top.
 

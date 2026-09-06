@@ -16,7 +16,7 @@ Your design is saved before you leave, so you do not lose anything on the round 
 
 ## What it does to your URL
 
-Connecting puts a Last.fm session key in your widget URL. That key reads your recent tracks and nothing else, but it is still yours, so:
+Connecting puts a Last.fm session key in your widget URL. Treat it as an account credential:
 
 - Keep the widget URL private. Do not post it in a public Discord or leave it visible in a screen share.
 - A preset **share link** carries the session key too, since it is a working widget URL for your account.

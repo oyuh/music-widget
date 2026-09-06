@@ -4,15 +4,15 @@ From a Last.fm username to a live overlay. The editor is desktop only, since lay
 
 ## 1. Enter your username
 
-Open [the editor](https://fast.jamlog.lol) and type your Last.fm username. The preview starts polling right away, so play something and it shows up within about a second.
+Open [the editor](/) and type your Last.fm username. Play a track and check that Last.fm shows it on your profile. The widget checks Last.fm once a second, but your music app can take longer to report a track.
 
-Nothing scrobbling yet? Last.fm's [setup guide](https://www.last.fm/about/trackmymusic) covers Spotify, Apple Music, YouTube Music, and the rest. The widget reads whatever Last.fm has, so anything that scrobbles works.
+Connect your music app with Last.fm's [setup guide](https://www.last.fm/about/trackmymusic). The widget reads the tracks your app reports to Last.fm.
 
-If your listening is hidden, see [Private profiles](Private-Profiles).
+If your listening is hidden, see [Private profiles](/wiki/private-profiles).
 
 ## 2. Lay it out
 
-Start from a preset, then drag, resize, and restyle. [Elements](Elements) covers what each piece does and how the settings work.
+Start from a preset, then drag, resize, and restyle. [Elements](/wiki/elements) covers each piece and its settings. Use the [playground](/wiki/playground) to practice with a sample widget.
 
 ## 3. Add it to your stream
 
@@ -44,7 +44,7 @@ Whichever route you take, set the source to the canvas size shown in the editor.
 
 ### Anything else
 
-Lightstream, Twitch Studio, vMix and the rest all have a browser or web page source. Add one, paste the URL, set the size.
+If your streaming software supports a browser or web page source, add one, paste the URL, and set the size.
 
 ## 4. Re-copy the URL after every change
 

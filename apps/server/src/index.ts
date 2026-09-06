@@ -153,15 +153,16 @@ app.get("/robots.txt", (c) => {
 // lastmod for the sitemap: the content only changes when a new build deploys,
 // so the process start date is an honest approximation.
 const SITEMAP_LASTMOD = new Date().toISOString().slice(0, 10);
+const WIKI_SLUGS = ["", "getting-started", "playground", "elements", "custom-css", "private-profiles", "troubleshooting"];
 
 app.get("/sitemap.xml", (c) => {
   const origin = getOrigin(c);
-  // The editor plus the two legal pages; /w and /callback are noindexed
-  // app-state pages and stay out.
+  // Public pages only; widget state, the preview, and auth callbacks stay out.
   const urls = [
     { loc: `${origin}/`, priority: 1.0 },
     { loc: `${origin}/privacy`, priority: 0.3 },
     { loc: `${origin}/terms`, priority: 0.3 },
+    ...WIKI_SLUGS.map((slug) => ({ loc: `${origin}/wiki${slug ? `/${slug}` : ""}`, priority: 0.7 })),
   ];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
@@ -230,6 +231,21 @@ app.get("*", async (c) => {
   const { pathname } = new URL(c.req.url);
   const acceptEncoding = c.req.header("accept-encoding") ?? "";
 
+  if (pathname === "/wiki" || pathname.startsWith("/wiki/")) {
+    const slug = pathname.slice(6).replace(/\/$/, "").toLowerCase();
+    const canonical = `/wiki${slug && slug !== "home" ? `/${slug}` : ""}`;
+    if (WIKI_SLUGS.includes(slug === "home" ? "" : slug)) {
+      if (pathname !== canonical) return c.redirect(canonical + new URL(c.req.url).search, 308);
+      const found = await pickEncoding(join(WEB_DIR, `${canonical.slice(1)}.html`), acceptEncoding);
+      if (found) return new Response(found.body, { headers: {
+        "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", Vary: "Accept-Encoding",
+        ...(found.encoding ? { "Content-Encoding": found.encoding } : {}),
+      } });
+    } else if (!pathname.endsWith("/__data.json")) {
+      return c.html('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page not found · Jamlog wiki</title><body style="background:#0b0b0c;color:#eee;font:14px/1.7 ui-monospace,monospace;padding:48px"><h1>Wiki page not found</h1><p>Check the address or <a style="color:#eee" href="/wiki">browse the wiki</a>.</p></body></html>', 404);
+    }
+  }
+
   if (pathname !== "/") {
     const filePath = safeJoin(WEB_DIR, pathname);
     const found = await pickEncoding(filePath, acceptEncoding);
@@ -253,7 +269,7 @@ app.get("*", async (c) => {
     // The widget (/w) and auth callback are app-state pages with no standalone
     // content: keep them out of search results so only the editor (/) ranks,
     // and serve them the lean shell so the OBS widget loads as fast as possible.
-    const appPage = pathname === "/w" || pathname === "/callback" || pathname.startsWith("/callback/");
+    const appPage = pathname === "/w" || pathname === "/wiki-preview" || pathname === "/callback" || pathname.startsWith("/callback/");
     const headers: Record<string, string> = {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-cache",
