@@ -457,7 +457,7 @@ export const CSS_SCOPE = "mw-widget";
 export const CSS_MAX = 4000;
 
 /** Wiki page for the feature; linked from the modal and the sidebar panel. */
-export const CSS_DOCS = "https://github.com/oyuh/music-widget/wiki/Custom-CSS";
+export const CSS_DOCS = "/wiki/custom-css";
 
 // At-rules that are invalid inside a nesting block, so they're hoisted back to
 // the top level instead of being silently dropped by the parser.

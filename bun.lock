@@ -12,7 +12,7 @@
     },
     "apps/server": {
       "name": "@music-widget/server",
-      "version": "0.1.0",
+      "version": "2.3.15",
       "dependencies": {
         "drizzle-orm": "^0.45.2",
         "hono": "^4.13.2",
@@ -24,13 +24,14 @@
     },
     "apps/web": {
       "name": "@music-widget/web",
-      "version": "0.1.0",
+      "version": "2.3.15",
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.10",
         "@sveltejs/kit": "^2.70.2",
         "@sveltejs/vite-plugin-svelte": "^7.3.0",
         "@tailwindcss/vite": "^4.3.3",
         "@typescript/native": "npm:typescript@^7.0.2",
+        "marked": "^18.0.11",
         "svelte": "^5.56.9",
         "svelte-check": "^4.7.6",
         "tailwindcss": "^4.3.3",
@@ -335,6 +336,8 @@
     "locate-character": ["locate-character@3.0.0", "", {}, "sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
+
+    "marked": ["marked@18.0.11", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-HnslJfsZkRPBDJRHvVtAaWlZHEpSu7u8LgQuJCELjRKuWR+hpq4A7sLq3p8HaI9ypVoXDXxV34CsQJEe1+J5Aw=="],
 
     "mri": ["mri@1.2.0", "", {}, "sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA=="],
 

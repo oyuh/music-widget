@@ -1,12 +1,14 @@
 # Troubleshooting
 
+Start with the symptom below. You can test CSS and element positions in the [playground](/wiki/playground) without changing your saved design.
+
 ## Nothing shows up
 
 **Check the username first.** It has to be your Last.fm username, not your Spotify or display name.
 
 **Confirm something is scrobbling.** Open your [Last.fm profile](https://www.last.fm/) and play a track. If the site does not show it either, the problem is your scrobbling setup, not the widget. Last.fm's [guide](https://www.last.fm/about/trackmymusic) covers connecting Spotify, Apple Music, and the rest.
 
-**Check whether your listening is hidden.** A private profile returns nothing to a public lookup. See [Private profiles](Private-Profiles).
+**Check whether your listening is hidden.** A private profile returns nothing to a public lookup. See [Private profiles](/wiki/private-profiles).
 
 ## It works in the editor but not in OBS
 
@@ -42,11 +44,11 @@ Turn on **Scroll when it overflows** for that element, or make the element wider
 
 ## Album art is missing
 
-Not every release has cover art on Last.fm. Set a **Fallback image URL** on the album art element and it shows that instead, which also stops the layout shifting. See [Elements](Elements#album-art-fallback).
+Not every release has cover art on Last.fm. Set a **Fallback image URL** on the album art element and it shows that instead, which also stops the layout shifting. See [Elements](/wiki/elements#album-art-fallback).
 
 ## Custom CSS does nothing
 
-Almost always because the editor sets that property inline, and inline styles win. Add `!important`. Full details in [Custom CSS](Custom-CSS#the-one-rule-you-need-to-know).
+The editor sets colors, sizes, and positions inline. Add `!important` to override those properties. See [Custom CSS](/wiki/custom-css#override-inline-styles).
 
 ## The editor will not open on my phone
 

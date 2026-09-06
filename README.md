@@ -11,7 +11,7 @@ A Last.fm now-playing overlay for OBS, Streamlabs, and XSplit. You lay it out in
 Under the hood: a Bun workspace holding a SvelteKit editor and widget SPA, a Hono API, and a Redis + Postgres dev stack.
 
 - Live app: [fast.jamlog.lol](https://fast.jamlog.lol)
-- User docs: [the wiki](https://github.com/oyuh/music-widget/wiki), source in [`wiki/`](wiki/)
+- User docs: [the wiki](https://fast.jamlog.lol/wiki), source in [`wiki/`](wiki/)
 
 ## Contents
 
@@ -83,7 +83,7 @@ Ids come from a hand-editable hash, so `mergeConfig` validates each through `isV
 
 ### Custom CSS
 
-An experimental panel takes raw CSS. `scopeCss` strips `@import` and nests the sheet under `.mw-widget`, so it can never reach the editor UI around it. Budget is 4000 characters, since this rides in the URL too. `experimental.enabled: false` keeps the CSS but stops applying it. Selectors are listed in [the wiki](https://github.com/oyuh/music-widget/wiki/Custom-CSS).
+An experimental panel takes raw CSS. `scopeCss` strips `@import` and nests the sheet under `.mw-widget`, so it can never reach the editor UI around it. Budget is 4000 characters, since this rides in the URL too. `experimental.enabled: false` keeps the CSS but stops applying it. Selectors are listed in [the wiki](https://fast.jamlog.lol/wiki/custom-css).
 
 ### Polling and progress
 
@@ -137,7 +137,7 @@ Private profiles need a signed call, and signing needs the shared secret, which 
 │   └── server/             # Bun + Hono API; serves the built SPA, talks to Redis + Postgres
 ├── scripts/                # cron cleanup, preset generation
 ├── tests/                  # unit tests
-├── wiki/                   # source for the GitHub wiki
+├── wiki/                   # source for the on-site wiki
 ├── docker-compose.dev.yml  # local Redis + Postgres
 ├── Dockerfile              # production image: builds the SPA, starts Hono
 ├── railway.json            # Railway deployment config

@@ -46,6 +46,7 @@
 
 <!-- Feedback: opens a modal for free-form notes + an optional alert opt-in.
      Hidden for a week after a submission (feedbackHidden). -->
+<a href="/wiki" class="mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border px-3 text-foreground hover:bg-muted hover:underline focus-visible:outline-2 focus-visible:outline-foreground focus-visible:outline-offset-2">Wiki & playground ↗</a>
 {#if !feedbackHidden}
   <button
     type="button"

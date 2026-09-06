@@ -1,6 +1,6 @@
 # Custom CSS
 
-**Experimental.** Custom CSS lets you write real CSS against your own widget. Gradients, animations, borders, filters, blend modes, anything the editor has no button for.
+Custom CSS is experimental. Use it to add borders, animations, filters, and other styles to your widget. Try the [playground](/wiki/playground) before changing your design.
 
 It's off by default. Turning it on doesn't change how your widget looks, and turning it back off puts everything exactly how it was.
 
@@ -14,7 +14,7 @@ A **Custom CSS** panel shows up in the left sidebar. That's where you write.
 
 To turn it off, use the same flask icon, or the "Experimental feature · turn it off →" link at the bottom of the CSS panel. Your CSS is kept when you switch off, so flipping it back on brings your work back.
 
-## The one rule you need to know
+## Override inline styles
 
 Everything the normal editor settings do is applied as an **inline style**, and inline styles beat stylesheets. So:
 
@@ -47,11 +47,11 @@ Every element in the widget has a `data-el` attribute. The wrapper carries posit
 | Duration text | `[data-el="duration"]` | `[data-el="duration"] > div` |
 | Pause symbol | `[data-el="pause"]` | `[data-el="pause"] > div > div` is each bar |
 
-When you are unsure what a selector should be, hit **Load current styles** in the panel. It dumps your widget's styles exactly as they're rendering right now, so you get a real, working starting point instead of guessing. Delete what you don't need (rules without `!important` do nothing anyway, and the whole thing gets packed into your widget URL).
+Click **Load current styles** in the panel to inspect your widget's rendered styles. Keep the rules you want to change. Add `!important` when overriding a property the editor sets inline.
 
 ### Copies of an element
 
-You can have up to three of most elements, added from the [Elements](Elements#copies) list. The first one keeps the plain name, and the copies get numbered:
+You can have up to three of most elements, added from the [Elements](/wiki/elements#copies) list. The first one keeps the plain name, and the copies get numbered:
 
 | Which one | Selector |
 |-----------|----------|
@@ -85,7 +85,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 
 ## Examples
 
-**Glowing border that pulses**
+### Glowing border that pulses
+
+Add a cyan border and animate its shadow. Disable the animation when the viewer requests reduced motion.
 
 ```css
 @keyframes glow {
@@ -95,9 +97,14 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
   border: 2px solid #22d3ee;
   animation: glow 1.6s ease-in-out infinite;
 }
+@media (prefers-reduced-motion: reduce) {
+  [data-el="background"] { animation: none; }
+}
 ```
 
-**Gradient text on the title**
+### Gradient text on the title
+
+Clip a two-color background to the title text. This example targets non-scrolling text.
 
 ```css
 [data-el="title"] > div {
@@ -108,7 +115,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 }
 ```
 
-**Frosted glass background**
+### Frosted glass background
+
+Blur content behind the widget inside its browser page. This cannot blur your game or other OBS sources.
 
 ```css
 [data-el="background"] {
@@ -117,7 +126,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 }
 ```
 
-**Circular album art with a ring**
+### Circular album art with a ring
+
+Round the cover and add a white ring.
 
 ```css
 [data-el="art"] > img {
@@ -126,7 +137,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 }
 ```
 
-**Spinning album art, like a record**
+### Spinning album art
+
+Rotate the cover once every six seconds. Respect the viewer's reduced-motion preference.
 
 ```css
 @keyframes spin { to { rotate: 360deg; } }
@@ -134,9 +147,14 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
   border-radius: 50% !important;
   animation: spin 6s linear infinite;
 }
+@media (prefers-reduced-motion: reduce) {
+  [data-el="art"] > img { animation: none; }
+}
 ```
 
-**Striped progress bar**
+### Striped progress bar
+
+Add diagonal stripes to the filled portion of the progress bar.
 
 ```css
 [data-el="progress"] > div > div {
@@ -148,7 +166,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 }
 ```
 
-**Fade the album line out**
+### Fade the album line out
+
+Lower the album line's opacity.
 
 ```css
 [data-el="album"] { opacity: 0.45; }
@@ -156,9 +176,9 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 
 ## Rules and limits
 
-**It's scoped to your widget.** Everything you write gets wrapped so it can only reach inside the widget. You can't accidentally style the editor around it, which is what guarantees the off switch still works after you write something drastic.
+**Widget scope.** The renderer nests ordinary rules under `.mw-widget`. The playground also runs the preview in a separate frame to contain CSS experiments.
 
-**`@keyframes`, `@font-face` and `@property` work.** They get lifted out of the scope automatically, so animations behave like normal.
+**`@keyframes`, `@font-face`, and `@property` work.** The renderer places these rules outside the widget scope. Use distinct names to avoid conflicts with other styles.
 
 **`@import` is stripped.** It would pull a stylesheet from someone else's server that could change after you shared your widget URL, so it's removed.
 
@@ -168,7 +188,7 @@ Other marquee hooks: `.marquee__wrapper` (the moving track) and `.marquee` (the 
 
 ## Sharing and OBS
 
-Your CSS is part of the design, so it rides along in the widget URL like everything else. [Getting started](Getting-Started#3-add-it-to-your-stream) has the browser source steps. Copy the URL, paste it into an OBS browser source, and it renders there exactly like it does in the editor preview. Nothing is stored on a server.
+Your CSS is part of the design, so it rides along in the widget URL like everything else. [Getting started](/wiki/getting-started#3-add-it-to-your-stream) has the browser source steps. Copy the URL, paste it into an OBS browser source, and it renders there exactly like it does in the editor preview. Nothing is stored on a server.
 
 Because it's in the URL, editing your CSS gives you a **new URL**. Re-copy it and update your browser source, or your stream keeps showing the old version.
 
@@ -184,6 +204,6 @@ If you send someone your URL, they get your CSS too. Worth a look before you pas
 
 **"Text won't change color while it's scrolling."** See [Scrolling text](#scrolling-text) above.
 
-**"I broke my widget."** Turn the feature off with the flask icon in the canvas controls. Your CSS is kept, so you can turn it back on and fix it. The editor UI can never be styled by your CSS, so that button is always reachable.
+**"I broke my widget."** Turn the feature off with the flask icon in the canvas controls. Your CSS stays saved so you can fix it. In the playground, uncheck **Apply CSS** or click **Reset all**.
 
 **"My animation doesn't run."** Make sure the `@keyframes` block is in the panel too, not only the `animation:` line, and that the names match.

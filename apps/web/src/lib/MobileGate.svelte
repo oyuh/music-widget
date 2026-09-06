@@ -75,6 +75,7 @@
       </div>
 
       <!-- links -->
+      <a href="/wiki" class="flex min-h-11 items-center justify-center border border-border px-4 py-3 font-mono-ui text-sm text-foreground hover:bg-muted hover:underline focus-visible:outline-2 focus-visible:outline-foreground">Read the wiki & try the playground →</a>
       <div class="flex flex-col gap-3 sm:flex-row">
         <a
           href={about}
