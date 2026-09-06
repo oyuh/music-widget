@@ -27,7 +27,7 @@ Two settings always follow the first copy, because they apply to the widget rath
 
 Drag an element to move it and use its handles to resize. Elements snap to each other as you drag.
 
-Select an element and use the arrow keys to move it 1 pixel, or Shift + arrow for 10 pixels. Try dragging and numeric position controls in the [playground](/wiki/playground).
+Select an element and use the arrow keys to move it 1 pixel, or Shift + arrow for 10 pixels. The editor's position fields let you enter exact coordinates.
 
 **Anchor** pins an element to another one, so moving the parent takes the child with it. **Layer** decides what draws on top.
 

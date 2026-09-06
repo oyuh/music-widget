@@ -38,6 +38,7 @@
   // Shared offscreen context for text measurement (feeds auto-sized snaps).
   let measureCtx: CanvasRenderingContext2D | null = null;
   function textWidth(text: string, font: string): number {
+    if (typeof document === "undefined") return text.length * 8;
     measureCtx ??= document.createElement("canvas").getContext("2d");
     if (!measureCtx) return text.length * 8;
     measureCtx.font = font;
