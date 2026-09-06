@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the symptom below. You can test CSS and element positions in the [playground](/wiki/playground) without changing your saved design.
+Start with the symptom below. You can test CSS in the [playground](/wiki/playground) without changing your saved design.
 
 ## Nothing shows up
 

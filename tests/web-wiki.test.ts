@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdir, readFile } from "node:fs/promises";
 import { renderArticle } from "../apps/web/src/lib/wiki/markdown";
-import { demoConfig, moveElement } from "../apps/web/src/lib/wiki/playground";
+import { demoConfig, recipes } from "../apps/web/src/lib/wiki/playground";
 import { decodeConfig, encodeConfig } from "../apps/web/src/lib/config";
 
 test("wiki links and section anchors resolve across the migrated Markdown", async () => {
@@ -23,25 +23,25 @@ test("wiki links and section anchors resolve across the migrated Markdown", asyn
   }
 });
 
-test("article renderer preserves code and generates distinct section links", () => {
-  const article = renderArticle('# Title\n\n## Color\n\n```css\n.a { color: red; }\n```\n\n## Color\n\nUse **red**.');
+test("article renderer highlights code, marks outbound links, and generates distinct section links", () => {
+  const article = renderArticle('# Title\n\n## Color\n\n```css\n.a { color: red; }\n```\n\n## Color\n\nUse **red**. Read [setup](/wiki/getting-started) or [Last.fm](https://last.fm).');
   expect(article.headings.map((h) => h.id)).toEqual(["color", "color-1"]);
-  expect(article.blocks.find((b) => b.type === "code")?.text).toBe(".a { color: red; }");
-  expect(article.blocks.map((b) => b.text).join("")).toContain("<strong>red</strong>");
+  const code = article.blocks.find((b) => b.type === "code");
+  expect(code?.text).toBe(".a { color: red; }");
+  expect(code?.highlighted).toContain("hljs-selector-class");
+  const html = article.blocks.map((b) => b.text).join("");
+  expect(html).toContain("<strong>red</strong>");
+  expect(html).toContain('<a href="/wiki/getting-started">setup</a>');
+  expect(html).toContain('href="https://last.fm" target="_blank" rel="noopener noreferrer"');
 });
 
-test("playground clamps moves, rejects invalid positions, and exports the design without credentials", () => {
+test("playground examples export without credentials", () => {
   const cfg = demoConfig();
-  moveElement(cfg, "art", -30, 900);
-  expect([cfg.v2!.elements.art.x, cfg.v2!.elements.art.y]).toEqual([0, 72]);
-  moveElement(cfg, "art", NaN, Infinity);
-  expect(cfg.v2!.elements.art.x).toBe(0);
-  moveElement(cfg, "background", 30, 30);
-  expect(cfg.v2!.elements.background.x).toBe(0);
+  cfg.experimental = { enabled: true, css: recipes[0].css };
   const decoded = decodeConfig(encodeConfig(cfg))!;
   expect(decoded.experimental?.css).toBe(cfg.experimental?.css);
   expect(decoded.lfmUser).toBe("");
   expect(decoded.sessionKey).toBeFalsy();
   expect(decoded.apiKey).toBeFalsy();
-  expect(demoConfig().v2!.elements.art.x).toBe(20);
+  expect(new Set(recipes.map((recipe) => recipe.id)).size).toBe(recipes.length);
 });

@@ -26,10 +26,9 @@
 <div class="wiki-shell">
   <a class="wiki-skip" href="#wiki-content">Skip to content</a>
   <header class="wiki-header">
-    <a class="wiki-brand" href="/wiki"><strong>fast.Jamlog.lol</strong><span>Last.fm now-playing wiki</span></a>
+    <a class="wiki-brand" href="/wiki"><strong>fast.Jamlog.lol</strong><span>Widget documentation</span></a>
     <nav aria-label="Site navigation">
-      <a href="https://github.com/oyuh/music-widget" class="wiki-source">GitHub ↗</a>
-      <a href="/" class="wiki-editor-link">Open editor →</a>
+      <a href="/" class="wiki-editor-link">Open editor</a>
       <button class="wiki-menu" onclick={() => menuOpen = !menuOpen} aria-expanded={menuOpen} aria-controls="wiki-sidebar">{menuOpen ? "Close" : "Menu"}</button>
     </nav>
   </header>
@@ -51,14 +50,11 @@
           {#each groups as group}
             <p class="wiki-nav-group">{group}</p>
             {#each data.pages.filter((item) => item.group === group) as item}
-              <a href={item.href} aria-current={page.url.pathname.replace(/\/$/, "") === item.href ? "page" : undefined}>
-                {item.label}{#if item.slug === "playground"}<span aria-hidden="true">↗</span>{/if}
-              </a>
+              <a href={item.href} aria-current={page.url.pathname.replace(/\/$/, "") === item.href ? "page" : undefined}>{item.label}</a>
             {/each}
           {/each}
         </nav>
       {/if}
-      <div class="wiki-sidebar-note"><span class="wiki-eyebrow">Made for your stream</span><p>Last.fm music.<br />Your own design.</p><a href="/wiki/getting-started">Set up your first widget →</a></div>
     </aside>
     <main id="wiki-content" tabindex="-1">{@render children()}</main>
   </div>

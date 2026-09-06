@@ -12,7 +12,7 @@ If your listening is hidden, see [Private profiles](/wiki/private-profiles).
 
 ## 2. Lay it out
 
-Start from a preset, then drag, resize, and restyle. [Elements](/wiki/elements) covers each piece and its settings. Use the [playground](/wiki/playground) to practice with a sample widget.
+Start from a preset, then drag, resize, and restyle. [Elements](/wiki/elements) covers each piece and its settings. Use the [playground](/wiki/playground) to preview the built-in themes and test CSS on a sample widget.
 
 ## 3. Add it to your stream
 

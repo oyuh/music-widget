@@ -1,4 +1,4 @@
-# Make it yours
+# Jamlog wiki
 
 Jamlog shows your Last.fm listening in a browser source on your stream. Design your widget in the editor, then copy its URL into your streaming software.
 
@@ -8,7 +8,7 @@ The wiki and playground work on phones. Use a desktop for the full editor. The w
 
 ## Set up your first widget
 
-1. Open [the editor](https://fast.jamlog.lol) and enter your Last.fm username.
+1. Open [the editor](/) and enter your Last.fm username.
 2. Pick a preset, then drag things around until it looks right.
 3. Hit **Add to stream →** for per-platform steps, or **Copy URL** and set up the browser source yourself.
 4. Set the source's width and height to the canvas size the editor shows.
@@ -18,7 +18,7 @@ Full walkthrough in [Getting started](/wiki/getting-started).
 ## Learn the controls
 
 - **[Getting started](/wiki/getting-started)**: username to live overlay, browser source steps for OBS, Streamlabs and XSplit, and presets.
-- **[Playground](/wiki/playground)**: drag sample elements, edit CSS, and try a design without connecting an account.
+- **[Playground](/wiki/playground)**: preview the built-in themes and test CSS without connecting an account.
 - **[Elements](/wiki/elements)**: the eight pieces you can place, copies, color, text, and animation.
 - **[Private profiles](/wiki/private-profiles)**: connect your account when your listening is hidden.
 - **[Custom CSS](/wiki/custom-css)** (experimental): write real CSS against your widget for gradients, animations, borders, and anything else the editor has no button for.

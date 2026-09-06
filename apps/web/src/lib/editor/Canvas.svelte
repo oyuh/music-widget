@@ -341,11 +341,11 @@
     bmac: "https://buymeacoffee.com/lawsonhart",
     kofi: "https://ko-fi.com/lawsonhart",
   };
-  // Left side of the footer. Privacy and Terms have no pages yet, so they point
-  // at the repo for now: swap the hrefs once those exist.
+  // Left side of the footer.
   const FOOTER_LINKS = [
     { label: "Creator", icon: "user", href: "https://lawsonhart.me/", external: true },
     { label: "Help", icon: "help", href: "https://www.last.fm/about/trackmymusic", external: true },
+    { label: "Wiki", icon: "book", href: "/wiki", external: false },
     { label: "Privacy", icon: "shield", href: "/privacy", external: false },
     { label: "Terms", icon: "document", href: "/terms", external: false },
   ];
@@ -642,6 +642,7 @@
               {@html ICONS[l.icon]}
             </svg>
             <span class="underline underline-offset-2">{l.label}</span>
+            {#if l.external}<span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span>{/if}
           </a>
         {/each}
       </div>

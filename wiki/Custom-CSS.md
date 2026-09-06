@@ -204,6 +204,6 @@ If you send someone your URL, they get your CSS too. Worth a look before you pas
 
 **"Text won't change color while it's scrolling."** See [Scrolling text](#scrolling-text) above.
 
-**"I broke my widget."** Turn the feature off with the flask icon in the canvas controls. Your CSS stays saved so you can fix it. In the playground, uncheck **Apply CSS** or click **Reset all**.
+**"I broke my widget."** Turn the feature off with the flask icon in the canvas controls. Your CSS stays saved so you can fix it. In the playground, uncheck **Apply CSS** or click **Reset**.
 
 **"My animation doesn't run."** Make sure the `@keyframes` block is in the panel too, not only the `animation:` line, and that the names match.
