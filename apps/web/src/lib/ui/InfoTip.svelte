@@ -14,6 +14,7 @@
   let x = $state(0);
   let y = $state(0);
 
+  let tooltip: HTMLElement | null = null;
   const TW = 248; // tooltip width
   // The diagram markup is a few KB of authored SVG that most tooltips never
   // show, and the legal pages never show at all, so it's its own chunk fetched
@@ -35,7 +36,7 @@
     let left = r.left - TW - 10;
     if (left < 8) left = Math.min(window.innerWidth - TW - 8, r.right + 10);
     x = Math.max(8, left);
-    const h = diagram ? 190 : 96;
+    const h = tooltip?.getBoundingClientRect().height ?? (diagram ? 190 : 96);
     y = Math.max(8, Math.min(r.top - 4, window.innerHeight - h - 8));
   }
 
@@ -50,7 +51,9 @@
   // Portal to <body> so the tooltip isn't clipped by the scrolling inspector.
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
-    return { destroy: () => node.remove() };
+    tooltip = node;
+    place();
+    return { destroy: () => { tooltip = null; node.remove(); } };
   }
   $effect(() => {
     if (!open) return;

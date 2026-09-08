@@ -18,15 +18,35 @@ Start with the symptom below. You can test CSS in the [playground](/wiki/playgro
 
 **Try refreshing the source.** Right-click the browser source in OBS and pick **Refresh**, or tick "Shutdown source when not visible" off if you have it on.
 
-## The track is a few seconds behind
+## The track updates late
 
-Last.fm has no live feed, so the widget asks for your current track once a second. A change lands within about a second of Last.fm knowing about it, and Last.fm itself takes a moment to hear from your music app. Nothing to fix here, it is how scrobbling works.
+Visible widgets wait one second after each request before checking Last.fm again, including while paused. Hidden tabs wait five seconds. Response time and delays from your music app add to that interval.
+
+Failed requests retry with increasing waits, up to ten seconds. A successful response restores the normal interval.
 
 ## The progress bar drifts or looks wrong
 
-Last.fm reports a track's length, not your position in it, so the bar estimates between updates. Tracks with no reported duration, and anything you scrub through, can read wrong until the next track starts.
+Last.fm has no exact player position or explicit pause/resume events. The timer starts at zero when the widget first sees a different track, even if you started listening earlier. Seeking, repeating, or restarting the same song can leave the estimate wrong.
 
-## Rate limit warnings
+At the reported track length, the timer holds and the bar stays at 100%. This does not prove playback ended or trigger the pause symbol. Without a valid duration, the bar stays empty; the elapsed timer can still advance. Failed duration lookups retry after 30 seconds.
+
+## Pausing or resuming does not match my player
+
+Pause detection depends on Last.fm clearing its now-playing flag. When that happens, the widget freezes progress and applies your **When paused** setting. If your scrobbler keeps the flag on, the widget cannot detect your pause.
+
+If the same track returns within two minutes of a detected interruption, the timer continues from its saved estimate. Restarting that song looks the same as resuming it, so this can be wrong. After a longer interruption, the timer holds its estimate until the widget sees a different track.
+
+These estimates need no extra login or download. Faster polling cannot recover playback information that Last.fm does not report.
+
+## The timer holds during an outage
+
+The widget keeps its last track and playback styling without showing an error message. It retries requests in the background. The timer can advance for up to 15 seconds after the last usable update, then holds.
+
+After that gap, the same track keeps its held estimate because the widget cannot reconstruct missed playback. A different track starts a new estimate. Recovery restores polling, but does not recover an exact position.
+
+Reloading can restore the last track's cached details, but clears elapsed time. If there are no cached details, an outage leaves the neutral display until a request succeeds.
+
+## Rate limit warnings in the editor
 
 Last.fm limits requests per key. Everyone sharing the site's default key shares that budget, and a busy moment can trip it.
 

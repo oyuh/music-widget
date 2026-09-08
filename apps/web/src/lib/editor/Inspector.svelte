@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import Slider from "$lib/ui/Slider.svelte";
   import ColorInput from "$lib/ui/ColorInput.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
@@ -406,7 +407,7 @@
     {/if}
   </Collapsible>
 
-  <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint="What the widget does when nothing is playing: show the pause symbol, or hide the whole widget.">
+  <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint={LASTFM_PAUSE_HINT}>
     <Segmented
       bind:value={cfg.fields.pausedMode!}
       options={[
@@ -421,7 +422,7 @@
       </p>
     {:else}
       <p class="text-[11px] leading-snug text-muted-foreground">
-        The whole widget hides while nothing is playing.
+        The whole widget hides when Last.fm reports no current track.
       </p>
     {/if}
   </Collapsible>
@@ -432,9 +433,9 @@
   <div class="flex items-center gap-1.5">
     <div class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight">
       <span class="truncate">{panelTitle}</span>
-      {#if kind === "progress" || kind === "duration"}
+      {#if kind === "progress" || kind === "duration" || kind === "pause"}
         <InfoTip
-          text="Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate."
+          text={kind === "pause" ? LASTFM_PAUSE_HINT : LASTFM_TIMING_HINT}
           label={panelTitle}
         />
       {/if}
@@ -897,7 +898,7 @@
         {/if}
       </Collapsible>
     {:else if isProgress}
-      <Collapsible title="Progress bar" icon="bar" bind:open={open.style} hint="The played portion's color and shape.">
+      <Collapsible title="Progress bar" icon="bar" bind:open={open.style} hint={LASTFM_TIMING_HINT}>
         <ColorInput bind:value={E.color} label="Fill color" allowAccent hint="The played portion's color. 'auto' follows the accent / album-art color." diagram="auto-color" />
         {#if E.color === "accent"}
           <ColorInput
@@ -911,7 +912,7 @@
         <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" hint="Fades the whole bar, track and fill together." />
       </Collapsible>
     {:else if isPause}
-      <Collapsible title="Pause symbol" icon="pause" bind:open={open.style} hint="Shown only while paused or stopped.">
+      <Collapsible title="Pause symbol" icon="pause" bind:open={open.style} hint={LASTFM_PAUSE_HINT}>
         <ColorInput bind:value={E.color} label="Color" allowAccent hint="The pause bars' color. 'auto' follows the accent / album-art color." diagram="auto-color" />
         {#if E.color === "accent"}
           <ColorInput
@@ -922,7 +923,7 @@
           />
         {/if}
         <p class="text-[11px] leading-snug text-muted-foreground">
-          Shown only while paused / stopped. Drag it on the canvas to position it (turn on
+          Shown when Last.fm reports no current track. Drag it on the canvas to position it (turn on
           <b>Paused preview</b> to see it). When the album art is hidden or fails to load, it falls back to sitting after the title.
         </p>
       </Collapsible>

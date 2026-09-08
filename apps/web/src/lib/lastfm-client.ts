@@ -9,7 +9,7 @@ export function resolveApiKey(configKey?: string | null): string {
 }
 
 async function fetchJson(url: string, fromLastfm: boolean): Promise<Record<string, unknown>> {
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
   if (r.status === 429) serviceStatus.markRateLimited();
   const data = (await r.json().catch(() => null)) as Record<string, unknown> | null;
   if (fromLastfm) serviceStatus.noteLastfm(r.ok, data);
@@ -32,7 +32,7 @@ function getSignedRecentUrl(user: string, limit: number, sessionKey: string): Pr
   let promise = signedRecentUrls.get(key);
   if (!promise) {
     const qs = `user=${encodeURIComponent(user)}&limit=${limit}&sk=${encodeURIComponent(sessionKey)}`;
-    promise = fetch(`/api/lastfm/sign-recent?${qs}`).then(async (r) => {
+    promise = fetch(`/api/lastfm/sign-recent?${qs}`, { signal: AbortSignal.timeout(8000) }).then(async (r) => {
       const data = (await r.json().catch(() => null)) as { url?: string } | null;
       if (!r.ok || !data?.url) throw new Error(`sign-recent http ${r.status}`);
       return data.url;

@@ -498,7 +498,7 @@
         <button
           onpointerdown={stop}
           onclick={() => (simPaused = !simPaused)}
-          use:tip={"Preview how the widget looks when paused / stopped"}
+          use:tip={"Preview the pause display. Live pause detection depends on Last.fm clearing its now-playing flag."}
           aria-label="Paused preview"
           class="{bdBtn} {previewPaused ? bdActive : ''}"
         >
