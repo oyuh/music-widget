@@ -9,11 +9,21 @@ Your widget is built from eight kinds of element. They live in the **Elements** 
 | Title | Track name |
 | Artist | Artist name |
 | Album | Album name |
-| Progress bar | How far through the track you are |
-| Duration | Elapsed and remaining time as text |
-| Pause symbol | Shows while playback is paused |
+| Progress bar | Estimated progress, capped at the reported duration |
+| Duration | Estimated elapsed or remaining time, or reported total duration |
+| Pause symbol | Shows when Last.fm reports no current track |
 
 Every element has a **Visible** toggle, so you can drop one out of the design without losing its settings.
+
+## Playback estimates
+
+Last.fm does not report your exact position or explicit pause/resume events. Progress and elapsed time are estimates. Missing duration leaves the progress bar empty.
+
+If Last.fm clears its now-playing flag, the timer freezes. A return to the same song within two minutes can continue that estimate. Longer interruptions and stale updates hold the timer until a different track appears. Seeking, repeating, or restarting the same song can leave the estimate wrong.
+
+The pause symbol follows Last.fm's flag. If your scrobbler keeps that flag on during a pause, the symbol will not appear. Reaching 100% does not trigger pause mode.
+
+During outages, the widget keeps its last display and retries without showing an error message. See [playback troubleshooting](/wiki/troubleshooting#the-track-updates-late) for polling intervals, timer holds, and reload behavior.
 
 ## Copies
 

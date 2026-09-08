@@ -8,10 +8,7 @@
   import { ICONS } from "$lib/ui/icons";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
 
-  // Progress / duration ride on Last.fm, which doesn't report exact playback
-  // position, so they're estimates. Surfaced as a tooltip in a few places.
-  const LASTFM_TIMING_HINT =
-    "Heads up: the progress bar and elapsed time are estimated. Last.fm doesn't report the exact playback position, so this can be off by a few seconds and won't be frame-accurate.";
+  import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
   import { recordWidgetCopy } from "$lib/usage";
 
@@ -518,8 +515,8 @@
             </button>
           {/if}
 
-          {#if (kind.id === "progress" || kind.id === "duration") && isBaseId(id)}
-            <InfoTip text={LASTFM_TIMING_HINT} label={kind.label} />
+          {#if (kind.id === "progress" || kind.id === "duration" || kind.id === "pause") && isBaseId(id)}
+            <InfoTip text={kind.id === "pause" ? LASTFM_PAUSE_HINT : LASTFM_TIMING_HINT} label={kind.label} />
           {/if}
         </div>
       {/each}

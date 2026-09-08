@@ -95,7 +95,22 @@ Last.fm has no push API, so the widget polls `user.getRecentTracks` and watches 
 | Visible, stopped | 1000 ms |
 | Hidden | 5000 ms |
 
-Each viewer polls from their own IP, so playback state does not change the cadence. OBS sources always report as visible, which holds overlays at 1000 ms and catches track changes within about a second. Consecutive errors back off 1.5x, capped at 10 seconds. Between polls the progress bar ticks off the reported duration, with pause detection and a resume estimate. See [`nowplaying.svelte.ts`](apps/web/src/lib/nowplaying.svelte.ts).
+The intervals above are waits after a request finishes, so response time adds to the gap. Visible widgets poll every second during playback and pauses. Hidden tabs wait five seconds. Failed requests back off by 1.5x, up to ten seconds; a successful response restores the normal interval.
+
+Last.fm exposes a now-playing flag, but no player position or explicit pause/resume events. Progress starts at zero when the widget first observes a different track, even if playback began earlier. Scrobble timestamps describe playback starts, not completion times; historical entries cannot identify the current play.
+
+The tracker follows these limits:
+
+- If Last.fm clears its now-playing flag, the widget freezes progress and applies your paused-display setting.
+- If the same track returns within two minutes of that detected interruption, the timer continues its estimate. This heuristic cannot distinguish a resume from restarting the same song.
+- After a longer interruption or stale updates, the timer holds its estimate for that track. Observing a different track starts a new estimate.
+- If Last.fm keeps its now-playing flag during a pause, the widget cannot detect the pause. Seeking and repeating the same song can also leave progress wrong.
+- At the reported duration, progress stops at 100%. Reaching the end does not trigger pause mode or prove playback ended.
+- Without a valid duration, the bar stays empty. Elapsed time can still advance; failed duration lookups retry after 30 seconds.
+- During outages or unusable responses, the widget keeps its last track and playback styling without an error message. The timer can advance for up to 15 seconds after the last usable response, then holds. Requests keep retrying.
+- Reloading can restore cached track metadata, but not elapsed time. Without cached data, an outage leaves the neutral display until a request succeeds.
+
+Public profiles still need only a username. These estimates require no additional login, installation, or download. See [`nowplaying.svelte.ts`](apps/web/src/lib/nowplaying.svelte.ts) and the [playback tests](tests/web-nowplaying.test.ts).
 
 ### Why Last.fm calls skip the server
 
@@ -278,7 +293,7 @@ After editing [`schema.ts`](apps/server/src/schema.ts), run `bun run db:generate
 ## Known constraints
 
 - The design lives in the URL hash. No accounts, no server-side saves. Lose the URL and the design goes with it, though the editor keeps a `localStorage` autosave as a net.
-- Last.fm has no event stream, so now-playing runs about a second behind reality.
+- Playback timing is estimated. Visible widgets wait one second between requests, plus response time and music-app reporting delays. See [Polling and progress](#polling-and-progress) for pause, resume, and outage limits.
 - Browser-direct calls expose the Last.fm API key in DevTools, since it is a query param on every request. Any client-side app using this API has the same property. The key is not a credential, the shared secret is, and the secret stays on the server.
 
 ## Contributing
