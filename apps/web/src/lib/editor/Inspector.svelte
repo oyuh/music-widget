@@ -159,6 +159,8 @@
   let activeResult = $state(-1);
   let inspectorEl: HTMLDivElement;
   let searchInput = $state<HTMLInputElement>();
+  let highlightedTarget: HTMLElement | undefined;
+  let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
   const commonSpecs: SearchSpec[] = [
     { label: "Show or hide", section: "Element", terms: "visible visibility display", open: undefined },
@@ -237,7 +239,19 @@
     const section = [...inspectorEl.querySelectorAll("section")].find((el) =>
       el.querySelector(":scope > div > button")?.textContent?.trim().startsWith(item.section),
     );
-    section?.scrollIntoView({ block: "nearest" });
+    const target = (section ?? (item.section === "Element" ? inspectorEl.querySelector('button[aria-label="Visible"]')?.parentElement : null)) as HTMLElement | null;
+    if (!target) return;
+
+    highlightedTarget?.classList.remove("inspector-search-hit");
+    if (highlightTimer) clearTimeout(highlightTimer);
+    highlightedTarget = target;
+    target.classList.add("inspector-search-hit");
+    target.scrollIntoView({ block: "nearest" });
+    target.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    highlightTimer = setTimeout(() => {
+      target.classList.remove("inspector-search-hit");
+      if (highlightedTarget === target) highlightedTarget = undefined;
+    }, 1800);
   }
 
   async function toggleSearch() {
@@ -553,18 +567,20 @@
               aria-selected={activeResult === i}
               onclick={() => chooseSearchResult(item)}
               onmouseenter={() => (activeResult = i)}
-              class="flex min-h-11 w-full items-center gap-2 border-l-2 px-2 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary {activeResult === i
-                ? 'border-primary bg-muted'
-                : 'border-transparent hover:bg-muted/60'}"
+              class="group flex min-h-11 w-full items-center gap-2 px-2 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary {activeResult === i
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-muted'}"
             >
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-zinc-900 text-muted-foreground">
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded border {activeResult === i
+                ? 'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground'
+                : 'border-border bg-zinc-900 text-muted-foreground'}">
                 <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS[resultIcon(item)]}</svg>
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-xs text-foreground">{item.label}</span>
-                <span class="block truncate text-[10px] text-muted-foreground">{item.section}</span>
+                <span class="block truncate text-xs">{item.label}</span>
+                <span class="block truncate text-[10px] {activeResult === i ? 'text-primary-foreground/70' : 'text-muted-foreground'}">{item.section}</span>
               </span>
-              <span class="max-w-24 shrink-0 truncate text-[10px] text-muted-foreground">{item.target ? labelFor(item.target) : "Widget"}</span>
+              <span class="max-w-24 shrink-0 truncate text-[10px] {activeResult === i ? 'text-primary-foreground/70' : 'text-muted-foreground'}">{item.target ? labelFor(item.target) : "Widget"}</span>
             </button>
           {:else}
             <p class="px-3 py-3 text-xs text-muted-foreground" role="status">No matches. Try a setting name like “color,” “font,” or “shadow.”</p>
@@ -1034,3 +1050,21 @@
     {/if}
   {/if}
 </div>
+
+<style>
+  :global(.inspector-search-hit) {
+    animation: inspector-search-hit 1.8s ease-out;
+  }
+
+  @keyframes inspector-search-hit {
+    0%, 35% { box-shadow: 0 0 0 2px var(--primary); }
+    100% { box-shadow: 0 0 0 2px transparent; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.inspector-search-hit) {
+      animation: none;
+      box-shadow: 0 0 0 2px var(--primary);
+    }
+  }
+</style>
