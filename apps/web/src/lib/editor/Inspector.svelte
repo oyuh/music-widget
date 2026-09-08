@@ -11,7 +11,8 @@
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
   import { checkArtUrl, kindOf } from "$lib/config";
-  import { matchesInspectorSearch } from "$lib/inspector-search";
+  import { ICONS } from "$lib/ui/icons";
+  import { matchesInspectorSearch, nextSearchIndex } from "$lib/inspector-search";
 
   interface Props {
     editor: EditorState;
@@ -154,7 +155,10 @@
 
   let query = $state("");
   let searchAll = $state(false);
+  let searchOpen = $state(false);
+  let activeResult = $state(-1);
   let inspectorEl: HTMLDivElement;
+  let searchInput = $state<HTMLInputElement>();
 
   const commonSpecs: SearchSpec[] = [
     { label: "Show or hide", section: "Element", terms: "visible visibility display", open: undefined },
@@ -228,12 +232,62 @@
   async function chooseSearchResult(item: SearchItem) {
     editor.select(item.target);
     if (item.open) open[item.open] = true;
-    query = "";
+    closeSearch();
     await tick();
     const section = [...inspectorEl.querySelectorAll("section")].find((el) =>
       el.querySelector(":scope > div > button")?.textContent?.trim().startsWith(item.section),
     );
     section?.scrollIntoView({ block: "nearest" });
+  }
+
+  async function toggleSearch() {
+    if (searchOpen) {
+      closeSearch();
+      return;
+    }
+    searchOpen = true;
+    await tick();
+    searchInput?.focus();
+  }
+
+  function closeSearch() {
+    searchOpen = false;
+    query = "";
+    activeResult = -1;
+  }
+
+  async function moveSearchSelection(direction: 1 | -1) {
+    activeResult = nextSearchIndex(activeResult, searchResults.length, direction);
+    await tick();
+    document.getElementById(`inspector-search-result-${activeResult}`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  async function refreshSearchSelection() {
+    await tick();
+    activeResult = searchResults.length ? 0 : -1;
+  }
+
+  async function toggleSearchScope() {
+    searchAll = !searchAll;
+    await refreshSearchSelection();
+  }
+
+  function handleSearchKeydown(event: KeyboardEvent) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      void moveSearchSelection(event.key === "ArrowDown" ? 1 : -1);
+    } else if (event.key === "Enter" && activeResult >= 0 && searchResults[activeResult]) {
+      event.preventDefault();
+      void chooseSearchResult(searchResults[activeResult]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeSearch();
+    }
+  }
+
+  function resultIcon(item: SearchItem): string {
+    if (!item.target) return "outline";
+    return ({ background: "square", art: "image", title: "type", artist: "type", album: "type", progress: "bar", duration: "clock", pause: "pause" } as Record<string, string>)[kindOf(item.target)];
   }
 </script>
 
@@ -418,57 +472,107 @@
         {/if}
       </div>
     {/if}
-  </div>
 
-  <div class="rounded-md border border-border/60 bg-zinc-900/40 p-2">
-    <div class="mb-1.5 flex items-center justify-between gap-2">
-      <label for="inspector-search" class="font-mono-ui text-[10px] tracking-wide text-muted-foreground uppercase">Find a setting</label>
-      {#if sel}
-        <button
-          type="button"
-          aria-pressed={searchAll}
-          onclick={() => (searchAll = !searchAll)}
-          class="min-h-6 rounded border px-2 text-[10px] transition-colors focus-visible:ring-2 focus-visible:ring-primary {searchAll
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border text-muted-foreground hover:text-foreground'}"
-        >All elements</button>
-      {:else}
-        <span class="text-[10px] text-muted-foreground">All elements</span>
-      {/if}
-    </div>
-    <div class="relative">
-      <svg viewBox="0 0 24 24" class="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+    <button
+      type="button"
+      aria-label={searchOpen ? "Close setting search" : "Search settings"}
+      aria-expanded={searchOpen}
+      onclick={toggleSearch}
+      use:tip={searchOpen ? "Close search" : "Search settings"}
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-primary {siblings.length ? '' : 'ml-auto'} {searchOpen
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'}"
+    >
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7" /><path d="m16 16 5 5" />
       </svg>
-      <input
-        id="inspector-search"
-        type="search"
-        bind:value={query}
-        placeholder={sel && !searchAll ? `Search ${labelOfKind.toLowerCase()} settings…` : "Search every element…"}
-        class="w-full rounded-md border border-border bg-zinc-800 py-1.5 pr-2 pl-7 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-        autocomplete="off"
-      />
-    </div>
-    {#if query.trim()}
-      <div class="mt-1.5 flex max-h-64 flex-col gap-0.5 overflow-y-auto" aria-label="Matching settings">
-        {#each searchResults as item (`${item.target}:${item.section}:${item.label}`)}
+    </button>
+  </div>
+
+  {#if searchOpen}
+    <div class="relative">
+      <label for="inspector-search" class="sr-only">Find a setting</label>
+      <div class="flex overflow-hidden rounded-md border border-border bg-zinc-800 focus-within:ring-2 focus-within:ring-primary">
+        <div class="relative min-w-0 flex-1">
+          <svg viewBox="0 0 24 24" class="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="m16 16 5 5" />
+          </svg>
+          <input
+            bind:this={searchInput}
+            id="inspector-search"
+            type="text"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={!!query.trim()}
+            aria-controls="inspector-search-results"
+            aria-activedescendant={activeResult >= 0 ? `inspector-search-result-${activeResult}` : undefined}
+            bind:value={query}
+            oninput={refreshSearchSelection}
+            onkeydown={handleSearchKeydown}
+            placeholder={sel && !searchAll ? `Search ${labelOfKind.toLowerCase()} settings…` : "Search every element…"}
+            class="w-full bg-transparent py-1.5 pr-8 pl-7 text-sm outline-none"
+            autocomplete="off"
+          />
+          {#if query}
+            <button
+              type="button"
+              aria-label="Clear search"
+              onclick={() => {
+                query = "";
+                activeResult = -1;
+                searchInput?.focus();
+              }}
+              class="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <svg viewBox="0 0 12 12" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                <path d="m3 3 6 6M9 3 3 9" />
+              </svg>
+            </button>
+          {/if}
+        </div>
+        {#if sel}
           <button
             type="button"
-            onclick={() => chooseSearchResult(item)}
-            class="flex min-h-8 items-center justify-between gap-2 rounded px-2 py-1.5 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span class="min-w-0">
-              <span class="block truncate text-xs text-foreground">{item.label}</span>
-              <span class="block truncate text-[10px] text-muted-foreground">{item.section}</span>
-            </span>
-            <span class="max-w-24 shrink-0 truncate text-[10px] text-muted-foreground">{item.target ? labelFor(item.target) : "Widget"}</span>
-          </button>
-        {:else}
-          <p class="px-2 py-2 text-xs text-muted-foreground" role="status">No matching settings</p>
-        {/each}
+            aria-label="Search all elements"
+            aria-pressed={searchAll}
+            onclick={toggleSearchScope}
+            class="shrink-0 border-l border-border px-2.5 text-[10px] transition-colors focus-visible:ring-2 focus-visible:ring-primary {searchAll
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+          >All</button>
+        {/if}
       </div>
-    {/if}
-  </div>
+
+      {#if query.trim()}
+        <div id="inspector-search-results" class="mt-1 max-h-72 overflow-y-auto rounded-md border border-border bg-card shadow-md divide-y divide-border/60" role="listbox" aria-label="Matching settings">
+          {#each searchResults as item, i (`${item.target}:${item.section}:${item.label}`)}
+            <button
+              id={`inspector-search-result-${i}`}
+              type="button"
+              role="option"
+              aria-selected={activeResult === i}
+              onclick={() => chooseSearchResult(item)}
+              onmouseenter={() => (activeResult = i)}
+              class="flex min-h-11 w-full items-center gap-2 border-l-2 px-2 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary {activeResult === i
+                ? 'border-primary bg-muted'
+                : 'border-transparent hover:bg-muted/60'}"
+            >
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-zinc-900 text-muted-foreground">
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS[resultIcon(item)]}</svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-xs text-foreground">{item.label}</span>
+                <span class="block truncate text-[10px] text-muted-foreground">{item.section}</span>
+              </span>
+              <span class="max-w-24 shrink-0 truncate text-[10px] text-muted-foreground">{item.target ? labelFor(item.target) : "Widget"}</span>
+            </button>
+          {:else}
+            <p class="px-3 py-3 text-xs text-muted-foreground" role="status">No matches. Try a setting name like “color,” “font,” or “shadow.”</p>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if !sel || !E}
     <p class="text-xs text-muted-foreground">
