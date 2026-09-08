@@ -7,9 +7,11 @@
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import { tip } from "$lib/ui/tooltip.svelte";
   import { GOOGLE_FONTS } from "$lib/google-fonts";
+  import { tick } from "svelte";
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
   import { checkArtUrl, kindOf } from "$lib/config";
+  import { matchesInspectorSearch } from "$lib/inspector-search";
 
   interface Props {
     editor: EditorState;
@@ -145,6 +147,94 @@
   const EASINGS = ["linear", "sineOut", "cubicOut", "quintOut", "backOut", "elasticOut"];
   const inputCls = "w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-sm";
   const edgeLabel = (e: "start" | "center" | "end") => (e === "start" ? "start" : e === "end" ? "end" : "center");
+
+  type SectionKey = keyof typeof open;
+  type SearchItem = { label: string; section: string; terms: string; target: string | null; open?: SectionKey };
+  type SearchSpec = Omit<SearchItem, "target">;
+
+  let query = $state("");
+  let searchAll = $state(false);
+  let inspectorEl: HTMLDivElement;
+
+  const commonSpecs: SearchSpec[] = [
+    { label: "Show or hide", section: "Element", terms: "visible visibility display", open: undefined },
+    { label: "Horizontal position", section: "Position & size", terms: "x left right move location offset snap unsnap", open: "layout" },
+    { label: "Vertical position", section: "Position & size", terms: "y top bottom move location offset snap unsnap", open: "layout" },
+    { label: "Layer order", section: "Position & size", terms: "z stacking front behind depth", open: "layout" },
+    { label: "Width", section: "Position & size", terms: "size wide auto", open: "layout" },
+    { label: "Height", section: "Position & size", terms: "size tall auto", open: "layout" },
+    { label: "Outline", section: "Outline", terms: "stroke border thickness position opacity color", open: "outline" },
+    { label: "Drop shadow", section: "Drop shadow", terms: "blur intensity opacity offset contrast color", open: "shadow" },
+  ];
+
+  const textSpecs: SearchSpec[] = [
+    { label: "Text color", section: "Text", terms: "font fallback auto accent", open: "style" },
+    { label: "Text alignment", section: "Text", terms: "anchor left center right", open: "style" },
+    { label: "Font size", section: "Text", terms: "text size typography", open: "style" },
+    { label: "Text style", section: "Text", terms: "bold italic underline strikethrough", open: "style" },
+    { label: "Uppercase or lowercase", section: "Text", terms: "case capital letters transform", open: "style" },
+    { label: "Font", section: "Text", terms: "typeface family typography", open: "style" },
+    { label: "Scrolling text", section: "Scrolling", terms: "marquee overflow direction bounce speed gap looping", open: "scroll" },
+  ];
+
+  function specsFor(id: string): SearchSpec[] {
+    const elementKind = kindOf(id);
+    const common = id === "background"
+      ? commonSpecs
+          .filter((item) => ["Width", "Height", "Outline", "Drop shadow"].includes(item.label))
+          .map((item) => ({ ...item, section: item.open === "layout" ? "Widget size" : item.section }))
+      : commonSpecs;
+
+    if (isTextElement(id)) {
+      return elementKind === "duration"
+        ? [...common, ...textSpecs, { label: "Elapsed or remaining time", section: "Time format", terms: "duration total clock", open: "format" }]
+        : [...common, ...textSpecs];
+    }
+    if (elementKind === "art") {
+      return [
+        ...common,
+        { label: "Album art corners", section: "Album art", terms: "cover image radius round circle", open: "style" },
+        ...(id === "art" ? [{ label: "Fallback image", section: "Album art", terms: "cover url missing artwork backup", open: "style" } as SearchSpec] : []),
+      ];
+    }
+    if (elementKind === "progress") {
+      return [...common, { label: "Progress bar color", section: "Progress bar", terms: "fill auto accent fallback", open: "style" }, { label: "Progress bar shape", section: "Progress bar", terms: "corner radius round opacity transparency", open: "style" }];
+    }
+    if (elementKind === "pause") {
+      return [...common, { label: "Pause symbol color", section: "Pause symbol", terms: "paused icon auto accent fallback", open: "style" }];
+    }
+    return [...common, { label: id === "background" ? "Background fill" : "Box fill", section: id === "background" ? "Background" : "Box fill", terms: "none solid color accent album art image opacity corners radius tint darken", open: "style" }];
+  }
+
+  const searchItems = $derived.by(() => {
+    const ids = searchAll || !sel ? allIds : editor.idsOf(kind!);
+    const items: SearchItem[] = ids.flatMap((id) => specsFor(id).map((item) => ({ ...item, target: id })));
+    if (searchAll || !sel || kind === "background") {
+      items.push(
+        { label: "Accent color", section: "Accent color", terms: "global auto album art brightness fallback palette", target: "background", open: "accent" },
+        { label: "Global font", section: "Global font", terms: "typeface all text default", target: "background", open: "font" },
+        { label: "Song-switch animation", section: "Song-switch animation", terms: "transition fade slide direction duration easing", target: "background", open: "anim" },
+        { label: "Paused behavior", section: "When paused", terms: "pause stopped hide widget show symbol", target: "background", open: "paused" },
+      );
+    }
+    if (searchAll || !sel) items.push({ label: "Ghost outlines", section: "Ghost outlines", terms: "editor resize guides hide show", target: null, open: "ghosts" });
+    return items;
+  });
+
+  const searchResults = $derived(
+    query.trim() ? searchItems.filter((item) => matchesInspectorSearch(item, query)).slice(0, 30) : [],
+  );
+
+  async function chooseSearchResult(item: SearchItem) {
+    editor.select(item.target);
+    if (item.open) open[item.open] = true;
+    query = "";
+    await tick();
+    const section = [...inspectorEl.querySelectorAll("section")].find((el) =>
+      el.querySelector(":scope > div > button")?.textContent?.trim().startsWith(item.section),
+    );
+    section?.scrollIntoView({ block: "nearest" });
+  }
 </script>
 
 {#snippet header(title: string, hint: string, diagram: string)}
@@ -270,7 +360,7 @@
 {/snippet}
 
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
-<div class="flex h-full flex-col gap-2 overflow-y-auto p-3 text-sm *:shrink-0">
+<div bind:this={inspectorEl} class="flex h-full flex-col gap-2 overflow-y-auto p-3 text-sm *:shrink-0">
   <div class="flex items-center gap-1.5">
     <div class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight">
       <span class="truncate">{panelTitle}</span>
@@ -326,6 +416,56 @@
             </p>
           </div>
         {/if}
+      </div>
+    {/if}
+  </div>
+
+  <div class="rounded-md border border-border/60 bg-zinc-900/40 p-2">
+    <div class="mb-1.5 flex items-center justify-between gap-2">
+      <label for="inspector-search" class="font-mono-ui text-[10px] tracking-wide text-muted-foreground uppercase">Find a setting</label>
+      {#if sel}
+        <button
+          type="button"
+          aria-pressed={searchAll}
+          onclick={() => (searchAll = !searchAll)}
+          class="min-h-6 rounded border px-2 text-[10px] transition-colors focus-visible:ring-2 focus-visible:ring-primary {searchAll
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border text-muted-foreground hover:text-foreground'}"
+        >All elements</button>
+      {:else}
+        <span class="text-[10px] text-muted-foreground">All elements</span>
+      {/if}
+    </div>
+    <div class="relative">
+      <svg viewBox="0 0 24 24" class="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" /><path d="m16 16 5 5" />
+      </svg>
+      <input
+        id="inspector-search"
+        type="search"
+        bind:value={query}
+        placeholder={sel && !searchAll ? `Search ${labelOfKind.toLowerCase()} settings…` : "Search every element…"}
+        class="w-full rounded-md border border-border bg-zinc-800 py-1.5 pr-2 pl-7 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+        autocomplete="off"
+      />
+    </div>
+    {#if query.trim()}
+      <div class="mt-1.5 flex max-h-64 flex-col gap-0.5 overflow-y-auto" aria-label="Matching settings">
+        {#each searchResults as item (`${item.target}:${item.section}:${item.label}`)}
+          <button
+            type="button"
+            onclick={() => chooseSearchResult(item)}
+            class="flex min-h-8 items-center justify-between gap-2 rounded px-2 py-1.5 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span class="min-w-0">
+              <span class="block truncate text-xs text-foreground">{item.label}</span>
+              <span class="block truncate text-[10px] text-muted-foreground">{item.section}</span>
+            </span>
+            <span class="max-w-24 shrink-0 truncate text-[10px] text-muted-foreground">{item.target ? labelFor(item.target) : "Widget"}</span>
+          </button>
+        {:else}
+          <p class="px-2 py-2 text-xs text-muted-foreground" role="status">No matching settings</p>
+        {/each}
       </div>
     {/if}
   </div>
