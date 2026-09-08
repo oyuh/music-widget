@@ -4,6 +4,12 @@ export interface InspectorSearchItem {
   terms?: string;
 }
 
+export function nextSearchIndex(current: number, length: number, direction: 1 | -1): number {
+  if (!length) return -1;
+  if (current < 0) return direction === 1 ? 0 : length - 1;
+  return (current + direction + length) % length;
+}
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
