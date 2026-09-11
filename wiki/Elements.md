@@ -59,7 +59,9 @@ Title, artist, album, and duration share one set of text controls: font, size, c
 
 ## Animation
 
-The track-change animation is one setting for the whole widget, not per element. Pick a **Type** (none, fade, or slide), then set **Duration**, **Easing**, and **Direction**.
+Every element has an **Animations** panel. Add up to two effects for widget load, song changes, playback start, or playback stop. Text supports per-letter motion, while album art and backgrounds add image effects.
+
+The primary background controls motion for the complete overlay. Use a **Playing** fade there to smooth playback start and stop. See [Animate your widget](/wiki/animations) for every trigger, effect, timing control, and custom CSS or JavaScript option.
 
 ## Album art fallback
 

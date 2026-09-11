@@ -10,6 +10,8 @@ import {
   nextInstanceId,
   resolveTextProps,
   type V2Element,
+  type V2CustomAnimation,
+  type V2AnimationEasing,
   type V2Kind,
   type V2Snap,
   type V2TextId,
@@ -18,6 +20,15 @@ import {
 } from "./config";
 import { mergeConfig } from "./config-merge";
 import { copyStyle, isTextElement } from "./element-style";
+import {
+  createCustomAnimation,
+  CUSTOM_ANIMATION_TOTAL_MAX,
+  customEffectId,
+  createAnimation,
+  MAX_CUSTOM_ANIMATIONS,
+  MAX_ELEMENT_ANIMATIONS,
+  nextCustomAnimationId,
+} from "./animations";
 
 // Re-exported so components have one import for everything editor-side; the
 // implementations live in a plain .ts module because they're pure config work
@@ -68,8 +79,64 @@ export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfi
   return JSON.parse(JSON.stringify(v2)) as WidgetConfig;
 }
 
+/** New editor designs opt out of the retired whole-widget song-switch effect. */
+export function newEditorConfig(partial?: Partial<WidgetConfig> | null): WidgetConfig {
+  const config = freshConfig(partial);
+  if (config.v2) config.v2.switchAnim.type = "none";
+  return config;
+}
+
+const LEGACY_SWITCH_EASINGS = new Set<V2AnimationEasing>([
+  "linear",
+  "sineOut",
+  "cubicOut",
+  "quintOut",
+  "backOut",
+  "elasticOut",
+]);
+
+/** Move a saved whole-widget switch effect into the editable Background slots. */
+export function adoptLegacySwitchAnimation(config: WidgetConfig): boolean {
+  const v2 = config.v2;
+  if (!v2 || v2.switchAnim.type === "none") return false;
+
+  const legacy = v2.switchAnim;
+  const background = v2.elements.background;
+  const animations = background.animations ?? [];
+  const easing = LEGACY_SWITCH_EASINGS.has(legacy.easing as V2AnimationEasing)
+    ? (legacy.easing as V2AnimationEasing)
+    : "cubicOut";
+  const direction = ["up", "down", "left", "right"].includes(legacy.direction)
+    ? legacy.direction
+    : "up";
+  const duration = Number.isFinite(legacy.durationMs)
+    ? Math.min(5000, Math.max(0, legacy.durationMs))
+    : 350;
+  const converted = {
+    ...createAnimation("track-change"),
+    effect: legacy.type,
+    durationMs: duration,
+    easing,
+    direction,
+    distance: 16,
+  };
+  const alreadyConverted = animations.some(
+    (animation) =>
+      animation.trigger === converted.trigger &&
+      animation.effect === converted.effect &&
+      animation.durationMs === converted.durationMs &&
+      animation.easing === converted.easing &&
+      animation.direction === converted.direction,
+  );
+  if (!alreadyConverted && animations.length >= MAX_ELEMENT_ANIMATIONS) return false;
+
+  if (!alreadyConverted) background.animations = [...animations, converted];
+  legacy.type = "none";
+  return true;
+}
+
 export class EditorState {
-  config = $state<WidgetConfig>(freshConfig());
+  config = $state<WidgetConfig>(newEditorConfig());
   selected = $state<ElementId | null>(null);
   sessionName = $state<string | null>(null);
 
@@ -127,6 +194,7 @@ export class EditorState {
         /* ignore */
       }
     }
+    adoptLegacySwitchAnimation(this.config);
 
     try {
       const g = localStorage.getItem(GHOSTS_KEY);
@@ -186,6 +254,40 @@ export class EditorState {
   /** Patch a v2 element in place (reactive). */
   updateEl(id: ElementId, patch: Partial<V2Element>) {
     Object.assign(this.config.v2!.elements[id], patch);
+  }
+
+  get customAnimations(): V2CustomAnimation[] {
+    return this.config.v2!.customAnimations ?? [];
+  }
+
+  addCustomAnimation(type: "visual" | "css" | "js"): string | null {
+    const definitions = this.config.v2!.customAnimations ?? [];
+    if (definitions.length >= MAX_CUSTOM_ANIMATIONS) return null;
+    const id = nextCustomAnimationId(definitions);
+    if (!id) return null;
+    const created = createCustomAnimation(type, id);
+    const used = definitions.reduce((sum, definition) => sum + definition.source.length, 0);
+    if (used + created.source.length > CUSTOM_ANIMATION_TOTAL_MAX) return null;
+    this.config.v2!.customAnimations = [...definitions, created];
+    this.save();
+    return id;
+  }
+
+  removeCustomAnimation(id: string): boolean {
+    const definitions = this.config.v2!.customAnimations ?? [];
+    if (!definitions.some((definition) => definition.id === id)) return false;
+    const effect = customEffectId(id);
+    const remaining = definitions.filter((definition) => definition.id !== id);
+    if (remaining.length) this.config.v2!.customAnimations = remaining;
+    else delete this.config.v2!.customAnimations;
+    for (const element of Object.values(this.config.v2!.elements)) {
+      for (const animation of element.animations ?? []) {
+        if (animation.effect === effect) animation.effect = "none";
+        if (animation.exitEffect === effect) animation.exitEffect = "none";
+      }
+    }
+    this.save();
+    return true;
   }
 
   /** Set or clear an axis snap. Setting null = free position on that axis. */
@@ -315,10 +417,12 @@ export class EditorState {
     }
   }
 
-  applyPreset(preset: Partial<WidgetConfig>) {
+  applyPreset(preset: Partial<WidgetConfig>, preserveSwitchAnimation = false) {
     const user = this.config.lfmUser;
     const sessionKey = this.config.sessionKey;
     this.config = freshConfig({ ...preset, lfmUser: user || preset.lfmUser || "", sessionKey });
+    if (preserveSwitchAnimation) adoptLegacySwitchAnimation(this.config);
+    else if (this.config.v2) this.config.v2.switchAnim.type = "none";
     this.#pruneSelection();
   }
 
@@ -339,6 +443,7 @@ export class EditorState {
     const merged = freshConfig(parsed);
     merged.lfmUser = currentUser || merged.lfmUser || "";
     merged.sessionKey = currentUser ? currentSession : null;
+    adoptLegacySwitchAnimation(merged);
     this.config = merged;
     this.#pruneSelection();
     this.save();
@@ -348,7 +453,7 @@ export class EditorState {
   reset() {
     const user = this.config.lfmUser;
     const sessionKey = this.config.sessionKey;
-    this.config = freshConfig({ lfmUser: user, sessionKey });
+    this.config = newEditorConfig({ lfmUser: user, sessionKey });
     this.#pruneSelection();
   }
 
@@ -462,7 +567,7 @@ export class EditorState {
 
   applyCustomPreset(id: string) {
     const p = this.customPresets.find((x) => x.id === id);
-    if (p) this.applyPreset(p.config);
+    if (p) this.applyPreset(p.config, true);
   }
 
   /** Share URL for a preset, with the editor's current Last.fm user/session injected. */

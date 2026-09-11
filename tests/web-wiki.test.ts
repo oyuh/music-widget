@@ -12,7 +12,7 @@ test("wiki links and section anchors resolve across the migrated Markdown", asyn
     const slug = file === "Home.md" ? "" : `/${file.slice(0, -3).toLowerCase()}`;
     articles.set(`/wiki${slug}`, { markdown, ids: renderArticle(markdown).headings.map((h) => h.id) });
   }
-  expect(articles.size).toBe(7);
+  expect(articles.size).toBe(8);
   for (const [path, { markdown, ids }] of articles) {
     expect(markdown).not.toContain("github.com/oyuh/music-widget/wiki");
     for (const match of markdown.matchAll(/\]\((\/wiki[^)#]*|)(?:#([^)]*))?\)/g)) {

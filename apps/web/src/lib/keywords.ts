@@ -37,6 +37,9 @@ export const KEYWORDS: string[] = [
   // features
   "album art overlay",
   "song progress bar overlay",
+  "animated now playing overlay",
+  "playback animation overlay",
+  "custom music widget animations",
   "custom stream widget",
   "drag and drop overlay editor",
   "stream overlay maker",

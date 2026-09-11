@@ -184,7 +184,9 @@ Lower the album line's opacity.
 
 **4000 character limit.** The whole design lives in your widget URL, so the CSS has a budget. The panel header shows how much you've used.
 
-**No JavaScript.** It's CSS only. `url()` values pointing at images do work, so you can pull in a background image or a web font by URL.
+**No JavaScript in this panel.** Custom CSS remains CSS-only. Use [custom JavaScript animations](/wiki/animations#create-a-custom-javascript-effect) to return validated keyframes from an isolated worker.
+
+`url()` values pointing at images work, so you can load a background image or web font by URL.
 
 ## Sharing and OBS
 

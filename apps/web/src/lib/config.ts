@@ -182,6 +182,60 @@ export type V2Element = {
   // Text only: per-instance typography (absent => theme.textSize/textStyle/
   // textTransform/textFont for this element's kind).
   text?: V2TextOverride;
+  // Optional per-element motion. Absent keeps old widget links and render output
+  // unchanged. The decoder caps this at MAX_ELEMENT_ANIMATIONS.
+  animations?: V2Animation[];
+};
+
+export type V2AnimationTrigger = "widget-load" | "track-change" | "playback" | "paused";
+export type V2AnimationDirection = "up" | "down" | "left" | "right";
+export type V2AnimationEasing =
+  | "linear"
+  | "ease-in"
+  | "ease-out"
+  | "ease-in-out"
+  | "spring"
+  | "overshoot"
+  | "sineOut"
+  | "cubicOut"
+  | "quintOut"
+  | "backOut"
+  | "elasticOut";
+
+/** One motion layer. Two layers can combine effects without transform conflicts. */
+export type V2Animation = {
+  trigger: V2AnimationTrigger;
+  effect: string; // built-in id, or "custom:<definition id>"
+  exitEffect: string; // paired playback/paused triggers only; "none" snaps back
+  durationMs: number;
+  exitDurationMs: number;
+  delayMs: number;
+  exitDelayMs: number;
+  easing: V2AnimationEasing;
+  exitEasing: V2AnimationEasing;
+  direction: V2AnimationDirection;
+  distance: number;
+  staggerMs: number; // letter effects only
+  reverseLetters: boolean;
+};
+
+/** A named effect created in the editor and referenced by element animation slots. */
+export type V2VisualAnimationFrame = {
+  opacity: number; // percent
+  x: number; // px
+  y: number; // px
+  scale: number; // percent
+  rotate: number; // deg
+  blur: number; // px
+};
+
+export type V2CustomAnimation = {
+  id: string;
+  name: string;
+  type: "visual" | "css" | "js";
+  source: string; // empty for visual definitions
+  from?: V2VisualAnimationFrame;
+  to?: V2VisualAnimationFrame;
 };
 
 export type V2SwitchAnim = {
@@ -195,6 +249,7 @@ export type WidgetV2 = {
   /** Keyed by instance id (see V2_KINDS): "title", "title#2", … */
   elements: Record<V2ElementId, V2Element>;
   switchAnim: V2SwitchAnim;
+  customAnimations?: V2CustomAnimation[];
   // Runtime-only, set during merge (never encoded/edited): the decoded config
   // predates the configurable pause element, so the renderer shows the original
   // hardcoded pause badge instead of a pause element the user never set up.

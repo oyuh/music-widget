@@ -155,6 +155,7 @@ const STYLE_KEYS = [
   "stroke",
   "scroll",
   "tint",
+  "animations",
 ] as const satisfies readonly (keyof V2Element)[];
 
 /**

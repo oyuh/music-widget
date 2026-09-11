@@ -19,6 +19,7 @@ Under the hood: a Bun workspace holding a SvelteKit editor and widget SPA, a Hon
   - [The widget URL](#the-widget-url)
   - [Layout engines](#layout-engines)
   - [Element instances](#element-instances)
+  - [Animation system](#animation-system)
   - [Custom CSS](#custom-css)
   - [Polling and progress](#polling-and-progress)
   - [Why Last.fm calls skip the server](#why-lastfm-calls-skip-the-server)
@@ -46,7 +47,7 @@ flowchart LR
   D --> E["Poll and render"]
 ```
 
-Eight element kinds are available: `background`, `art`, `title`, `artist`, `album`, `progress`, `duration`, and `pause`. Each carries its own position, size, color, fill, outline, shadow, and corner radius, and text elements add typography. The track-change animation is one setting for the whole widget (`v2.switchAnim`), not per element. The editor autosaves to `localStorage` on every change.
+Eight element kinds are available: `background`, `art`, `title`, `artist`, `album`, `progress`, `duration`, and `pause`. Each carries its own position, size, color, fill, outline, shadow, corner radius, and two optional animation bindings. Text elements also add typography. The editor autosaves to `localStorage` on every change.
 
 ### The widget URL
 
@@ -80,6 +81,16 @@ The bare name is deliberate: designs saved before instances existed decode uncha
 Two settings stay widget-wide rather than per-instance, the album-art failure reflow (`reflowArtGone`) and the fallback-image URL. Extra art instances render the same cover.
 
 Ids come from a hand-editable hash, so `mergeConfig` validates each through `isValidElementId`, drops unknown kinds and over-cap instances, and nulls snaps pointing at whatever it dropped.
+
+### Animation system
+
+Each `V2Element` can store two animation bindings. A binding selects a trigger, start and end effects, durations, delays, easing, direction, distance, and optional letter stagger. Built-in effects use the Web Animations API, remain interruptible during rapid playback changes, and stop when `prefers-reduced-motion` is active.
+
+Text effects split content into grapheme spans, so emoji and combined characters animate as one unit. The total per-letter stagger is capped at `700 ms`.
+
+Custom definitions live in `v2.customAnimations`. Visual definitions store editable start and end frames. CSS definitions contain one `@keyframes` rule. JavaScript definitions run in a sandboxed worker and return keyframe data; they cannot access the widget DOM or network. The decoder limits each element to two bindings, each custom code source to 2,000 characters, and all custom animation code to 4,000 characters.
+
+Shared widget links still render the retired `v2.switchAnim` setting. The editor converts an active switch setting into a Background song-change animation when it loads or imports the link. If both Background slots are occupied, it leaves `v2.switchAnim` active as a compatibility fallback.
 
 ### Custom CSS
 

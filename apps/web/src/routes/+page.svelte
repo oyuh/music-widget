@@ -265,7 +265,8 @@
 <p class="sr-only">
   Build a now-playing widget in a drag-and-drop editor and show the song you're listening to on
   stream. Works as an OBS, Streamlabs or XSplit browser source, with album art, artist, title and a
-  live progress bar. Powered by Last.fm, so you can scrobble from Spotify, Apple Music, YouTube
+  live progress bar. Add playback start and stop motion, song-change effects, per-letter text motion,
+  and custom animations. Powered by Last.fm, so you can scrobble from Spotify, Apple Music, YouTube
   Music and more. Free, no account, no watermark.
 </p>
 
