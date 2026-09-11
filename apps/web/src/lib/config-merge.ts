@@ -12,6 +12,7 @@ import {
   type WidgetConfig,
   type WidgetV2,
 } from "./config";
+import { normalizeCustomAnimations, normalizeElementAnimations } from "./animations";
 
 /**
  * Deep-merge a partial config (from a /w#hash or storage) onto the defaults so
@@ -111,16 +112,22 @@ function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<Wid
   const base = migrateToV2(legacyMerged).v2!;
   const elements = {} as Record<V2ElementId, V2Element>;
 
-  const merge = (b: V2Element, e: Partial<V2Element>): V2Element => ({
-    ...b,
-    ...e,
-    shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
-    stroke: e.stroke ? { ...b.stroke!, ...e.stroke } : b.stroke,
-    scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
-    // snapX/snapY can legitimately be null; preserve an explicit value.
-    snapX: e.snapX !== undefined ? e.snapX : b.snapX,
-    snapY: e.snapY !== undefined ? e.snapY : b.snapY,
-  });
+  const merge = (b: V2Element, e: Partial<V2Element>): V2Element => {
+    const merged: V2Element = {
+      ...b,
+      ...e,
+      shadow: e.shadow ? { ...b.shadow, ...e.shadow } : b.shadow,
+      stroke: e.stroke ? { ...b.stroke!, ...e.stroke } : b.stroke,
+      scroll: e.scroll ? { ...b.scroll, ...e.scroll } : b.scroll,
+      // snapX/snapY can legitimately be null; preserve an explicit value.
+      snapX: e.snapX !== undefined ? e.snapX : b.snapX,
+      snapY: e.snapY !== undefined ? e.snapY : b.snapY,
+    };
+    const animations = normalizeElementAnimations(e.animations);
+    if (animations) merged.animations = animations;
+    else delete merged.animations;
+    return merged;
+  };
 
   // The base instance of every kind always exists, so a design can never decode
   // into a widget with no background or no title to fall back on.
@@ -153,11 +160,13 @@ function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<Wid
   // renderer falls back to the original hardcoded pause badge instead of a new
   // pause element the user never set up.
   const legacyPause = pv?.elements?.pause === undefined;
+  const customAnimations = normalizeCustomAnimations(pv?.customAnimations);
   return {
     version: 2,
     v2: {
       elements,
       switchAnim: { ...base.switchAnim, ...(pv?.switchAnim ?? {}) },
+      ...(customAnimations ? { customAnimations } : {}),
       ...(legacyPause ? { legacyPause: true } : {}),
     },
   };

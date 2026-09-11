@@ -20,6 +20,7 @@ Full walkthrough in [Getting started](/wiki/getting-started).
 - **[Getting started](/wiki/getting-started)**: username to live overlay, browser source steps for OBS, Streamlabs and XSplit, and presets.
 - **[Playground](/wiki/playground)**: preview the built-in themes and test CSS without connecting an account.
 - **[Elements](/wiki/elements)**: the eight pieces you can place, copies, color, text, and animation.
+- **[Animations](/wiki/animations)**: add start, stop, song-change, per-letter, image, and custom motion.
 - **[Private profiles](/wiki/private-profiles)**: connect your account when your listening is hidden.
 - **[Custom CSS](/wiki/custom-css)** (experimental): write real CSS against your widget for gradients, animations, borders, and anything else the editor has no button for.
 - **[Troubleshooting](/wiki/troubleshooting)**: nothing showing, wrong track, rate-limit warnings.

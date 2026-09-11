@@ -21,6 +21,8 @@
      * and the text itself must stay clipped to its box.
      */
     forceClip?: boolean;
+    /** Grapheme parts used by per-letter animation effects. */
+    parts?: string[];
   }
 
   let {
@@ -34,6 +36,7 @@
     direction = "auto",
     dataEl,
     forceClip = false,
+    parts,
   }: Props = $props();
 
   let outer = $state<HTMLDivElement | null>(null);
@@ -120,6 +123,16 @@
   );
 </script>
 
+{#snippet renderedText()}
+  {#if parts}
+    {#each parts as part, index (`${index}:${part}`)}
+      <span data-motion-letter={index} style="display:inline-block">{part}</span>
+    {/each}
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
 <div
   bind:this={outer}
   data-el={dataEl}
@@ -127,7 +140,11 @@
   style="min-width:0;position:relative;overflow:{clipScroll ? 'hidden' : 'visible'};{style}"
 >
   <div class="marquee__wrapper" style={wrapperStyle}>
-    <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">{text}</span>
-    <span class="marquee__item" aria-hidden="true" style="color:{color};white-space:nowrap;display:{animate && !isBounce ? 'inline-block' : 'none'}">{text}</span>
+    <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">
+      {@render renderedText()}
+    </span>
+    <span class="marquee__item" aria-hidden="true" style="color:{color};white-space:nowrap;display:{animate && !isBounce ? 'inline-block' : 'none'}">
+      {@render renderedText()}
+    </span>
   </div>
 </div>

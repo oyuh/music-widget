@@ -1,6 +1,7 @@
 <script lang="ts">
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import Slider from "$lib/ui/Slider.svelte";
+  import Select from "$lib/ui/Select.svelte";
   import ColorInput from "$lib/ui/ColorInput.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
   import Segmented from "$lib/ui/Segmented.svelte";
@@ -14,6 +15,7 @@
   import { checkArtUrl, kindOf } from "$lib/config";
   import { ICONS } from "$lib/ui/icons";
   import { matchesInspectorSearch, nextSearchIndex } from "$lib/inspector-search";
+  import ElementAnimations from "$lib/editor/ElementAnimations.svelte";
 
   interface Props {
     editor: EditorState;
@@ -136,7 +138,7 @@
     shadow: false,
     accent: false,
     font: false,
-    anim: false,
+    elementAnim: false,
     paused: false,
     ghosts: false,
   });
@@ -146,8 +148,9 @@
   const allIds = $derived(ELEMENTS.flatMap((e) => editor.idsOf(e.id)));
   const ghostsOff = $derived(allIds.filter((id) => !editor.ghosting(id)).length);
 
-  const EASINGS = ["linear", "sineOut", "cubicOut", "quintOut", "backOut", "elasticOut"];
   const inputCls = "w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 text-sm";
+  const fontOptions = GOOGLE_FONTS.map((font) => ({ value: font, label: font }));
+  const elementFontOptions = [{ value: "", label: "Default (global)" }, ...fontOptions];
   const edgeLabel = (e: "start" | "center" | "end") => (e === "start" ? "start" : e === "end" ? "end" : "center");
 
   type SectionKey = keyof typeof open;
@@ -172,6 +175,12 @@
     { label: "Height", section: "Position & size", terms: "size tall auto", open: "layout" },
     { label: "Outline", section: "Outline", terms: "stroke border thickness position opacity color", open: "outline" },
     { label: "Drop shadow", section: "Drop shadow", terms: "blur intensity opacity offset contrast color", open: "shadow" },
+    {
+      label: "Animations",
+      section: "Animations",
+      terms: "motion transition playback playing pause paused stopped widget load song change enter exit start end appear disappear fade slide pop blur zoom tilt flip per letter stagger custom effect easing duration speed delay image overlay pause symbol",
+      open: "elementAnim",
+    },
   ];
 
   const textSpecs: SearchSpec[] = [
@@ -188,7 +197,7 @@
     const elementKind = kindOf(id);
     const common = id === "background"
       ? commonSpecs
-          .filter((item) => ["Width", "Height", "Outline", "Drop shadow"].includes(item.label))
+          .filter((item) => ["Width", "Height", "Animations", "Outline", "Drop shadow"].includes(item.label))
           .map((item) => ({ ...item, section: item.open === "layout" ? "Widget size" : item.section }))
       : commonSpecs;
 
@@ -220,7 +229,6 @@
       items.push(
         { label: "Accent color", section: "Accent color", terms: "global auto album art brightness fallback palette", target: "background", open: "accent" },
         { label: "Global font", section: "Global font", terms: "typeface all text default", target: "background", open: "font" },
-        { label: "Song-switch animation", section: "Song-switch animation", terms: "transition fade slide direction duration easing", target: "background", open: "anim" },
         { label: "Paused behavior", section: "When paused", terms: "pause stopped hide widget show symbol", target: "background", open: "paused" },
       );
     }
@@ -355,56 +363,7 @@
   </Collapsible>
 
   <Collapsible title="Global font" icon="type" bind:open={open.font} badge={cfg.theme.font} hint="The default font for all text. Each text element can override it under its own Font setting.">
-    <select bind:value={cfg.theme.font} class={inputCls} aria-label="Global font">
-      {#each GOOGLE_FONTS as f (f)}
-        <option value={f}>{f}</option>
-      {/each}
-    </select>
-  </Collapsible>
-
-  <Collapsible
-    title="Song-switch animation"
-    icon="sparkles"
-    bind:open={open.anim}
-    badge={v2.switchAnim.type === "none" ? undefined : v2.switchAnim.type}
-    hint="How the widget transitions when the playing song changes."
-    diagram="switch-anim"
-  >
-    <Segmented
-      bind:value={v2.switchAnim.type}
-      label="Type"
-      options={[
-        { value: "none", label: "None" },
-        { value: "fade", label: "Fade" },
-        { value: "slide", label: "Slide" },
-      ]}
-    />
-    {#if v2.switchAnim.type === "slide"}
-      <Segmented
-        bind:value={v2.switchAnim.direction}
-        label="Direction"
-        options={[
-          { value: "up", label: "Up" },
-          { value: "down", label: "Down" },
-          { value: "left", label: "Left" },
-          { value: "right", label: "Right" },
-        ]}
-      />
-    {/if}
-    {#if v2.switchAnim.type !== "none"}
-      <Slider bind:value={v2.switchAnim.durationMs} min={0} max={1500} step={50} label="Duration" suffix="ms" />
-      <label class="block">
-        <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-          Easing
-          <InfoTip text="The speed curve of the animation. For example, cubicOut eases out and backOut overshoots slightly." label="Easing" />
-        </div>
-        <select bind:value={v2.switchAnim.easing} class={inputCls}>
-          {#each EASINGS as e (e)}
-            <option value={e}>{e}</option>
-          {/each}
-        </select>
-      </label>
-    {/if}
+    <Select bind:value={cfg.theme.font} options={fontOptions} ariaLabel="Global font" />
   </Collapsible>
 
   <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint={LASTFM_PAUSE_HINT}>
@@ -727,6 +686,17 @@
       </Collapsible>
     {/if}
 
+    <!-- ===== Per-element motion ===== -->
+    <Collapsible
+      title="Animations"
+      icon="sparkles"
+      bind:open={open.elementAnim}
+      badge={E.animations?.length ? `${E.animations.length}/2` : undefined}
+      hint="Run up to two effects on this element when the widget loads, the song changes, or playback starts and stops."
+    >
+      <ElementAnimations {editor} id={sel} />
+    </Collapsible>
+
     <!-- ===== Per-type styling ===== -->
     {#if isTextSel}
       <Collapsible title="Text" icon="type" bind:open={open.style} hint="Color, size, weight and font for this piece of text.">
@@ -805,12 +775,7 @@
             Font
             <InfoTip text="Use a different font for just this text. 'Default' keeps the widget's global font." label="Font" />
           </div>
-          <select bind:value={typo!.font} class={inputCls}>
-            <option value="">Default (global)</option>
-            {#each GOOGLE_FONTS as f (f)}
-              <option value={f}>{f}</option>
-            {/each}
-          </select>
+          <Select bind:value={typo!.font} options={elementFontOptions} />
         </label>
       </Collapsible>
 

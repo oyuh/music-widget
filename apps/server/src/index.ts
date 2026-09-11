@@ -153,7 +153,7 @@ app.get("/robots.txt", (c) => {
 // lastmod for the sitemap: the content only changes when a new build deploys,
 // so the process start date is an honest approximation.
 const SITEMAP_LASTMOD = new Date().toISOString().slice(0, 10);
-const WIKI_SLUGS = ["", "getting-started", "playground", "elements", "custom-css", "private-profiles", "troubleshooting"];
+const WIKI_SLUGS = ["", "getting-started", "playground", "elements", "animations", "custom-css", "private-profiles", "troubleshooting"];
 
 app.get("/sitemap.xml", (c) => {
   const origin = getOrigin(c);

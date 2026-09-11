@@ -1,5 +1,6 @@
 <script lang="ts">
   import ScrollText from "./ScrollText.svelte";
+  import MotionStack from "./MotionStack.svelte";
   import {
     applyTextTransform,
     CSS_SCOPE,
@@ -12,6 +13,7 @@
     V2_TEXT_IDS,
     type V2Element,
     type V2ElementId,
+    type V2SwitchAnim,
     type V2TextId,
     type WidgetConfig,
   } from "./config";
@@ -27,6 +29,12 @@
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
   import { untrack } from "svelte";
+  import {
+    customAnimationCss,
+    hasLetterAnimation,
+    splitGraphemes,
+    type MotionState,
+  } from "./animations";
 
   // Every check here is on an element's KIND, so "title#2" behaves like a title.
   const isText = (id: V2ElementId): boolean => (V2_TEXT_IDS as readonly string[]).includes(kindOf(id));
@@ -283,6 +291,9 @@
       v2.elements.pause?.visible &&
       !v2.legacyPause,
   );
+  const pauseAvailable = $derived(
+    (cfg.fields.pausedMode ?? "label") === "label" && v2.elements.pause?.visible && !v2.legacyPause,
+  );
   // Configs saved before the pause element existed keep the original badge
   // (dark circle on the album art) so their widget doesn't change under them.
   const showLegacyPause = $derived(
@@ -333,7 +344,13 @@
 
   const bgEl = $derived(v2.elements.background);
   const bgFill = $derived(bgEl.fill ?? "color");
-  const containerBg = $derived(!preview && wouldHide ? "transparent" : bgColorOf(bgEl));
+  const bgHasPlaybackMotion = $derived(
+    !!bgEl.animations?.some((animation) => animation.trigger === "playback"),
+  );
+  const animateWidgetVisibility = $derived(pausedTransparent && bgHasPlaybackMotion);
+  const containerBg = $derived(
+    !preview && wouldHide && !animateWidgetVisibility ? "transparent" : bgColorOf(bgEl),
+  );
 
   // `includeShadow` is false in "escape" mode, where the shadow is rendered as a
   // drop-shadow filter on the (unclipped) wrapper instead of a clipped text-shadow.
@@ -418,7 +435,7 @@
       `border-radius:${el.radius ?? 16}px`,
       `background:${containerBg}`,
       `font-family:'${cfg.theme.font}', ui-sans-serif, system-ui, -apple-system`,
-      `opacity:${!preview && wouldHide ? 0 : 1}`,
+      `opacity:${!preview && wouldHide && !animateWidgetVisibility ? 0 : 1}`,
       sh ? `box-shadow:${sh}` : "",
       stroke ? stroke.box : "",
     ]
@@ -431,7 +448,14 @@
   // nothing outside it. Every style the editor produces is inline, which wins
   // over a stylesheet: tweaking a setting overrides the custom CSS for that
   // property unless the rule says !important.
-  const customCss = $derived(customCssActive(cfg) ? scopeCss(cfg.experimental!.css) : "");
+  const customCss = $derived(
+    [
+      customCssActive(cfg) ? scopeCss(cfg.experimental!.css) : "",
+      customAnimationCss(v2.customAnimations),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
   $effect(() => {
     if (!customCss) return;
     const style = document.createElement("style");
@@ -443,6 +467,17 @@
 
   // ---- song-switch animation ----
   const trackKey = $derived(`${title}|${artist}`);
+  const motionState = $derived<MotionState>({
+    trackKey,
+    playing: preview && pausedTransparent ? true : !isEffectivelyPaused,
+    preview,
+  });
+  // The legacy song transition remounts the complete layer. Keep motion actions
+  // mounted once an element uses the new system so playback transitions stay
+  // interruptible and retain their previous state.
+  const hasElementAnimations = $derived(
+    Object.values(v2.elements).some((element) => !!element.animations?.length),
+  );
   function switchIn(node: Element) {
     const a = v2.switchAnim;
     const easing = (easings as Record<string, (t: number) => number>)[a.easing] ?? easings.cubicOut;
@@ -458,6 +493,47 @@
             ? { x: dist }
             : { x: -dist };
     return fly(node, { duration: a.durationMs, easing, ...off });
+  }
+
+  // New per-element motion must stay mounted across song changes. Animate the
+  // stable parent layer with the old setting so both systems can run together.
+  function stableSwitch(node: HTMLElement, initial: { trackKey: string; animation: V2SwitchAnim }) {
+    let previousTrack = initial.trackKey;
+    let active: Animation | null = null;
+
+    const update = (next: { trackKey: string; animation: V2SwitchAnim }) => {
+      if (next.trackKey === previousTrack) return;
+      previousTrack = next.trackKey;
+      active?.cancel();
+      active = null;
+      const animation = next.animation;
+      if (animation.type === "none" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const easing =
+        (easings as Record<string, (t: number) => number>)[animation.easing] ?? easings.cubicOut;
+      const frames = Array.from({ length: 31 }, (_, index) => {
+        const progress = index / 30;
+        const eased = easing(progress);
+        if (animation.type === "fade") return { opacity: eased };
+        const distance = 16 * (1 - eased);
+        const transform =
+          animation.direction === "up"
+            ? `translate3d(0,${distance}px,0)`
+            : animation.direction === "down"
+              ? `translate3d(0,${-distance}px,0)`
+              : animation.direction === "left"
+                ? `translate3d(${distance}px,0,0)`
+                : `translate3d(${-distance}px,0,0)`;
+        return { transform };
+      });
+      active = node.animate(frames, { duration: animation.durationMs });
+    };
+
+    return {
+      update,
+      destroy() {
+        active?.cancel();
+      },
+    };
   }
 </script>
 
@@ -488,6 +564,223 @@
   {/if}
 {/snippet}
 
+{#snippet artPaint(id: V2ElementId)}
+  {@const artStroke = strokeOf(id)}
+  {@const artSh = elementShadowCSS(v2.elements[id].shadow, "#000000", artStroke?.outward ?? 0)}
+  <img
+    src={imgUrl}
+    alt=""
+    onload={onArtLoad}
+    style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements[id].radius ??
+      12}px;{artSh ? `box-shadow:${artSh};` : ''}{artStroke ? artStroke.box : ''}"
+  />
+  {#if showLegacyPause && id === "art"}
+    <div
+      style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;gap:2px"
+    >
+      <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
+      <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet pausePaint(id: V2ElementId)}
+  {@const pColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
+  {@const pStroke = strokeOf(id)}
+  {@const pSh = elementShadowCSS(v2.elements[id].shadow, pColor, pStroke?.outward ?? 0)}
+  {@const pW = boxes[id].w || 24}
+  {@const barW = Math.max(2, Math.round(pW * 0.3))}
+  {@const barGap = Math.max(2, Math.round(pW * 0.16))}
+  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:{barGap}px">
+    <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
+    <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
+  </div>
+{/snippet}
+
+{#snippet progressPaint(id: V2ElementId)}
+  {@const progColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
+  {@const progStroke = strokeOf(id)}
+  {@const sh = elementShadowCSS(v2.elements[id].shadow, progColor, progStroke?.outward ?? 0)}
+  <div
+    style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements[id].radius ??
+      4}px;overflow:hidden;{sh ? `box-shadow:${sh};` : ''}{progStroke ? progStroke.box : ''}"
+  >
+    <div
+      style="height:100%;width:{Math.max(0, Math.min(100, percent))}%;background:{progColor};transition:width 120ms linear"
+    ></div>
+  </div>
+{/snippet}
+
+{#snippet textPaint(id: V2ElementId)}
+  {@const el = v2.elements[id]}
+  {@const color = resolveColor(el.color, el.fallbackColor)}
+  {@const fixed = el.w != null}
+  {@const escape = !!el.shadow?.enabled && !!el.shadow?.escape}
+  {@const shadowCss = elementShadowCSS(el.shadow, color)}
+  {@const filterShadow = !!shadowCss && (escape || !!strokeOf(id))}
+  {@const pad = strokePad(id)}
+  {@const textStyle =
+    textCss(id, color, !filterShadow) +
+    (pad ? `;padding:${pad}px` : "") +
+    (filterShadow && !escape ? `;filter:drop-shadow(${shadowCss})` : "")}
+  {@const parts = hasLetterAnimation(el.animations) ? splitGraphemes(textContent(id)) : undefined}
+  {#if el.scroll?.enabled}
+    <ScrollText
+      text={textContent(id)}
+      {parts}
+      {color}
+      style={textStyle}
+      direction={el.scroll.direction}
+      speedPxPerSec={el.scroll.speedPxPerSec}
+      gapPx={el.scroll.gapPx}
+      forceClip={escape}
+    />
+  {:else}
+    <div
+      style="{textStyle};white-space:nowrap;{escape || fixed
+        ? 'overflow:hidden;text-overflow:ellipsis'
+        : 'overflow:visible'}"
+    >
+      {#if parts}
+        {#each parts as part, index (`${index}:${part}`)}
+          <span data-motion-letter={index} style="display:inline-block">{part}</span>
+        {/each}
+      {:else}
+        {textContent(id)}
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet childrenLayer()}
+  {#each childIds as id (id)}
+    {@const kind = kindOf(id)}
+    {@const element = v2.elements[id]}
+    {@const animations = element.animations}
+    {#if kind === "background"}
+      <!-- Extra backgrounds are ordinary z-ordered boxes. -->
+      {@const bgStroke = strokeOf(id)}
+      {@const bgSh = elementShadowCSS(element.shadow, bgColorOf(element) || "#000000", bgStroke?.outward ?? 0)}
+      {#if animations?.length}
+        <div data-el={id} use:measure={id} style={posStyle(id)}>
+          <MotionStack {id} {animations} customAnimations={v2.customAnimations} state={motionState}>
+            <div
+              style="width:100%;height:100%;position:relative;border-radius:{element.radius ??
+                16}px;background:{bgColorOf(element)};overflow:hidden;{bgSh ? `box-shadow:${bgSh};` : ''}{bgStroke ? bgStroke.box : ''}"
+            >
+              {@render bgLayers(element)}
+            </div>
+          </MotionStack>
+        </div>
+      {:else}
+        <div
+          data-el={id}
+          use:measure={id}
+          style="{posStyle(id)};border-radius:{element.radius ?? 16}px;background:{bgColorOf(
+            element,
+          )};overflow:hidden;{bgSh ? `box-shadow:${bgSh};` : ''}{bgStroke ? bgStroke.box : ''}"
+        >
+          {@render bgLayers(element)}
+        </div>
+      {/if}
+    {:else if kind === "art"}
+      {#if showArt}
+        <div data-el={id} use:measure={id} style={posStyle(id)}>
+          {#if animations?.length}
+            <MotionStack {id} {animations} customAnimations={v2.customAnimations} state={motionState}>
+              {@render artPaint(id)}
+            </MotionStack>
+          {:else}
+            {@render artPaint(id)}
+          {/if}
+        </div>
+      {/if}
+    {:else if kind === "pause"}
+      {#if animations?.length && pauseAvailable}
+        <div data-el={id} use:measure={id} style={posStyle(id)}>
+          <MotionStack
+            {id}
+            {animations}
+            customAnimations={v2.customAnimations}
+            state={motionState}
+            shown={showPauseSymbol}
+            visibilityTrigger="paused"
+          >
+            {@render pausePaint(id)}
+          </MotionStack>
+        </div>
+      {:else if showPauseSymbol}
+        <div data-el={id} use:measure={id} style={posStyle(id)}>
+          {@render pausePaint(id)}
+        </div>
+      {/if}
+    {:else if kind === "progress"}
+      <div
+        data-el={id}
+        use:measure={id}
+        style="{posStyle(id)};opacity:{(element.fillOpacity ?? 100) / 100}"
+      >
+        {#if animations?.length}
+          <MotionStack {id} {animations} customAnimations={v2.customAnimations} state={motionState}>
+            {@render progressPaint(id)}
+          </MotionStack>
+        {:else}
+          {@render progressPaint(id)}
+        {/if}
+      </div>
+    {:else if isText(id)}
+      {@const anchor = element.anchor === "center" ? "center" : element.anchor === "right" ? "right" : "left"}
+      {@const fixed = element.w != null}
+      {@const escape = !!element.shadow?.enabled && !!element.shadow?.escape}
+      {@const shadowCss = elementShadowCSS(element.shadow, resolveColor(element.color, element.fallbackColor))}
+      <div
+        data-el={id}
+        use:measure={id}
+        style="{posStyle(id, false)};text-align:{anchor};{escape && shadowCss
+          ? `overflow:visible;filter:drop-shadow(${shadowCss})`
+          : fixed
+            ? 'overflow:hidden'
+            : ''}"
+      >
+        {#if animations?.length}
+          <MotionStack
+            {id}
+            {animations}
+            customAnimations={v2.customAnimations}
+            state={motionState}
+            fill={fixed}
+          >
+            {@render textPaint(id)}
+          </MotionStack>
+        {:else}
+          {@render textPaint(id)}
+        {/if}
+      </div>
+    {/if}
+  {/each}
+{/snippet}
+
+{#snippet widgetFrame()}
+  <div style={containerStyle} data-el="background">
+    {@render bgLayers(bgEl)}
+    {#if hasElementAnimations}
+      <div
+        class="v2-layer"
+        style="position:absolute;inset:0;pointer-events:none"
+        use:stableSwitch={{ trackKey, animation: v2.switchAnim }}
+      >
+        {@render childrenLayer()}
+      </div>
+    {:else}
+      {#key trackKey}
+        <div class="v2-layer" in:switchIn style="position:absolute;inset:0;pointer-events:none">
+          {@render childrenLayer()}
+        </div>
+      {/key}
+    {/if}
+  </div>
+{/snippet}
+
 <div class="relative {CSS_SCOPE}">
   {#if preview && wouldHide}
     <div class="absolute top-1 right-1 z-10 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white">
@@ -495,139 +788,19 @@
     </div>
   {/if}
 
-  <div style={containerStyle} data-el="background">
-    {@render bgLayers(bgEl)}
-    {#key trackKey}
-      <div class="v2-layer" in:switchIn style="position:absolute;inset:0;pointer-events:none">
-        {#each childIds as id (id)}
-          {@const kind = kindOf(id)}
-          {#if kind === "background"}
-            <!-- An extra background: an ordinary z-ordered box, unlike the primary
-                 one, which IS the widget frame and so sizes everything else. -->
-            {@const bg = v2.elements[id]}
-            {@const bgStroke = strokeOf(id)}
-            {@const bgSh = elementShadowCSS(bg.shadow, bgColorOf(bg) || "#000000", bgStroke?.outward ?? 0)}
-            <div
-              data-el={id}
-              use:measure={id}
-              style="{posStyle(id)};border-radius:{bg.radius ?? 16}px;background:{bgColorOf(
-                bg,
-              )};overflow:hidden;{bgSh ? `box-shadow:${bgSh};` : ''}{bgStroke ? bgStroke.box : ''}"
-            >
-              {@render bgLayers(bg)}
-            </div>
-          {:else if kind === "art"}
-            {#if showArt}
-              {@const artStroke = strokeOf(id)}
-              {@const artSh = elementShadowCSS(v2.elements[id].shadow, "#000000", artStroke?.outward ?? 0)}
-              <div data-el={id} use:measure={id} style={posStyle(id)}>
-                <img
-                  src={imgUrl}
-                  alt=""
-                  onload={onArtLoad}
-                  style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements[id].radius ??
-                    12}px;{artSh ? `box-shadow:${artSh};` : ''}{artStroke ? artStroke.box : ''}"
-                />
-                {#if showLegacyPause && id === "art"}
-                  <div
-                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;gap:2px"
-                  >
-                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
-                    <div style="width:3px;height:8px;background:white;border-radius:1px"></div>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-          {:else if kind === "pause"}
-            {#if showPauseSymbol}
-              {@const pColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
-              {@const pStroke = strokeOf(id)}
-              {@const pSh = elementShadowCSS(v2.elements[id].shadow, pColor, pStroke?.outward ?? 0)}
-              {@const pW = boxes[id].w || 24}
-              {@const barW = Math.max(2, Math.round(pW * 0.3))}
-              {@const barGap = Math.max(2, Math.round(pW * 0.16))}
-              <div data-el={id} use:measure={id} style={posStyle(id)}>
-                <div
-                  style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:{barGap}px"
-                >
-                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
-                  <div style="width:{barW}px;height:100%;background:{pColor};border-radius:2px;{pSh ? `box-shadow:${pSh};` : ''}{pStroke ? pStroke.box : ''}"></div>
-                </div>
-              </div>
-            {/if}
-          {:else if kind === "progress"}
-            {@const progColor = resolveColor(v2.elements[id].color, v2.elements[id].fallbackColor)}
-            {@const progStroke = strokeOf(id)}
-            {@const sh = elementShadowCSS(v2.elements[id].shadow, progColor, progStroke?.outward ?? 0)}
-            <div
-              data-el={id}
-              use:measure={id}
-              style="{posStyle(id)};opacity:{(v2.elements[id].fillOpacity ?? 100) / 100}"
-            >
-              <div
-                style="width:100%;height:100%;background:#ffffff30;border-radius:{v2.elements[id].radius ??
-                  4}px;overflow:hidden;{sh ? `box-shadow:${sh};` : ''}{progStroke ? progStroke.box : ''}"
-              >
-                <div
-                  style="height:100%;width:{Math.max(0, Math.min(100, percent))}%;background:{progColor};transition:width 120ms linear"
-                ></div>
-              </div>
-            </div>
-          {:else if isText(id)}
-            {@const el = v2.elements[id]}
-            {@const color = resolveColor(el.color, el.fallbackColor)}
-            {@const anchor = el.anchor === "center" ? "center" : el.anchor === "right" ? "right" : "left"}
-            {@const fixed = el.w != null}
-            <!-- "escape" lets the *shadow* spill past the box while the *text* stays
-                 clipped: render it as a drop-shadow filter on the unclipped wrapper
-                 (drop-shadow isn't clipped by the element's own overflow) and drop
-                 the text-shadow. Auto-width text never overflows, so it's left
-                 unclipped and just uses a normal text-shadow. -->
-            {@const escape = !!el.shadow?.enabled && !!el.shadow?.escape}
-            {@const shadowCss = elementShadowCSS(el.shadow, color)}
-            <!-- text-shadow traces the bare glyph, so once there's an outline the
-                 shadow would read thinner than the letters it sits behind. Switch it
-                 to a drop-shadow FILTER, which works off the rendered pixels and so
-                 includes the outline. Outside escape mode it goes on the text layer
-                 itself, leaving the box free to clip it as before. -->
-            {@const filterShadow = !!shadowCss && (escape || !!strokeOf(id))}
-            {@const pad = strokePad(id)}
-            {@const textStyle =
-              textCss(id, color, !filterShadow) +
-              (pad ? `;padding:${pad}px` : "") +
-              (filterShadow && !escape ? `;filter:drop-shadow(${shadowCss})` : "")}
-            <div
-              data-el={id}
-              use:measure={id}
-              style="{posStyle(id, false)};text-align:{anchor};{escape && shadowCss
-                ? `overflow:visible;filter:drop-shadow(${shadowCss})`
-                : fixed
-                  ? 'overflow:hidden'
-                  : ''}"
-            >
-              {#if el.scroll?.enabled}
-                <ScrollText
-                  text={textContent(id)}
-                  {color}
-                  style={textStyle}
-                  direction={el.scroll.direction}
-                  speedPxPerSec={el.scroll.speedPxPerSec}
-                  gapPx={el.scroll.gapPx}
-                  forceClip={escape}
-                />
-              {:else}
-                <div
-                  style="{textStyle};white-space:nowrap;{escape || fixed
-                    ? 'overflow:hidden;text-overflow:ellipsis'
-                    : 'overflow:visible'}"
-                >
-                  {textContent(id)}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </div>
-    {/key}
-  </div>
+  {#if bgEl.animations?.length}
+    <MotionStack
+      id="background"
+      animations={bgEl.animations}
+      customAnimations={v2.customAnimations}
+      state={motionState}
+      shown={preview || !wouldHide}
+      visibilityTrigger="playback"
+      fill={false}
+    >
+      {@render widgetFrame()}
+    </MotionStack>
+  {:else}
+    {@render widgetFrame()}
+  {/if}
 </div>
