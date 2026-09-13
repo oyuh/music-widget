@@ -36,6 +36,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Neutral grays, no blue tint anywhere. */
   --background: oklch(0.14 0 0);
   --foreground: oklch(0.985 0 0);
@@ -105,6 +106,11 @@
   body {
     @apply bg-background text-foreground;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  select,
+  option {
+    color: var(--foreground);
+    background-color: var(--card);
   }
 }
 
