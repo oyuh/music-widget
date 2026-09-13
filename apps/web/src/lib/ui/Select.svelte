@@ -29,7 +29,7 @@
     onchange={change}
     {disabled}
     aria-label={ariaLabel || undefined}
-    class="peer absolute inset-0 z-10 h-11 w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+    class="peer absolute inset-0 z-10 h-11 w-full cursor-pointer appearance-none border-0 bg-transparent text-transparent outline-none disabled:cursor-not-allowed"
   >
     {#each options as option (option.value)}
       <option value={option.value}>{option.label}</option>
