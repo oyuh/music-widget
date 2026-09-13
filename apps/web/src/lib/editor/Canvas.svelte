@@ -3,10 +3,11 @@
   import { onMount } from "svelte";
   import { fly, slide } from "svelte/transition";
   import Widget from "$lib/Widget.svelte";
+  import { ANIMATION_TRIGGERS } from "$lib/animations";
   import ColorInput from "$lib/ui/ColorInput.svelte";
-  import { ICONS } from "$lib/ui/icons";
+  import { ANIMATION_TRIGGER_ICONS, ICONS } from "$lib/ui/icons";
   import { type EditorState, type ElementId } from "$lib/editor.svelte";
-  import { kindOf, type V2Edge } from "$lib/config";
+  import { kindOf, type V2AnimationTrigger, type V2Edge } from "$lib/config";
   import { fetchGithubStars } from "$lib/usage";
 
   interface Props {
@@ -49,6 +50,16 @@
   const pauseSelectable = $derived((editor.config.fields.pausedMode ?? "label") === "label");
   const previewPaused = $derived(
     isPaused || simPaused || (!!editor.selected && kindOf(editor.selected) === "pause" && pauseSelectable),
+  );
+  const previewStopped = $derived(!isLive || previewPaused);
+  const playbackAnimationHidesLiveWidget = $derived(
+    !!editor.config.v2?.elements.background?.animations?.some(
+      (animation) => animation.trigger === "playback" && animation.exitEffect !== "none",
+    ),
+  );
+  const liveWidgetHidden = $derived(
+    previewStopped &&
+      ((editor.config.fields.pausedMode ?? "label") === "transparent" || playbackAnimationHidesLiveWidget),
   );
 
   // Snap guides shown while shift-dragging.
@@ -330,6 +341,40 @@
   const bdBtn = "flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground";
   const bdActive = "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground";
 
+  // ---- global animation preview ----
+  let animationPreviewOpen = $state(false);
+  let animationPreviewButton = $state<HTMLButtonElement | null>(null);
+  function animationCount(trigger: V2AnimationTrigger) {
+    return Object.values(editor.v2.elements).reduce(
+      (count, element) =>
+        count + (element.animations?.filter((animation) => animation.trigger === trigger).length ?? 0),
+      0,
+    );
+  }
+  function previewAnimations(trigger: V2AnimationTrigger) {
+    window.dispatchEvent(new CustomEvent("mw:preview-animation", { detail: { trigger } }));
+    animationPreviewOpen = false;
+  }
+  $effect(() => {
+    if (!animationPreviewOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!(event.target as HTMLElement).closest("[data-animation-preview]")) {
+        animationPreviewOpen = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      animationPreviewOpen = false;
+      animationPreviewButton?.focus();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  });
+
   // ---- experimental features ----
   let experimentalOpen = $state(false);
   const experimentalOn = $derived(!!editor.config.experimental?.enabled);
@@ -542,6 +587,54 @@
       {/if}
     </button>
 
+    <div class="relative rounded-lg border border-border bg-card p-1 shadow-sm" data-animation-preview>
+      <button
+        bind:this={animationPreviewButton}
+        type="button"
+        onpointerdown={stop}
+        onclick={() => (animationPreviewOpen = !animationPreviewOpen)}
+        use:tip={"Preview all animations"}
+        aria-label="Preview all animations"
+        aria-controls="animation-preview-menu"
+        aria-expanded={animationPreviewOpen}
+        class="{bdBtn} {animationPreviewOpen ? bdActive : ''}"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html ICONS.sparkles}
+        </svg>
+      </button>
+
+      {#if animationPreviewOpen}
+        <div
+          id="animation-preview-menu"
+          role="group"
+          aria-label="Animation previews"
+          transition:fly={{ y: -4, duration: 140 }}
+          onpointerdown={stop}
+          class="absolute top-full right-0 mt-1 w-52 overflow-hidden rounded-md border border-border bg-card p-1 shadow-lg"
+        >
+          {#each ANIMATION_TRIGGERS as trigger (trigger.value)}
+            {@const count = animationCount(trigger.value)}
+            <button
+              type="button"
+              disabled={count === 0}
+              onclick={() => previewAnimations(trigger.value)}
+              aria-label={`Preview ${trigger.label} animations (${count} configured)`}
+              class="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+                {@html ANIMATION_TRIGGER_ICONS[trigger.value]}
+              </svg>
+              <span class="min-w-0 flex-1 truncate">{trigger.label}</span>
+              <span class="font-mono-ui text-[10px] tabular-nums text-muted-foreground">{count}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
     <!-- Zoom controls -->
     <div class="flex items-center gap-0.5 rounded-lg border border-border bg-card p-1 shadow-sm">
       <button onpointerdown={stop} onclick={() => setZoom(zoom - 0.25)} use:tip={"Zoom out"} aria-label="Zoom out" class={bdBtn}>
@@ -555,6 +648,21 @@
       </button>
     </div>
   </div>
+
+  {#if liveWidgetHidden}
+    <div
+      role="status"
+      aria-label="Editor preview only. The live widget is hidden while playback is stopped."
+      use:tip={"The live widget is hidden while playback is stopped."}
+      class="absolute top-14 left-3 z-40 flex w-24 flex-col items-center gap-1 rounded-md border border-amber-500/50 bg-card px-2 py-1.5 text-center text-[11px] leading-tight text-foreground shadow-sm"
+    >
+      <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+        {@html ICONS.alert}
+      </svg>
+      <span><b>Live hidden</b><br />Editor preview</span>
+    </div>
+  {/if}
 
   <div bind:this={zoomAreaEl} class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
     <div bind:this={wrapperEl} class="relative" style="transform:scale({zoom});transform-origin:center">
