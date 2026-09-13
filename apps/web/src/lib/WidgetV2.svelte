@@ -50,7 +50,7 @@
     artist?: string;
     album?: string;
     art?: string;
-    /** Editor mode: never hide on transparent/paused; show a hint badge instead. */
+    /** Editor mode: never hide on transparent/paused. */
     preview?: boolean;
   }
 
@@ -782,12 +782,6 @@
 {/snippet}
 
 <div class="relative {CSS_SCOPE}">
-  {#if preview && wouldHide}
-    <div class="absolute top-1 right-1 z-10 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white">
-      Hidden on the live widget
-    </div>
-  {/if}
-
   {#if bgEl.animations?.length}
     <MotionStack
       id="background"
