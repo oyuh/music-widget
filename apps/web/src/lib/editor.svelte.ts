@@ -20,6 +20,7 @@ import {
 } from "./config";
 import { mergeConfig } from "./config-merge";
 import { copyStyle, isTextElement } from "./element-style";
+import { applyStarterMotion } from "./presets";
 import {
   createCustomAnimation,
   CUSTOM_ANIMATION_TOTAL_MAX,
@@ -79,11 +80,14 @@ export function freshConfig(partial?: Partial<WidgetConfig> | null): WidgetConfi
   return JSON.parse(JSON.stringify(v2)) as WidgetConfig;
 }
 
-/** New editor designs opt out of the retired whole-widget song-switch effect. */
+/**
+ * New editor designs opt out of the retired whole-widget song-switch effect and
+ * start with the Default look's motion, so a blank design isn't dead still.
+ */
 export function newEditorConfig(partial?: Partial<WidgetConfig> | null): WidgetConfig {
   const config = freshConfig(partial);
   if (config.v2) config.v2.switchAnim.type = "none";
-  return config;
+  return applyStarterMotion(config, "Default");
 }
 
 const LEGACY_SWITCH_EASINGS = new Set<V2AnimationEasing>([
