@@ -15,6 +15,7 @@
   import { checkArtUrl, kindOf } from "$lib/config";
   import { ICONS } from "$lib/ui/icons";
   import { matchesInspectorSearch, nextSearchIndex } from "$lib/inspector-search";
+  import CustomAnimations from "$lib/editor/CustomAnimations.svelte";
   import ElementAnimations from "$lib/editor/ElementAnimations.svelte";
 
   interface Props {
@@ -44,6 +45,7 @@
   // override (see TextStyleView).
   const typo = $derived(sel && isTextSel ? new TextStyleView(cfg, sel) : null);
   const tint = $derived(E && isBg ? new TintView(E) : null);
+  const animationCount = $derived(E?.animations?.filter((animation) => animation.effect !== "none").length ?? 0);
 
   const panelTitle = $derived(sel ? (isPrimaryBg ? "Background & widget" : labelFor(sel)) : "Widget");
   const labelOfKind = $derived(ELEMENTS.find((e) => e.id === kind)?.label ?? "element");
@@ -388,7 +390,7 @@
 {/snippet}
 
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
-<div bind:this={inspectorEl} class="flex h-full flex-col gap-2 overflow-y-auto p-3 text-sm *:shrink-0">
+<div bind:this={inspectorEl} class="inspector flex h-full flex-col gap-2 overflow-y-auto p-3 text-sm *:shrink-0">
   <div class="flex items-center gap-1.5">
     <div class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight">
       <span class="truncate">{panelTitle}</span>
@@ -555,6 +557,7 @@
       Click an element on the canvas to edit it. These settings cover the whole widget.
     </p>
     {@render wholeWidget()}
+    <CustomAnimations {editor} />
 
     <!-- Editor-only, so it lives down here with nothing selected rather than on
          any one element's panel. -->
@@ -691,8 +694,8 @@
       title="Animations"
       icon="sparkles"
       bind:open={open.elementAnim}
-      badge={E.animations?.length ? `${E.animations.length}/2` : undefined}
-      hint="Run up to two effects on this element when the widget loads, the song changes, or playback starts and stops."
+      badge={animationCount ? `${animationCount} on` : undefined}
+      hint="Choose how this element moves when the widget loads, the song changes, or playback starts and stops."
     >
       <ElementAnimations {editor} id={sel} />
     </Collapsible>
@@ -1018,6 +1021,25 @@
 </div>
 
 <style>
+  .inspector :global([data-info-tip]) {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .inspector :global([data-info-tip] svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .inspector :global([data-info-tip]:hover) {
+    background: var(--muted);
+  }
+
+  .inspector :global([data-info-tip]:focus-visible) {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+  }
+
   :global(.inspector-search-hit) {
     animation: inspector-search-hit 1.8s ease-out;
   }

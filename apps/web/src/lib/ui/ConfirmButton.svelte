@@ -4,6 +4,7 @@
   interface Props {
     label?: string;
     confirmLabel?: string;
+    ariaLabel?: string;
     title?: string;
     /** Tooltip while armed. Says what the second click will actually do. */
     confirmTitle?: string;
@@ -17,6 +18,7 @@
   let {
     label = "",
     confirmLabel = "Sure?",
+    ariaLabel = "",
     title = "",
     confirmTitle = "Click again to confirm",
     class: cls = "",
@@ -41,7 +43,13 @@
   }
 </script>
 
-<button type="button" use:tip={armed ? confirmTitle : title} onclick={click} class="{cls} {armed ? armedClass : ''}">
+<button
+  type="button"
+  use:tip={armed ? confirmTitle : title}
+  onclick={click}
+  aria-label={armed ? confirmLabel : ariaLabel || label || undefined}
+  class="{cls} {armed ? armedClass : ''}"
+>
   {#if children}
     {@render children(armed)}
   {:else}

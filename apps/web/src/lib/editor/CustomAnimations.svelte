@@ -1,6 +1,7 @@
 <script lang="ts">
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
+  import { ICONS } from "$lib/ui/icons";
   import Select from "$lib/ui/Select.svelte";
   import VisualFrameEditor from "$lib/editor/VisualFrameEditor.svelte";
   import type { EditorState } from "$lib/editor.svelte";
@@ -108,13 +109,21 @@
     type="button"
     onclick={() => add("visual")}
     disabled={atCountLimit}
-    class="min-h-11 w-full rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+    class="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
   >
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+      {@html ICONS.plus}
+    </svg>
     New animation
   </button>
 
   <details bind:open={codeOpen} class="group border-t border-border/60 pt-1">
     <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-primary">
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+        {@html ICONS.code}
+      </svg>
       <span class="flex-1">Use custom code</span>
       <svg viewBox="0 0 12 12" class="h-3 w-3 transition-transform group-open:rotate-90" fill="none" aria-hidden="true">
         <path d="M4 2.5 8 6 4 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -125,16 +134,24 @@
         type="button"
         onclick={() => add("css")}
         disabled={atCountLimit || atSourceLimit}
-        class="min-h-11 rounded-md border border-border px-2 py-1.5 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
       >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html ICONS.document}
+        </svg>
         Add CSS
       </button>
       <button
         type="button"
         onclick={() => add("js")}
         disabled={atCountLimit || atSourceLimit}
-        class="min-h-11 rounded-md border border-border px-2 py-1.5 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
       >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html ICONS.code}
+        </svg>
         Add JavaScript
       </button>
     </div>
@@ -202,7 +219,10 @@
               class="flex h-9 w-12 shrink-0 items-center justify-center rounded border border-primary/70 bg-zinc-800 font-mono-ui text-xs font-semibold text-primary"
             >Aa</span>
             <span class="min-w-0 flex-1 text-sm font-medium text-foreground">Preview effect</span>
-            <span class="text-xs text-primary underline-offset-4 group-hover/preview:underline">Play</span>
+            <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 text-primary" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+              {@html ICONS.play}
+            </svg>
           </button>
 
           <div>
@@ -236,9 +256,6 @@
             {/if}
           </div>
 
-          <p class="text-xs leading-snug text-muted-foreground">
-            The element moves from Start to End. End effects play the same motion in reverse.
-          </p>
         {:else}
           <label class="block">
             <span class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
@@ -273,20 +290,24 @@
         <div class="flex justify-end border-t border-border/60 pt-1">
           <ConfirmButton
             label="Delete"
-            confirmLabel="Delete?"
-            class="min-h-11 rounded-md px-2.5 py-1 text-xs text-red-400 underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+            confirmLabel={`Confirm delete ${definition.name || "animation"}`}
+            ariaLabel={`Delete ${definition.name || "animation"}`}
+            title="Delete animation"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-md text-red-400 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-primary"
             onconfirm={() => editor.removeCustomAnimation(definition.id)}
-          />
+          >
+            {#snippet children(armed)}
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+                {@html armed ? ICONS.check : ICONS.trash}
+              </svg>
+            {/snippet}
+          </ConfirmButton>
         </div>
       </div>
     </details>
   {/each}
 
-  {#if definitions.length === 0}
-    <p class="text-xs leading-snug text-muted-foreground">
-      Create a reusable effect here, then apply it from an element's Animations panel.
-    </p>
-  {/if}
 </Collapsible>
 
 <style>

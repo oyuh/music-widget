@@ -7,7 +7,6 @@
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import { ICONS } from "$lib/ui/icons";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
-  import CustomAnimations from "$lib/editor/CustomAnimations.svelte";
 
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
@@ -289,8 +288,6 @@
       <p class="text-[11px] {importOk ? 'text-green-400' : 'text-destructive'}">{importMsg}</p>
     {/if}
   </Collapsible>
-
-  <CustomAnimations {editor} />
 
   <!-- Custom CSS (experimental; only here once it's switched on) -->
   {#if cssOn}
