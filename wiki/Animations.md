@@ -1,6 +1,6 @@
 # Animate your widget
 
-Add motion to any widget element when the widget loads, the song changes, or playback starts and stops. Each element can run two effects at once.
+Add motion to any widget element when the widget loads, the song changes, or playback starts and stops. Each trigger has its own effect setting.
 
 ## Add an animation to an element
 
@@ -8,14 +8,12 @@ Configure motion from the element inspector:
 
 1. Select an element on the canvas or in the **Elements** list.
 2. Open **Animations** in the right sidebar.
-3. Click **Add animation**.
-4. Choose when the effect runs and which effect to use.
-5. Set the duration. Open **Timing and movement** for delay, easing, direction, and distance.
-6. Click **Preview** to replay the start effect without waiting for its trigger.
+3. Find the trigger you want to use.
+4. Choose an **Effect**. Leave it on **None** to disable that trigger.
+5. Open **Customize** to set duration, delay, easing, direction, and distance.
+6. Click **Preview** to replay the effect without waiting for its trigger.
 
-Click **Add second animation** to combine two effects. For example, combine **Letter rise** with **Fade** on the title. The two slots use nested layers, so both transforms can run without overwriting each other.
-
-Older links may contain the retired whole-widget song-switch setting. Those links still animate unchanged. When you open or import one in the editor, Jamlog moves the setting into the Background element's animation list. If Background already uses both slots, Jamlog keeps the old effect active instead of discarding it.
+Older links may contain the retired whole-widget song-switch setting. Those links still animate unchanged. When you open or import one in the editor, Jamlog moves the setting into the Background song-change setting. If Background already has a song-change effect, Jamlog keeps the old effect active instead of discarding it.
 
 ## Choose when an animation runs
 
@@ -28,7 +26,7 @@ Each trigger responds to a specific widget event:
 | Playing | Runs the start effect when playback begins and the end effect when playback stops |
 | Paused / stopped | Runs the start effect when playback stops and the end effect when playback begins |
 
-The **Playing** and **Paused / stopped** triggers have separate start and end effects. Their durations, delays, and easing controls are also separate.
+The **Playing** and **Paused / stopped** triggers also have a return effect. Open **Customize** to choose what runs when that playback state ends.
 
 Last.fm reports a now-playing flag instead of direct player events. A scrobbler that keeps this flag active during a pause cannot trigger paused motion. Read [Playback estimates](/wiki/elements#playback-estimates) for the other timing limits.
 
@@ -37,16 +35,16 @@ Last.fm reports a now-playing flag instead of direct player events. A scrobbler 
 Apply the animation to the primary background to animate the complete overlay:
 
 1. Select **Background**.
-2. Open **Animations** and add one animation.
-3. Set **Run when** to **Playing**.
-4. Set both **Start effect** and **End effect** to **Fade**.
-5. Use a shorter end duration. A `350 ms` start and `220 ms` end keeps the stop response tight.
+2. Open **Animations**.
+3. Set the **Playing** effect to **Fade**.
+4. Open **Customize** and set **When playback stops** to **Fade**.
+5. Use a shorter return duration. A `350 ms` start and `220 ms` return keeps the stop response tight.
 
 This also smooths **Hide widget** under **When paused**. The widget waits for the configured end effect before removing the overlay.
 
 ## Animate the pause symbol
 
-Select **Pause symbol**, then add an animation. New pause animations default to **Paused / stopped**, with a fade in and fade out.
+Select **Pause symbol**, open **Animations**, and set **Paused / stopped** to **Fade**. Its return effect defaults to **Fade**.
 
 Turn on **Paused preview** in the canvas controls to test the state change. The symbol remains in the document until its end effect finishes, so it does not disappear halfway through the motion.
 
@@ -64,7 +62,7 @@ Use **Letter delay** to control the stagger. **Reverse letter order** starts fro
 
 ## Build a custom effect
 
-Use **Custom animations** in the left sidebar to build a reusable effect without writing code:
+Clear the current element selection, then open **Custom animations** in the right sidebar to build a reusable effect without writing code:
 
 1. Click **New animation**.
 2. Give the effect a name.
@@ -119,7 +117,7 @@ Animation limits keep shared widget URLs bounded:
 
 | Item | Limit |
 |------|-------|
-| Animations per element | 2 |
+| Animations per element | 4, one per trigger |
 | Custom definitions per widget | 6 |
 | Source per custom code definition | 2,000 characters |
 | Total custom animation code | 4,000 characters |

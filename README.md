@@ -84,13 +84,13 @@ Ids come from a hand-editable hash, so `mergeConfig` validates each through `isV
 
 ### Animation system
 
-Each `V2Element` can store two animation bindings. A binding selects a trigger, start and end effects, durations, delays, easing, direction, distance, and optional letter stagger. Built-in effects use the Web Animations API, remain interruptible during rapid playback changes, and stop when `prefers-reduced-motion` is active.
+Each `V2Element` can store one animation binding for each of the four triggers. A binding selects an effect, durations, delays, easing, direction, distance, and optional letter stagger. Built-in effects use the Web Animations API, remain interruptible during rapid playback changes, and stop when `prefers-reduced-motion` is active.
 
 Text effects split content into grapheme spans, so emoji and combined characters animate as one unit. The total per-letter stagger is capped at `700 ms`.
 
-Custom definitions live in `v2.customAnimations`. Visual definitions store editable start and end frames. CSS definitions contain one `@keyframes` rule. JavaScript definitions run in a sandboxed worker and return keyframe data; they cannot access the widget DOM or network. The decoder limits each element to two bindings, each custom code source to 2,000 characters, and all custom animation code to 4,000 characters.
+Custom definitions live in `v2.customAnimations`. Visual definitions store editable start and end frames. CSS definitions contain one `@keyframes` rule. JavaScript definitions run in a sandboxed worker and return keyframe data; they cannot access the widget DOM or network. The decoder keeps one binding per trigger, limits each custom code source to 2,000 characters, and limits all custom animation code to 4,000 characters.
 
-Shared widget links still render the retired `v2.switchAnim` setting. The editor converts an active switch setting into a Background song-change animation when it loads or imports the link. If both Background slots are occupied, it leaves `v2.switchAnim` active as a compatibility fallback.
+Shared widget links still render the retired `v2.switchAnim` setting. The editor converts an active switch setting into a Background song-change animation when it loads or imports the link. If Background already has a song-change effect, it leaves `v2.switchAnim` active as a compatibility fallback.
 
 ### Custom CSS
 

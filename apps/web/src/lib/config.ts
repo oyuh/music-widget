@@ -182,8 +182,8 @@ export type V2Element = {
   // Text only: per-instance typography (absent => theme.textSize/textStyle/
   // textTransform/textFont for this element's kind).
   text?: V2TextOverride;
-  // Optional per-element motion. Absent keeps old widget links and render output
-  // unchanged. The decoder caps this at MAX_ELEMENT_ANIMATIONS.
+  // Optional per-element motion, with at most one effect for each trigger.
+  // Absent keeps old widget links and render output unchanged.
   animations?: V2Animation[];
 };
 
@@ -202,7 +202,7 @@ export type V2AnimationEasing =
   | "backOut"
   | "elasticOut";
 
-/** One motion layer. Two layers can combine effects without transform conflicts. */
+/** One trigger's motion settings. */
 export type V2Animation = {
   trigger: V2AnimationTrigger;
   effect: string; // built-in id, or "custom:<definition id>"
@@ -219,7 +219,7 @@ export type V2Animation = {
   reverseLetters: boolean;
 };
 
-/** A named effect created in the editor and referenced by element animation slots. */
+/** A named effect created in the editor and referenced by element trigger settings. */
 export type V2VisualAnimationFrame = {
   opacity: number; // percent
   x: number; // px

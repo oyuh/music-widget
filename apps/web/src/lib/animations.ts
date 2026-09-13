@@ -8,7 +8,7 @@ import {
 } from "./config";
 import { backOut, cubicOut, elasticOut, quintOut, sineOut } from "svelte/easing";
 
-export const MAX_ELEMENT_ANIMATIONS = 2;
+export const MAX_ELEMENT_ANIMATIONS = 4;
 export const MAX_CUSTOM_ANIMATIONS = 6;
 export const CUSTOM_ANIMATION_SOURCE_MAX = 2000;
 export const CUSTOM_ANIMATION_TOTAL_MAX = 4000;
@@ -101,20 +101,52 @@ export function createAnimation(trigger: V2AnimationTrigger = "track-change"): V
   };
 }
 
+export function setAnimationEffect(
+  animations: V2Animation[] | undefined,
+  trigger: V2AnimationTrigger,
+  effectId: string,
+): V2Animation[] | undefined {
+  const byTrigger = new Map<V2AnimationTrigger, V2Animation>();
+  for (const animation of animations ?? []) {
+    if (!byTrigger.has(animation.trigger)) byTrigger.set(animation.trigger, animation);
+  }
+
+  if (effectId === "none") byTrigger.delete(trigger);
+  else {
+    byTrigger.set(trigger, {
+      ...(byTrigger.get(trigger) ?? createAnimation(trigger)),
+      trigger,
+      effect: effectId,
+    });
+  }
+
+  const next = ANIMATION_TRIGGERS.flatMap(({ value }) => {
+    const animation = byTrigger.get(value);
+    return animation && animation.effect !== "none" ? [animation] : [];
+  });
+  return next.length ? next : undefined;
+}
+
 /** Normalize animation settings from a hand-edited URL hash. */
 export function normalizeElementAnimations(value: unknown): V2Animation[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const out: V2Animation[] = [];
-  for (const raw of value.slice(0, MAX_ELEMENT_ANIMATIONS)) {
+  const seen = new Set<V2AnimationTrigger>();
+  for (const raw of value) {
+    if (out.length >= MAX_ELEMENT_ANIMATIONS) break;
     if (!raw || typeof raw !== "object") continue;
     const input = raw as Record<string, unknown>;
     const trigger = TRIGGERS.has(String(input.trigger))
       ? (input.trigger as V2AnimationTrigger)
       : "track-change";
+    if (seen.has(trigger)) continue;
     const base = createAnimation(trigger);
+    const normalizedEffect = effect(input.effect, base.effect);
+    if (normalizedEffect === "none") continue;
+    seen.add(trigger);
     out.push({
       trigger,
-      effect: effect(input.effect, base.effect),
+      effect: normalizedEffect,
       exitEffect: effect(input.exitEffect, base.exitEffect),
       durationMs: number(input.durationMs, base.durationMs, 0, 5000),
       exitDurationMs: number(input.exitDurationMs, base.exitDurationMs, 0, 5000),
@@ -528,9 +560,10 @@ export function motion(node: HTMLElement, initial: MotionParams) {
 
   const play = async (effectId: string, phase: "enter" | "exit", preserve = false) => {
     const current = reset(preserve);
+    const editorPreview = params.state.preview;
     if (effectId === "none") return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      node.style.visibility = phase === "exit" ? "hidden" : "";
+      node.style.visibility = phase === "exit" && !editorPreview ? "hidden" : "";
       return;
     }
     const run = generation;
@@ -547,7 +580,9 @@ export function motion(node: HTMLElement, initial: MotionParams) {
       node.style.willChange = "transform, opacity, filter";
       node.style.animation = `${runtime.name} ${duration}ms ${easing} ${baseDelay}ms 1 ${exiting ? "reverse" : "normal"} both`;
       setTimeout(() => {
-        if (run === generation) node.style.willChange = "";
+        if (run !== generation) return;
+        node.style.willChange = "";
+        if (editorPreview && exiting) reset();
       }, duration + baseDelay);
       return;
     }
@@ -589,6 +624,7 @@ export function motion(node: HTMLElement, initial: MotionParams) {
       if (run !== generation) return;
       node.style.willChange = "";
       targets.forEach((target) => (target.style.willChange = ""));
+      if (editorPreview && exiting) reset();
     });
   };
 
@@ -639,8 +675,17 @@ export function motion(node: HTMLElement, initial: MotionParams) {
   };
 
   const preview = (event: Event) => {
-    const detail = (event as CustomEvent<{ id: string; slot: number }>).detail;
-    if (!params.state.preview || detail?.id !== params.id || detail.slot !== params.slot) return;
+    const detail = (event as CustomEvent<{
+      id?: string;
+      slot?: number;
+      trigger?: V2AnimationTrigger;
+    }>).detail;
+    if (!params.state.preview) return;
+    if (detail?.trigger) {
+      if (detail.trigger !== params.animation.trigger) return;
+    } else if (detail?.id !== params.id || detail.slot !== params.slot) {
+      return;
+    }
     void play(params.animation.effect, "enter");
   };
   window.addEventListener("mw:preview-animation", preview);

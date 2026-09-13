@@ -9,6 +9,7 @@ import {
   customAnimationCss,
   normalizeCustomAnimations,
   normalizeElementAnimations,
+  setAnimationEffect,
   splitGraphemes,
   validateCustomKeyframes,
   visualKeyframes,
@@ -23,16 +24,22 @@ function base(): WidgetConfig {
 }
 
 describe("animation config", () => {
-  test("normalizes hand-edited values and caps each element at two slots", () => {
-    const raw = Array.from({ length: 5 }, () => ({
-      trigger: "not-real",
-      effect: "also-not-real",
-      durationMs: 99_000,
-      exitDurationMs: -10,
-      delayMs: -1,
-      distance: 999,
-      staggerMs: 999,
-    }));
+  test("normalizes hand-edited values and keeps one effect per trigger", () => {
+    const raw = [
+      {
+        trigger: "not-real",
+        effect: "also-not-real",
+        durationMs: 99_000,
+        exitDurationMs: -10,
+        delayMs: -1,
+        distance: 999,
+        staggerMs: 999,
+      },
+      createAnimation("widget-load"),
+      createAnimation("playback"),
+      createAnimation("paused"),
+      { ...createAnimation("track-change"), effect: "pop" },
+    ];
     const result = normalizeElementAnimations(raw)!;
     expect(result).toHaveLength(MAX_ELEMENT_ANIMATIONS);
     expect(result[0].trigger).toBe("track-change");
@@ -42,6 +49,21 @@ describe("animation config", () => {
     expect(result[0].delayMs).toBe(0);
     expect(result[0].distance).toBe(120);
     expect(result[0].staggerMs).toBe(150);
+    expect(new Set(result.map((animation) => animation.trigger)).size).toBe(result.length);
+  });
+
+  test("sets, updates, and clears each trigger without animation slots", () => {
+    let animations = setAnimationEffect(undefined, "widget-load", "fade");
+    animations = setAnimationEffect(animations, "track-change", "slide");
+    animations = setAnimationEffect(animations, "widget-load", "pop");
+    expect(animations?.map(({ trigger, effect }) => [trigger, effect])).toEqual([
+      ["widget-load", "pop"],
+      ["track-change", "slide"],
+    ]);
+    expect(setAnimationEffect(animations, "widget-load", "none")?.map(({ trigger }) => trigger)).toEqual([
+      "track-change",
+    ]);
+    expect(setAnimationEffect(undefined, "paused", "none")).toBeUndefined();
   });
 
   test("custom definitions have stable ids, bounded source, and a count limit", () => {
@@ -110,13 +132,13 @@ describe("animation config", () => {
     expect(adoptLegacySwitchAnimation(old)).toBe(false);
   });
 
-  test("a full background keeps the old switch runtime instead of dropping the effect", () => {
+  test("an existing song-change effect keeps the old switch runtime instead of stacking it", () => {
     const old = base();
-    old.v2!.switchAnim.type = "fade";
-    old.v2!.elements.background.animations = [createAnimation("playback"), createAnimation("widget-load")];
+    old.v2!.switchAnim.type = "slide";
+    old.v2!.elements.background.animations = [{ ...createAnimation("track-change"), effect: "pop" }];
     expect(adoptLegacySwitchAnimation(old)).toBe(false);
-    expect(old.v2!.switchAnim.type).toBe("fade");
-    expect(old.v2!.elements.background.animations).toHaveLength(MAX_ELEMENT_ANIMATIONS);
+    expect(old.v2!.switchAnim.type).toBe("slide");
+    expect(old.v2!.elements.background.animations).toHaveLength(1);
   });
 
   test("old v2 configs remain animation-free", () => {

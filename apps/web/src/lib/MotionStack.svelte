@@ -27,6 +27,8 @@
 
   const first = $derived(animations[0]);
   const second = $derived(animations[1]);
+  const third = $derived(animations[2]);
+  const fourth = $derived(animations[3]);
   const layerStyle = $derived(
     fill
       ? "display:block;width:100%;height:100%;transform-origin:center"
@@ -79,7 +81,29 @@
           data-motion-slot="2"
           use:motion={{ id, slot: 1, animation: second, customAnimations, state: motionState }}
         >
-          {@render children()}
+          {#if third}
+            <div
+              class="mw-motion-layer"
+              style={layerStyle}
+              data-motion-slot="3"
+              use:motion={{ id, slot: 2, animation: third, customAnimations, state: motionState }}
+            >
+              {#if fourth}
+                <div
+                  class="mw-motion-layer"
+                  style={layerStyle}
+                  data-motion-slot="4"
+                  use:motion={{ id, slot: 3, animation: fourth, customAnimations, state: motionState }}
+                >
+                  {@render children()}
+                </div>
+              {:else}
+                {@render children()}
+              {/if}
+            </div>
+          {:else}
+            {@render children()}
+          {/if}
         </div>
       {:else}
         {@render children()}

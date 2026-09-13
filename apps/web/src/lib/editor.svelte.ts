@@ -128,6 +128,9 @@ export function adoptLegacySwitchAnimation(config: WidgetConfig): boolean {
       animation.easing === converted.easing &&
       animation.direction === converted.direction,
   );
+  if (!alreadyConverted && animations.some((animation) => animation.trigger === converted.trigger)) {
+    return false;
+  }
   if (!alreadyConverted && animations.length >= MAX_ELEMENT_ANIMATIONS) return false;
 
   if (!alreadyConverted) background.animations = [...animations, converted];
@@ -285,6 +288,9 @@ export class EditorState {
         if (animation.effect === effect) animation.effect = "none";
         if (animation.exitEffect === effect) animation.exitEffect = "none";
       }
+      const active = element.animations?.filter((animation) => animation.effect !== "none");
+      if (active?.length) element.animations = active;
+      else delete element.animations;
     }
     this.save();
     return true;

@@ -45,4 +45,15 @@ export const ICONS: Record<string, string> = {
   edit: `<path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>`,
   gift: `<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/><path d="M12 8v13"/><path d="M12 8S10.5 3 8 3a2.5 2.5 0 0 0 0 5"/><path d="M12 8s1.5-5 4-5a2.5 2.5 0 0 1 0 5"/>`,
   power: `<path d="M12 3v9"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>`,
+  play: `<path d="m8 5 10 7-10 7Z"/>`,
+  eye: `<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>`,
+  plus: `<path d="M12 5v14M5 12h14"/>`,
+  code: `<path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/>`,
 };
+
+export const ANIMATION_TRIGGER_ICONS = {
+  "widget-load": ICONS.power,
+  "track-change": ICONS.music,
+  playback: ICONS.play,
+  paused: ICONS.pause,
+} as const;

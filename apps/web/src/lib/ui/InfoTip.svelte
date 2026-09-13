@@ -81,6 +81,7 @@
     e.stopPropagation();
   }}
   aria-label={label ? `Help: ${label}` : "Help"}
+  data-info-tip
   class="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground"
 >
   <!-- Drawn rather than typed: a "?" glyph never centers in a 16px box (font
