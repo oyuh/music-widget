@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ANIMATION_EFFECTS,
   CUSTOM_ANIMATION_SOURCE_MAX,
   MAX_CUSTOM_ANIMATIONS,
   MAX_ELEMENT_ANIMATIONS,
@@ -15,9 +16,10 @@ import {
   visualKeyframes,
   visibilityExitMs,
 } from "../apps/web/src/lib/animations";
-import { decodeConfig, defaultConfig, encodeConfig, migrateToV2, type WidgetConfig } from "../apps/web/src/lib/config";
+import { decodeConfig, defaultConfig, encodeConfig, kindOf, migrateToV2, type WidgetConfig } from "../apps/web/src/lib/config";
 import { mergeConfig } from "../apps/web/src/lib/config-merge";
 import { adoptLegacySwitchAnimation, newEditorConfig } from "../apps/web/src/lib/editor.svelte";
+import { PRESETS } from "../apps/web/src/lib/presets";
 
 function base(): WidgetConfig {
   return JSON.parse(JSON.stringify(migrateToV2(defaultConfig))) as WidgetConfig;
@@ -218,6 +220,38 @@ describe("animation helpers", () => {
       { opacity: 0.2, transform: "translate3d(-12px,8px,0) rotate(-5deg) scale(0.9)", filter: "blur(6px)" },
       { opacity: 1, transform: "translate3d(0px,0px,0) rotate(0deg) scale(1)", filter: "blur(0px)" },
     ]);
+  });
+
+  test("every starter look ships motion that survives a share link", () => {
+    const looks = [{ name: "Default", config: newEditorConfig() }, ...PRESETS];
+    // Which `fields` toggle has to be on for an animated element to be visible.
+    const fieldOf: Record<string, keyof WidgetConfig["fields"]> = {
+      title: "title",
+      artist: "artist",
+      album: "album",
+      progress: "progress",
+      duration: "duration",
+    };
+
+    for (const look of looks) {
+      const round = mergeConfig(decodeConfig(encodeConfig(look.config)));
+      const animated = Object.entries(round.v2!.elements).filter(([, el]) => el.animations?.length);
+      expect(animated.length).toBeGreaterThan(0);
+
+      for (const [id, element] of animated) {
+        const kind = kindOf(id);
+        const field = fieldOf[kind];
+        // Animating something the look hides is motion nobody ever sees.
+        if (field) expect(round.fields[field]).toBe(true);
+
+        for (const animation of element.animations!) {
+          const effect = ANIMATION_EFFECTS.find((e) => e.value === animation.effect);
+          expect(effect).toBeDefined();
+          if (effect!.targets === "text") expect(fieldOf[kind]).toBeDefined();
+          if (effect!.targets === "image") expect(["art", "background"]).toContain(kind);
+        }
+      }
+    }
   });
 
   test("visibility cleanup waits for the longest exit, including letter stagger", () => {
