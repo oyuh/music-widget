@@ -222,7 +222,7 @@ describe("animation helpers", () => {
     ]);
   });
 
-  test("every starter look ships motion that survives a share link", () => {
+  test("every starter look ships motion and a pinned accent that survive a share link", () => {
     const looks = [{ name: "Default", config: newEditorConfig() }, ...PRESETS];
     // Which `fields` toggle has to be on for an animated element to be visible.
     const fieldOf: Record<string, keyof WidgetConfig["fields"]> = {
@@ -235,6 +235,9 @@ describe("animation helpers", () => {
 
     for (const look of looks) {
       const round = mergeConfig(decodeConfig(encodeConfig(look.config)));
+      // Art-derived accents swing with the cover, so every starter look pins them.
+      expect(round.theme.accentNormalize).toBe(true);
+
       const animated = Object.entries(round.v2!.elements).filter(([, el]) => el.animations?.length);
       expect(animated.length).toBeGreaterThan(0);
 

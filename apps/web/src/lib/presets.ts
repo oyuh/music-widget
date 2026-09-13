@@ -39,8 +39,16 @@ const MOTION: Record<string, Motion[]> = {
   ],
 };
 
-/** Attach a starter look's motion. No-op for a name with nothing defined. */
-export function applyStarterMotion(config: WidgetConfig, look: string): WidgetConfig {
+/**
+ * Everything the starter looks get on top of their raw export: consistent accent
+ * brightness, and the look's motion. Old designs and shared links never pass
+ * through here, so they keep rendering exactly as they were saved.
+ */
+export function applyStarterDefaults(config: WidgetConfig, look: string): WidgetConfig {
+  // Art-derived accents swing from near-black to near-white between covers, and
+  // a starter look should read the same on every track.
+  config.theme.accentNormalize = true;
+
   for (const [id, trigger, effect, overrides] of MOTION[look] ?? []) {
     const element = config.v2?.elements[id];
     if (!element) continue;
@@ -63,5 +71,5 @@ export function applyStarterMotion(config: WidgetConfig, look: string): WidgetCo
  */
 export const PRESETS: { name: string; config: WidgetConfig }[] = PRESET_DATA.map((p) => ({
   name: p.name,
-  config: applyStarterMotion(mergeConfig(p.config), p.name),
+  config: applyStarterDefaults(mergeConfig(p.config), p.name),
 }));
