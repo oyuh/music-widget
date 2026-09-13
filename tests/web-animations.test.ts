@@ -257,6 +257,18 @@ describe("animation helpers", () => {
     }
   });
 
+  // No DOM harness in this suite, and pulling one in for a single CSS property
+  // costs more than it catches. A space grapheme is its span's only content, so
+  // without `pre` it reads as leading/trailing whitespace and renders 0px wide.
+  test("letter spans keep their whitespace so spaces survive the split", async () => {
+    for (const file of ["WidgetV2.svelte", "ScrollText.svelte"]) {
+      const source = await Bun.file(`apps/web/src/lib/${file}`).text();
+      const span = source.match(/<span data-motion-letter=\{index\} style="([^"]+)"/);
+      expect(span, `${file} no longer renders letter spans the same way`).not.toBeNull();
+      expect(span![1]).toContain("white-space:pre");
+    }
+  });
+
   test("visibility cleanup waits for the longest exit, including letter stagger", () => {
     const fade = { ...createAnimation("paused"), exitDurationMs: 240, exitDelayMs: 40 };
     const letters = {

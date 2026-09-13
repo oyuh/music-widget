@@ -643,7 +643,7 @@
     >
       {#if parts}
         {#each parts as part, index (`${index}:${part}`)}
-          <span data-motion-letter={index} style="display:inline-block">{part}</span>
+          <span data-motion-letter={index} style="display:inline-block;white-space:pre">{part}</span>
         {/each}
       {:else}
         {textContent(id)}
