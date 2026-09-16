@@ -52,9 +52,9 @@
     </button>
     {#if hint}
       <!-- Reads as its own segment of the header: divider, hover state, the lot.
-           There's nothing to click, it just answers to the pointer. -->
-      <span class="flex min-w-9 items-center justify-center self-stretch border-l border-border/60 px-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-        <InfoTip text={hint} {diagram} label={title} />
+           The trigger fills the segment, so hovering anywhere in it opens the tip. -->
+      <span class="flex w-9 shrink-0 self-stretch border-l border-border/60">
+        <InfoTip text={hint} {diagram} label={title} fill />
       </span>
     {/if}
   </div>
