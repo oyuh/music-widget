@@ -62,6 +62,13 @@
       ((editor.config.fields.pausedMode ?? "label") === "transparent" || playbackAnimationHidesLiveWidget),
   );
 
+  // What the "Hidden on the live widget" tag explains on hover.
+  const liveHiddenReason = $derived(
+    (editor.config.fields.pausedMode ?? "label") === "transparent"
+      ? "Your When paused setting hides the widget on stream while nothing is playing. It stays visible here so you can keep editing."
+      : "The background's playback animation hides the widget on stream while nothing is playing. It stays visible here so you can keep editing.",
+  );
+
   // Snap guides shown while shift-dragging.
   let guideX = $state<number | null>(null);
   let guideY = $state<number | null>(null);
@@ -649,23 +656,29 @@
     </div>
   </div>
 
-  {#if liveWidgetHidden}
-    <div
-      role="status"
-      aria-label="Editor preview only. The live widget is hidden while playback is stopped."
-      use:tip={"The live widget is hidden while playback is stopped."}
-      class="absolute top-14 left-3 z-40 flex w-24 flex-col items-center gap-1 rounded-md border border-amber-500/50 bg-card px-2 py-1.5 text-center text-[11px] leading-tight text-foreground shadow-sm"
-    >
-      <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
-        {@html ICONS.alert}
-      </svg>
-      <span><b>Live hidden</b><br />Editor preview</span>
-    </div>
-  {/if}
-
   <div bind:this={zoomAreaEl} class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
     <div bind:this={wrapperEl} class="relative" style="transform:scale({zoom});transform-origin:center">
+      <!-- Widget set to hide while stopped: a red tag hangs off its top-right
+           corner, outside the widget so it never covers the design. Sized by
+           1/zoom so it reads the same at any zoom. -->
+      {#if liveWidgetHidden}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div
+          role="status"
+          tabindex="0"
+          onpointerdown={stop}
+          use:tip={liveHiddenReason}
+          aria-label={`Hidden on the live widget. ${liveHiddenReason}`}
+          class="absolute right-0 bottom-full z-30 flex cursor-help items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs font-medium whitespace-nowrap text-white transition-colors hover:bg-red-700 focus-visible:bg-red-700 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          style="transform:scale({1 / zoom});transform-origin:bottom right;margin-bottom:{6 / zoom}px"
+        >
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+            {@html ICONS.eyeOff}
+          </svg>
+          Hidden on the live widget
+        </div>
+      {/if}
       <Widget
         cfg={editor.config}
         {isLive}
