@@ -398,8 +398,8 @@
     { label: "Creator", icon: "user", href: "https://lawsonhart.me/", external: true },
     { label: "Help", icon: "help", href: "https://www.last.fm/about/trackmymusic", external: true },
     { label: "Wiki", icon: "book", href: "/wiki", external: false },
-    { label: "Privacy", icon: "shield", href: "/privacy", external: false },
-    { label: "Terms", icon: "document", href: "/terms", external: false },
+    { label: "Privacy", icon: "shield", href: "/wiki/privacy", external: false },
+    { label: "Terms", icon: "document", href: "/wiki/terms", external: false },
   ];
   // Live GitHub star count for the Star button, fetched once on mount (the server
   // refreshes it in the background and serves it from memory, so there's nothing

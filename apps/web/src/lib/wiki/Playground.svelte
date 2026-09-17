@@ -4,21 +4,27 @@
   import { CSS_MAX } from "$lib/config";
   import PresetThumb from "$lib/editor/PresetThumb.svelte";
   import { PRESETS } from "$lib/presets";
+  import Icon from "$lib/ui/Icon.svelte";
   import { demoConfig, recipes } from "./playground";
+
+  // The preview sticks to the top of the viewport while you scroll the themes,
+  // recipes and CSS below it, so every change is visible as you make it.
 
   let cfg = $state(demoConfig());
   let paused = $state(false);
   let frame = $state<HTMLIFrameElement>();
   let ready = $state(false);
   let hashMessage = $state("");
-  let copyLabel = $state("Copy CSS");
-  let activeTheme = $state("Default");
+  let copyLabel = $state("Copy");
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  let activeTheme = $state("Default");
+
   const themes = [
     { name: "Default", description: "The editor's starting layout.", config: demoConfig() },
     ...PRESETS.map((preset) => ({ ...preset, description: `Built-in ${preset.name.toLowerCase()} theme.` })),
   ];
   const css = $derived(cfg.experimental!.css);
+  const cssOn = $derived(cfg.experimental!.enabled);
   const activeRecipe = $derived(recipes.find((recipe) => recipe.css === css)?.id ?? "");
 
   $effect(() => {
@@ -73,7 +79,12 @@
     } catch {
       copyLabel = "Copy failed";
     }
-    copyTimer = setTimeout(() => copyLabel = "Copy CSS", 3000);
+    copyTimer = setTimeout(() => copyLabel = "Copy", 3000);
+  }
+
+  function clearCss() {
+    cfg.experimental!.css = "";
+    hashMessage = "";
   }
 
   function reset() {
@@ -87,51 +98,106 @@
 </script>
 
 <section class="wiki-playground" aria-label="Interactive widget examples">
-  <div class="wiki-playground-toolbar">
-    <span class="wiki-eyebrow">Sample widget</span>
-    <div>
-      <label class="wiki-checkbox"><input type="checkbox" bind:checked={paused} />Paused</label>
-      <button class="wiki-secondary-button" onclick={reset}>Reset</button>
+  <div class="wiki-stage">
+    <div class="wiki-stage-bar">
+      <p class="wiki-eyebrow"><Icon name="play" class="wiki-icon" />Live preview</p>
+      <div class="wiki-stage-actions">
+        <button class="wiki-switch" aria-pressed={!paused} aria-label={paused ? "Paused, resume the preview" : "Playing, pause the preview"} onclick={() => paused = !paused}>
+          <span class="wiki-switch-track"></span>{paused ? "Paused" : "Playing"}
+        </button>
+        <button class="wiki-button" onclick={reset}><Icon name="power" class="wiki-icon" />Reset</button>
+      </div>
     </div>
+
+    <div class="wiki-preview-stage canvas-checker">
+      <iframe bind:this={frame} src="/wiki-preview" title="Sample widget preview" onload={() => ready = true}></iframe>
+    </div>
+
+    <p class="wiki-preview-caption">
+      <span class="wiki-mono">{cfg.layout.w} × {cfg.layout.h}</span>
+      <span>{activeTheme}</span>
+      <span class="wiki-dot" class:on={cssOn}>{cssOn ? "Custom CSS on" : "Custom CSS off"}</span>
+    </p>
   </div>
 
-  <div class="wiki-preview-stage">
-    <iframe bind:this={frame} src="/wiki-preview" title="Sample widget preview" onload={() => ready = true}></iframe>
-    <p class="wiki-preview-caption"><span>{cfg.layout.w} × {cfg.layout.h} px</span><span>The preview uses the same renderer as the editor.</span></p>
-  </div>
-
-  <fieldset class="wiki-option-section">
-    <legend>Preview a theme</legend>
-    <p>Choose one of the editor's built-in starting points.</p>
+  <section class="wiki-panel">
+    <header class="wiki-panel-head">
+      <Icon name="palette" class="wiki-icon" />
+      <div>
+        <strong>Start from a theme</strong>
+        <span>Every built-in look the editor ships with. Picking one keeps whatever CSS you've written.</span>
+      </div>
+    </header>
     <div class="wiki-theme-grid">
       {#each themes as theme}
-        <button class="wiki-theme-card" class:active={activeTheme === theme.name} aria-pressed={activeTheme === theme.name} onclick={() => applyTheme(theme)}>
+        <button class="wiki-card wiki-theme-card" class:active={activeTheme === theme.name} aria-pressed={activeTheme === theme.name} onclick={() => applyTheme(theme)}>
           <PresetThumb config={theme.config} />
-          <span><strong>{theme.name}</strong><small>{theme.description}</small></span>
+          <span class="wiki-card-text"><strong>{theme.name}</strong><small>{theme.description}</small></span>
         </button>
       {/each}
     </div>
-  </fieldset>
+  </section>
 
-  <fieldset class="wiki-option-section">
-    <legend>Try a CSS recipe</legend>
-    <p>Choose a recipe to load its code and apply it to the sample.</p>
+  <section class="wiki-panel">
+    <header class="wiki-panel-head">
+      <Icon name="code" class="wiki-icon" />
+      <div>
+        <strong>Load a CSS recipe</strong>
+        <span>Four small stylesheets to start from. Choosing one replaces what's in the sandbox.</span>
+      </div>
+    </header>
     <div class="wiki-recipe-grid">
       {#each recipes as recipe, i}
-        <button class="wiki-recipe-card" class:active={activeRecipe === recipe.id} aria-pressed={activeRecipe === recipe.id} onclick={() => applyRecipe(i)}>
+        <button class="wiki-card wiki-recipe-card" class:active={activeRecipe === recipe.id} aria-pressed={activeRecipe === recipe.id} onclick={() => applyRecipe(i)}>
           <span class="wiki-recipe-preview" data-recipe={recipe.id} aria-hidden="true"><i class="art"></i><span><b></b><em></em><u></u></span></span>
-          <span><strong>{recipe.name}</strong><small>{recipe.description}</small></span>
+          <span class="wiki-card-text"><strong>{recipe.name}</strong><small>{recipe.description}</small></span>
         </button>
       {/each}
     </div>
-  </fieldset>
+  </section>
 
-  <div class="wiki-css-heading">
-    <div><strong>CSS sandbox</strong><span>Edits update the sample above.</span></div>
-    <label class="wiki-checkbox"><input type="checkbox" bind:checked={cfg.experimental!.enabled} />Apply CSS</label>
-  </div>
-  <div class="wiki-code-bar"><label for="wiki-css">custom.css</label><div><span>{css.length} / {CSS_MAX}</span><button class="wiki-copy-button" disabled={!css.trim()} onclick={copy}><span aria-live="polite">{copyLabel}</span></button></div></div>
-  <textarea id="wiki-css" class="wiki-css-input" bind:value={cfg.experimental!.css} maxlength={CSS_MAX} spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="wiki-css-help"></textarea>
-  {#if hashMessage}<p class="wiki-inline-notice" role="status">{hashMessage}</p>{/if}
-  <div class="wiki-playground-bottom"><p id="wiki-css-help">Copy the CSS into the editor's Custom CSS panel when you want to use it. <a href="/wiki/custom-css">View the selector reference</a></p><a class="wiki-editor-link" href="/">Open full editor</a></div>
+  <section class="wiki-panel">
+    <header class="wiki-panel-head">
+      <Icon name="edit" class="wiki-icon" />
+      <div>
+        <strong>CSS sandbox</strong>
+        <span>Type here and the preview updates as you go. Nothing is saved.</span>
+      </div>
+      <button class="wiki-switch" aria-pressed={cssOn} onclick={() => cfg.experimental!.enabled = !cssOn}>
+        <span class="wiki-switch-track"></span>Apply
+      </button>
+    </header>
+
+    <div class="wiki-code">
+      <div class="wiki-code-bar">
+        <label for="wiki-css">custom.css</label>
+        <div>
+          <span class="wiki-mono">{css.length} / {CSS_MAX}</span>
+          <button disabled={!css.trim()} onclick={clearCss}>Clear</button>
+          <button class="wiki-copy-button" disabled={!css.trim()} onclick={copy}><span aria-live="polite">{copyLabel}</span></button>
+        </div>
+      </div>
+      <textarea
+        id="wiki-css"
+        class="wiki-css-input"
+        bind:value={cfg.experimental!.css}
+        maxlength={CSS_MAX}
+        spellcheck="false"
+        autocapitalize="off"
+        autocomplete="off"
+        placeholder={'[data-el="title"] > div {\n  color: #93c5fd;\n}'}
+        aria-describedby="wiki-css-help"
+      ></textarea>
+    </div>
+
+    {#if hashMessage}<p class="wiki-inline-notice" role="status">{hashMessage}</p>{/if}
+
+    <footer class="wiki-panel-foot">
+      <p id="wiki-css-help">
+        Paste this into the editor's Custom CSS panel when you're happy with it.
+        <a href="/wiki/custom-css">Selector reference</a>
+      </p>
+      <a class="wiki-button wiki-button-primary" href="/"><Icon name="layout" class="wiki-icon" />Open full editor</a>
+    </footer>
+  </section>
 </section>
