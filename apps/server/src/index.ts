@@ -153,15 +153,13 @@ app.get("/robots.txt", (c) => {
 // lastmod for the sitemap: the content only changes when a new build deploys,
 // so the process start date is an honest approximation.
 const SITEMAP_LASTMOD = new Date().toISOString().slice(0, 10);
-const WIKI_SLUGS = ["", "getting-started", "playground", "elements", "animations", "custom-css", "private-profiles", "troubleshooting"];
+const WIKI_SLUGS = ["", "getting-started", "playground", "elements", "animations", "custom-css", "private-profiles", "troubleshooting", "privacy", "terms"];
 
 app.get("/sitemap.xml", (c) => {
   const origin = getOrigin(c);
   // Public pages only; widget state, the preview, and auth callbacks stay out.
   const urls = [
     { loc: `${origin}/`, priority: 1.0 },
-    { loc: `${origin}/privacy`, priority: 0.3 },
-    { loc: `${origin}/terms`, priority: 0.3 },
     ...WIKI_SLUGS.map((slug) => ({ loc: `${origin}/wiki${slug ? `/${slug}` : ""}`, priority: 0.7 })),
   ];
 
@@ -227,6 +225,11 @@ async function leanIndexHtml(index: ReturnType<typeof Bun.file>) {
   return leanIndexCache;
 }
 
+// Privacy and terms moved into the wiki. Old links, bookmarks and the previous
+// sitemap entries still resolve.
+app.get("/privacy", (c) => c.redirect("/wiki/privacy", 308));
+app.get("/terms", (c) => c.redirect("/wiki/terms", 308));
+
 app.get("*", async (c) => {
   const { pathname } = new URL(c.req.url);
   const acceptEncoding = c.req.header("accept-encoding") ?? "";
@@ -242,7 +245,7 @@ app.get("*", async (c) => {
         ...(found.encoding ? { "Content-Encoding": found.encoding } : {}),
       } });
     } else if (!pathname.endsWith("/__data.json")) {
-      return c.html('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page not found · Jamlog wiki</title><body style="background:#0b0b0c;color:#eee;font:14px/1.7 ui-monospace,monospace;padding:48px"><h1>Wiki page not found</h1><p>Check the address or <a style="color:#eee" href="/wiki">browse the wiki</a>.</p></body></html>', 404);
+      return c.html('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page not found · Jamlog wiki</title><body style="background:#242424;color:#fafafa;font:15px/1.7 ui-sans-serif,system-ui,sans-serif;padding:48px 24px;margin:0"><div style="max-width:40rem;margin:0 auto"><h1 style="font-size:28px;font-weight:600;letter-spacing:-1px;margin:0 0 10px">Wiki page not found</h1><p style="color:#b3b3b3;margin:0">Check the address or <a style="color:#fafafa" href="/wiki">browse the wiki</a>.</p></div></body></html>', 404);
     }
   }
 
