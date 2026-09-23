@@ -1021,7 +1021,7 @@
 </div>
 
 <style>
-  .inspector :global([data-info-tip]) {
+  .inspector :global([data-info-tip]:not([data-info-tip="fill"])) {
     width: 1.5rem;
     height: 1.5rem;
   }
@@ -1031,11 +1031,11 @@
     height: 1rem;
   }
 
-  .inspector :global([data-info-tip]:hover) {
+  .inspector :global([data-info-tip]:not([data-info-tip="fill"]):hover) {
     background: var(--muted);
   }
 
-  .inspector :global([data-info-tip]:focus-visible) {
+  .inspector :global([data-info-tip]:not([data-info-tip="fill"]):focus-visible) {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
   }

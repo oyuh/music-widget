@@ -1,5 +1,8 @@
-import { pages } from "$lib/wiki/content";
+import { groups, pages } from "$lib/wiki/content";
 
 export function load() {
-  return { pages: pages.map(({ markdown, ...page }) => ({ ...page, search: markdown.toLowerCase() })) };
+  return {
+    groups,
+    pages: pages.map(({ markdown, keywords, ...page }) => ({ ...page, search: `${keywords} ${markdown}`.toLowerCase() })),
+  };
 }
