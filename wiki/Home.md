@@ -10,7 +10,7 @@ The wiki and playground work on phones. Use a desktop for the full editor. The w
 
 1. Open [the editor](/) and enter your Last.fm username.
 2. Pick a preset, then drag things around until it looks right.
-3. Hit **Add to stream →** for per-platform steps, or **Copy URL** and set up the browser source yourself.
+3. Hit **Copy widget link** and paste it into a browser source. Click **how?** under it for per-platform steps.
 4. Set the source's width and height to the canvas size the editor shows.
 
 Full walkthrough in [Getting started](/wiki/getting-started).

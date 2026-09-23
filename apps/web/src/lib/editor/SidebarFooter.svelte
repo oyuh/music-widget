@@ -44,18 +44,15 @@
   });
 </script>
 
-<!-- Feedback: opens a modal for free-form notes + an optional alert opt-in.
+<!-- Feedback: a text link that opens a modal for free-form notes + an optional alert opt-in.
      Hidden for a week after a submission (feedbackHidden). -->
 {#if !feedbackHidden}
   <button
     type="button"
     onclick={() => (feedbackOpen = true)}
-    class="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-foreground/90 transition hover:bg-muted"
+    class="mb-2 -ml-1 rounded px-1 py-0.5 text-foreground/90 underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
   >
-    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1 16.1-3.8Z" />
-    </svg>
-    Give feedback!
+    Give feedback →
   </button>
 {/if}
 

@@ -54,7 +54,7 @@ Your own key gives your widget its own budget:
 
 1. Open [last.fm/api/account/create](https://www.last.fm/api/account/create) while logged in.
 2. Give it any name and description. No callback URL needed.
-3. Copy the **API key** and paste it into **Use your own Last.fm API key** in the editor.
+3. Copy the **API key** and paste it under **Your own API key**. Open that from the lock button next to your username in the editor.
 
 Most people never need this. Your key is saved in the widget URL, so keep that URL private, and hit **Remove** in the same dialog to go back to the default.
 

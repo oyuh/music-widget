@@ -16,7 +16,7 @@ Start from a preset, then drag, resize, and restyle. [Elements](/wiki/elements) 
 
 ## 3. Add it to your stream
 
-Click **Add to stream →**, pick your software, and follow the steps it gives you. Or hit **Copy URL** and set the source up yourself.
+Click **Copy widget link** and paste it into a browser source. Need the steps for your software? Click **how?** under the button.
 
 Whichever route you take, set the source to the canvas size shown in the editor. The background is transparent, so only the widget draws over your scene.
 
