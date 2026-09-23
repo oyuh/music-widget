@@ -99,7 +99,10 @@ export async function withJsonCache(args: {
   const promise = existing || args.fetcher();
   const coalesced = Boolean(existing);
   if (!existing) {
-    inFlightJson.set(args.cacheKey, promise.finally(() => inFlightJson.delete(args.cacheKey)));
+    inFlightJson.set(args.cacheKey, promise);
+    // `.finally` returns a new promise that rejects alongside the fetcher and
+    // nobody awaits it, so swallow it here or an upstream timeout crashes Bun.
+    promise.finally(() => inFlightJson.delete(args.cacheKey)).catch(() => {});
   }
 
   const result = await promise;
