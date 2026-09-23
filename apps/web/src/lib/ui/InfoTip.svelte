@@ -6,13 +6,18 @@
     diagram?: string;
     /** Used for the accessible label of the trigger. */
     label?: string;
+    /** Stretch the trigger to fill its parent, so the whole segment answers to hover. */
+    fill?: boolean;
   }
-  let { text, diagram, label }: Props = $props();
+  let { text, diagram, label, fill = false }: Props = $props();
 
   let icon = $state<HTMLButtonElement | null>(null);
   let open = $state(false);
   let x = $state(0);
   let y = $state(0);
+  // Which way the speech-bubble tail points, and how far down the card it sits.
+  let side = $state<"left" | "right">("left");
+  let tailY = $state(0);
 
   let tooltip: HTMLElement | null = null;
   const TW = 248; // tooltip width
@@ -28,16 +33,32 @@
     const mod = await import("./tip-diagrams");
     if (loadedFor === diagram) svg = mod.TIP_DIAGRAMS[diagram];
   }
-  // Fixed positioning so the card floats above the inspector's overflow. The
-  // sidebar lives on the right, so prefer opening to the LEFT of the icon.
+  // Fixed positioning so the card floats above the inspector's overflow. Inside
+  // a sidebar the card hangs off that sidebar's outer edge, over the canvas, so
+  // it never covers the settings it's explaining. The tail points back at the
+  // row. Outside a sidebar (modals, etc.) it opens beside the icon instead.
+  const GAP = 12;
   function place() {
     if (!icon) return;
     const r = icon.getBoundingClientRect();
-    let left = r.left - TW - 10;
-    if (left < 8) left = Math.min(window.innerWidth - TW - 8, r.right + 10);
-    x = Math.max(8, left);
+    const panel = icon.closest("aside")?.getBoundingClientRect();
+    const anchor = panel ?? r;
+    const rightHalf = r.left + r.width / 2 > window.innerWidth / 2;
+    let left: number;
+    if (rightHalf) {
+      left = anchor.left - TW - GAP;
+      side = "left";
+      if (left < 8) { left = r.right + GAP; side = "right"; }
+    } else {
+      left = anchor.right + GAP;
+      side = "right";
+      if (left + TW > window.innerWidth - 8) { left = r.left - TW - GAP; side = "left"; }
+    }
+    x = Math.max(8, Math.min(left, window.innerWidth - TW - 8));
     const h = tooltip?.getBoundingClientRect().height ?? (diagram ? 190 : 96);
-    y = Math.max(8, Math.min(r.top - 4, window.innerHeight - h - 8));
+    const mid = r.top + r.height / 2;
+    y = Math.max(8, Math.min(mid - 22, window.innerHeight - h - 8));
+    tailY = Math.max(10, Math.min(mid - y, h - 10));
   }
 
   function show() {
@@ -81,8 +102,10 @@
     e.stopPropagation();
   }}
   aria-label={label ? `Help: ${label}` : "Help"}
-  data-info-tip
-  class="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground"
+  data-info-tip={fill ? "fill" : ""}
+  class={fill
+    ? "flex h-full w-full cursor-help items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:bg-muted/60 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none"
+    : "inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground"}
 >
   <!-- Drawn rather than typed: a "?" glyph never centers in a 16px box (font
        ascender/descender push it off), an SVG path always does. -->
@@ -99,6 +122,15 @@
     class="font-mono-ui pointer-events-none fixed z-[120] w-[248px] rounded-lg border border-border bg-card p-2.5 text-card-foreground shadow-xl"
     style="left:{x}px;top:{y}px"
   >
+    <!-- Speech-bubble tail: a rotated square showing only the two borders that
+         face outward, so it reads as part of the card's outline. -->
+    <span
+      aria-hidden="true"
+      class="absolute h-2.5 w-2.5 rotate-45 bg-card {side === 'left'
+        ? '-right-[6px] border-t border-r border-border'
+        : '-left-[6px] border-b border-l border-border'}"
+      style="top:{tailY - 5}px"
+    ></span>
     {#if diagram}
       <div class="mb-2 overflow-hidden rounded-md border border-border bg-zinc-900/60 p-1">
         {#if svg}

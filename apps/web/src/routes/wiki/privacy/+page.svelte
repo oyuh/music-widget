@@ -1,0 +1,173 @@
+<script lang="ts">
+  import Collapsible from "$lib/ui/Collapsible.svelte";
+  import Term from "$lib/ui/Term.svelte";
+  import WikiPage from "$lib/wiki/WikiPage.svelte";
+
+  // Written against what the code does, not boilerplate: the visitor table in
+  // apps/server/src/schema.ts, the fingerprint in lib/usage.ts, and the
+  // localStorage keys in lib/editor.svelte.ts. Change those, change this.
+  let { data } = $props();
+
+  const p = "text-sm leading-relaxed text-muted-foreground";
+  const li = "text-sm leading-relaxed text-muted-foreground";
+  const key = "rounded bg-muted px-1 py-0.5 font-mono-ui text-[11px] text-foreground";
+
+  // Drives both the contents column and the open/closed state, so a contents
+  // link opens the section it jumps to instead of landing on a shut drawer.
+  const SECTIONS = [
+    { id: "browser", short: "In your browser" },
+    { id: "url", short: "Your widget URL" },
+    { id: "counter", short: "The usage counter" },
+    { id: "forms", short: "Feedback and alerts" },
+    { id: "others", short: "Other services" },
+    { id: "removal", short: "Getting data removed" },
+  ];
+
+  // First one open so the page doesn't look like a wall of closed drawers.
+  const open = $state({ browser: true, url: false, counter: false, forms: false, others: false, removal: false });
+</script>
+
+<WikiPage article={data.article} pages={data.pages} {toc}>
+  <p class="wiki-updated">Last updated: August 28, 2026</p>
+
+  <div class="wiki-prose">
+    <p>
+      No accounts, no cookies. Everything below is the whole list of what <Term def="Lawson Hart, the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term> collect, and you
+      can check every claim on this page against
+      <Term def="The whole site, editor and server, is public on GitHub." href="https://github.com/oyuh/music-widget">the source</Term>.
+    </p>
+  </div>
+
+  <div class="wiki-sections">
+    <div class="wiki-section" id="browser">
+      <Collapsible title="What the editor saves in your browser" icon="browser" bind:open={open.browser}>
+        <p class={p}>
+          The editor has no accounts, so your work is saved on your own machine in
+          <Term
+            def="A small store built into your browser. It stays on this device, we can't read it, and clearing site data wipes it."
+            href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage">local storage</Term
+          >:
+        </p>
+        <ul class="list-inside list-disc space-y-1.5">
+          <li class={li}><code class={key}>mw:config</code> your current widget design, saved as you edit</li>
+          <li class={li}><code class={key}>mw:presets</code> the designs you saved under My Presets</li>
+          <li class={li}><code class={key}>mw:feedbackSentAt</code> when you last sent feedback</li>
+          <li class={li}>
+            <code class={key}>lfm_session_key</code> only if you signed into Last.fm for a
+            <Term def="A Last.fm profile set to private. Signing in lets the widget read your private profile.">private profile</Term>
+          </li>
+        </ul>
+        <p class={p}>
+          Clearing site data for this domain deletes all of it for good. There is no copy on our side to restore from.
+        </p>
+      </Collapsible>
+    </div>
+
+    <div class="wiki-section" id="url">
+      <Collapsible title="Your widget URL" icon="link" bind:open={open.url}>
+        <p class={p}>
+          The link you copy into OBS carries your entire design in its
+          <Term
+            def="The part of a URL after the # sign. Browsers keep it client-side and never send it to the server, which is why your design never reaches us."
+            href="https://developer.mozilla.org/en-US/docs/Web/API/URL/hash">fragment</Term
+          >, along with the Last.fm username it reads from. We never get that part, but anyone you hand the link to can
+          open it and see exactly what you see.
+        </p>
+        <p class={p}>
+          Two things are in there if you set them: your Last.fm session key, and your own
+          <Term def="Bring your own key. The editor lets you paste a personal Last.fm API key so your widget gets its own rate limit instead of sharing ours.">API key</Term>.
+          Remember this is your personal API key, don't share it.
+        </p>
+      </Collapsible>
+    </div>
+
+    <div class="wiki-section" id="counter">
+      <Collapsible title="The usage counter" icon="server" bind:open={open.counter}>
+        <p class={p}>
+          That "people use this" number in the sidebar is the only thing the server logs about you. When the editor or a
+          widget loads with a Last.fm username set, it sends one ping that records:
+        </p>
+        <ul class="list-inside list-disc space-y-1.5">
+          <li class={li}>your Last.fm username</li>
+          <li class={li}>
+            a rough
+            <Term def="A hash of ordinary browser details: user agent, language, platform, CPU cores, memory, touch points, screen size and timezone. Enough to tell devices apart in a count, nowhere near enough to identify a person.">device fingerprint</Term>
+          </li>
+          <li class={li}>your IP address, browser user agent, and the page that linked you here</li>
+          <li class={li}>how many times you've been seen, and when you were first and last seen</li>
+        </ul>
+        <p class={p}>
+          We keep these to see how usage changes over time. After a year we either delete a row or compress it, and
+          compressing strips everything that identifies you.
+        </p>
+      </Collapsible>
+    </div>
+
+    <div class="wiki-section" id="forms">
+      <Collapsible title="The feedback form and email alerts" icon="message" bind:open={open.forms}>
+        <p class={p}>
+          Give feedback stores what you typed: name, email, streaming handle and platform, what's good, what's bad, and
+          whether you ticked the box for outage emails. Your IP, user agent and fingerprint are stored with it so a note
+          can be matched to the widget it's about.
+        </p>
+        <p class={p}>
+          Handing over an email for outage alerts stores that address and links it to your Last.fm username, so <Term def="Lawson Hart, the creator and maintainer." href="https://lawsonhart.me">the maintainers</Term>
+          can tell you when something breaks.
+        </p>
+      </Collapsible>
+    </div>
+
+    <div class="wiki-section" id="others">
+      <Collapsible title="Other services involved" icon="plug" bind:open={open.others}>
+        <ul class="list-inside list-disc space-y-1.5">
+          <li class={li}>
+            <span class="text-foreground">Last.fm</span> is where every song comes from. The widget reads your
+            <Term def="A scrobble is Last.fm's record of a track you played. Spotify, Apple Music and most other players can send them automatically." href="https://www.last.fm/about/trackmymusic">scrobbles</Term>
+            through their API, so their privacy policy covers that half.
+          </li>
+          <li class={li}>
+            <span class="text-foreground">Album art</span> loads straight from Last.fm's image CDN to your browser, so
+            that host sees your IP the same way any image on any page would. Our proxy only steps in when the direct
+            load fails.
+          </li>
+          <li class={li}>
+            <span class="text-foreground">Google Fonts</span> serves whichever font you pick, which means your browser
+            fetches it from Google.
+          </li>
+          <li class={li}>
+            <span class="text-foreground">GitHub</span> supplies the star count on the Star button. Our server fetches it,
+            not your browser.
+          </li>
+          <li class={li}>
+            <span class="text-foreground">Our host</span> keeps ordinary short-lived request logs, the same as any website.
+          </li>
+        </ul>
+      </Collapsible>
+    </div>
+
+    <div class="wiki-section" id="removal">
+      <Collapsible title="Getting your data removed" icon="trash" bind:open={open.removal}>
+        <p class={p}>
+          Clear your browser's site data and the local half is gone in one click. For anything on the server, message on
+          Discord or open a GitHub issue with your Last.fm username, and the visitor, contact and feedback rows attached to
+          it get deleted.
+        </p>
+        <div class="wiki-actions">
+          <a class="wiki-button" href="https://discordapp.com/users/527167786200465418" target="_blank" rel="noopener noreferrer">Ask on Discord</a>
+          <a class="wiki-button" href="https://github.com/oyuh/music-widget/issues" target="_blank" rel="noopener noreferrer">Open a GitHub issue</a>
+        </div>
+      </Collapsible>
+    </div>
+  </div>
+
+  <p class="wiki-fineprint">Not affiliated with Last.fm, Spotify, or Apple.</p>
+</WikiPage>
+
+{#snippet toc()}
+  <nav aria-label="On this page">
+    <p class="wiki-eyebrow">On this page</p>
+    {#each SECTIONS as section}
+      <a href={`#${section.id}`} onclick={() => (open[section.id as keyof typeof open] = true)}>{section.short}</a>
+    {/each}
+  </nav>
+{/snippet}

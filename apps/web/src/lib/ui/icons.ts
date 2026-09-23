@@ -47,8 +47,19 @@ export const ICONS: Record<string, string> = {
   power: `<path d="M12 3v9"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>`,
   play: `<path d="m8 5 10 7-10 7Z"/>`,
   eye: `<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>`,
+  eyeOff: `<path d="M10.6 6.1A10 10 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.2 2.9"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 6 10 6a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/>`,
   plus: `<path d="M12 5v14M5 12h14"/>`,
   code: `<path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/>`,
+  // Wiki chrome.
+  menu: `<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>`,
+  close: `<path d="m6 6 12 12"/><path d="m18 6-12 12"/>`,
+  search: `<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>`,
+  arrowLeft: `<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>`,
+  arrowRight: `<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>`,
+  sidebar: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/>`,
+  // Tip jars in the wiki sidebar footer.
+  coffee: `<path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M4 8h13a1 1 0 0 1 1 1v7a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V9a1 1 0 0 1 1-1z"/><path d="M18 11h1a3 3 0 0 1 0 6h-1"/>`,
+  heart: `<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3C14.7 3 13.5 3.5 12 5c-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5C2 10.8 3.5 12.5 5 14l7 7z"/>`,
 };
 
 export const ANIMATION_TRIGGER_ICONS = {
