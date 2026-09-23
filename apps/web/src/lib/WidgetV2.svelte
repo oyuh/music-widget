@@ -17,7 +17,8 @@
     type V2TextId,
     type WidgetConfig,
   } from "./config";
-  import { applyAccentBrightness, extractDominantColor, hexToRgb } from "./colors";
+  import { applyAccentBrightness, hexToRgb } from "./colors";
+  import type { PresentedArt } from "./track-presenter.svelte";
   import {
     resolveLayout,
     reflowArtGone,
@@ -28,7 +29,6 @@
   } from "./v2-layout";
   import { fade, fly } from "svelte/transition";
   import * as easings from "svelte/easing";
-  import { untrack } from "svelte";
   import {
     customAnimationCss,
     hasLetterAnimation,
@@ -49,9 +49,12 @@
     title?: string;
     artist?: string;
     album?: string;
-    art?: string;
+    /** The cover as the presenter resolved it (image, CORS mode, and color). */
+    artwork: PresentedArt;
     /** Editor mode: never hide on transparent/paused. */
     preview?: boolean;
+    /** The first track isn't ready yet: lay out, but don't paint. */
+    pending?: boolean;
   }
 
   let {
@@ -64,178 +67,42 @@
     title = "—",
     artist = "—",
     album = "",
-    art = "",
+    artwork,
     preview = false,
+    pending = false,
   }: Props = $props();
 
   const v2 = $derived(cfg.v2!);
-  const artSrc = $derived((art || "").trim());
-  const fallbackArt = $derived((v2.elements.art.fallbackArt || "").trim());
-
-  // ---- which image loads ----
-  // We probe a URL with a SEPARATE off-DOM Image (NOT the displayed <img>) so
-  // detection is decoupled from rendering: the displayed <img>'s `error` also fires
-  // when the {#key} song-switch tears down an in-flight image, which used to hide
-  // perfectly good art. The `cancelled` guard drops a stale probe's result once the
-  // song (URL) changes.
-  type ArtState = "loading" | "ok" | "failed";
-
-  function probeInto(url: string, set: (s: ArtState) => void) {
-    let cancelled = false;
-    const probe = new Image();
-    probe.onload = () => {
-      if (!cancelled) set("ok");
-    };
-    probe.onerror = () => {
-      if (!cancelled) set("failed");
-    };
-    probe.src = url;
-    // Already cached? onload may not fire, so resolve synchronously.
-    if (probe.complete && probe.naturalWidth > 0) set("ok");
-    return () => {
-      cancelled = true;
-    };
-  }
-
-  // The song's own cover. Unchanged from before the fallback existed.
-  let coverState = $state<ArtState>("loading");
-  $effect(() => {
-    const url = artSrc;
-    if (!url) {
-      coverState = "failed";
-      return;
-    }
-    coverState = "loading";
-    return probeInto(url, (s) => (coverState = s));
-  });
-
-  // The user's fallback image, probed ONLY once the cover is confirmed dead. With
-  // no fallback configured `usingFallback` is never true, so `imgUrl` / `artState`
-  // below collapse to plain `artSrc` / `coverState`: the original behavior exactly,
-  // where the art element just disappears.
-  let fbState = $state<ArtState>("loading");
-  $effect(() => {
-    const url = fallbackArt;
-    fbState = "loading";
-    if (!url || coverState !== "failed") return;
-    return probeInto(url, (s) => (fbState = s));
-  });
-
-  const usingFallback = $derived(coverState === "failed" && !!fallbackArt);
-  // What actually renders. Everything downstream (accent extraction, the blurred
-  // background fill) reads this, so the fallback feeds those too.
-  const imgUrl = $derived(usingFallback ? fallbackArt : artSrc);
-  const artState = $derived(usingFallback ? fbState : coverState);
+  // ---- which image renders ----
+  // The TrackPresenter (via Widget.svelte) has already loaded, decoded, and
+  // color-read the cover, and fallen back to the configured fallback image when
+  // the cover won't load, so this only has to paint what it was handed.
+  const imgUrl = $derived(artwork.src);
+  const imgCors = $derived(artwork.cors ? "anonymous" : undefined);
 
   // ---- accent color ----
   // When "auto from art" is on, the accent is the album's dominant color;
   // otherwise it's the configured accent. Only elements whose color is "accent"
-  // follow it; every other element keeps its own explicit color.
-  // Seed from the user's fallback/accent (not a hardcoded green) so there's no
-  // green flash before the first extraction resolves, and a failed fetch lands on
-  // the configured fallback instead.
-  let rawAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
-  // True only while `rawAccent` is a color read off the album art. Art colors get
-  // re-lit to the theme's target brightness; hand-picked accents and fallbacks are
-  // deliberate choices and pass through untouched.
-  let accentFromArt = $state(false);
-  // The accent everything renders with. Derived (not assigned alongside the
-  // extraction) so dragging the brightness slider re-lights the current art color
-  // immediately, with no re-extraction.
-  const computedAccent = $derived(accentFromArt ? applyAccentBrightness(rawAccent, cfg.theme) : rawAccent);
-  let lastExtractedColor: string | null = null;
-  let lastImageUrl = "";
+  // follow it; every other element keeps its own explicit color. Art colors get
+  // re-lit to the theme's target brightness (derived, so the slider re-lights
+  // live); hand-picked accents and fallbacks are deliberate and pass through.
+  const computedAccent = $derived(
+    !cfg.theme.autoFromArt
+      ? cfg.theme.accent
+      : artwork.color
+        ? applyAccentBrightness(artwork.color, cfg.theme)
+        : cfg.fallbackAccent || cfg.theme.accent || "#1db954",
+  );
   // True when "auto from art" is on but no color could be read from the art; in
   // that state elements set to "accent" use their per-element fallback color.
-  let accentFailed = $state(false);
-
-  $effect(() => {
-    const auto = cfg.theme.autoFromArt;
-    const fallbackAccent = cfg.fallbackAccent || cfg.theme.accent;
-    const source = imgUrl || artSrc;
-    let cancelled = false;
-
-    (async () => {
-      if (!auto) {
-        // Not deriving from art; the configured accent is intentional, not a failure.
-        rawAccent = cfg.theme.accent;
-        accentFromArt = false;
-        accentFailed = false;
-        lastExtractedColor = null;
-        lastImageUrl = "";
-        return;
-      }
-      if (!source) {
-        rawAccent = fallbackAccent;
-        accentFromArt = false;
-        accentFailed = true;
-        lastExtractedColor = null;
-        lastImageUrl = "";
-        return;
-      }
-      if (source === lastImageUrl && lastExtractedColor) return;
-      const color = await extractDominantColor(source);
-      if (cancelled) return;
-      if (color) {
-        rawAccent = color;
-        accentFromArt = true;
-        accentFailed = false;
-        lastExtractedColor = color;
-        lastImageUrl = source;
-      } else {
-        // Extraction failed (art couldn't be fetched / read), so use the configured
-        // fallback color instead of leaving a stale or default-green accent.
-        rawAccent = fallbackAccent;
-        accentFromArt = false;
-        accentFailed = true;
-        lastExtractedColor = null;
-        lastImageUrl = source;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  });
+  const accentFailed = $derived(!!cfg.theme.autoFromArt && artwork.colorFailed);
 
   // Render the art while it's loading or good; only hide it on a confirmed failure.
-  const showArt = $derived(artState !== "failed");
+  const showArt = $derived(artwork.state !== "failed");
   // When the art is gone (no URL OR a URL that won't load) we re-anchor anything snapped
   // to it to a WIDGET edge, so text flushes hard left/right instead of floating where the
   // art used to be. Applies in the editor too so you can preview it.
-  const artGone = $derived(v2.elements.art.visible && artState === "failed");
-
-  function onArtLoad(e: Event) {
-    if (!cfg.theme.autoFromArt) return;
-    const el = e.currentTarget as HTMLImageElement;
-    try {
-      const size = 32;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(el, 0, 0, size, size);
-      const { data } = ctx.getImageData(0, 0, size, size);
-      const counts = new Map<string, number>();
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 200) continue;
-        const key = `${Math.round(data[i] / 16) * 16},${Math.round(data[i + 1] / 16) * 16},${Math.round(data[i + 2] / 16) * 16}`;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-      let max = 0;
-      let best = "255,255,255";
-      for (const [k, val] of counts) if (val > max) ((max = val), (best = k));
-      const [r, g, b] = best.split(",").map(Number);
-      const toHex = (n: number) => n.toString(16).padStart(2, "0");
-      rawAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      accentFromArt = true;
-      accentFailed = false;
-    } catch {
-      // Cross-origin art taints the canvas here; that's expected. The $effect above
-      // reads the color via a crossorigin request (Last.fm art sends CORS headers),
-      // so leave its result alone instead of forcing the fallback.
-    }
-  }
+  const artGone = $derived(v2.elements.art.visible && artwork.state === "failed");
 
   // ---- layout resolution (snap-aware) ----
   let measured = $state<Measured>({});
@@ -252,7 +119,7 @@
     // failed to load, sit it just after the title so it isn't stranded in empty space.
     const pauseEl = v2.elements.pause;
     if (pauseEl?.visible) {
-      const artUnavailable = !v2.elements.art.visible || artState === "failed";
+      const artUnavailable = !v2.elements.art.visible || artwork.state === "failed";
       const anchoredToArt = pauseEl.snapX?.to === "art" || pauseEl.snapY?.to === "art";
       if (artUnavailable && anchoredToArt && v2.elements.title.visible) {
         if (out === raw) out = { ...raw } as Record<V2ElementId, Box>;
@@ -548,8 +415,10 @@
     <!-- Blurred album art, scaled to the box width and clipped to its corners. -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden" style="border-radius:{radius}px;z-index:0">
       <img
+        crossorigin={imgCors}
         src={imgUrl}
         alt=""
+        decoding="sync"
         style="position:absolute;left:50%;top:50%;width:100%;height:auto;min-height:100%;transform:translate(-50%,-50%) scale(1.18);filter:blur(18px);object-fit:cover;opacity:{(el.fillOpacity ??
           100) / 100}"
       />
@@ -568,9 +437,10 @@
   {@const artStroke = strokeOf(id)}
   {@const artSh = elementShadowCSS(v2.elements[id].shadow, "#000000", artStroke?.outward ?? 0)}
   <img
+    crossorigin={imgCors}
     src={imgUrl}
     alt=""
-    onload={onArtLoad}
+    decoding="sync"
     style="width:100%;height:100%;object-fit:cover;border-radius:{v2.elements[id].radius ??
       12}px;{artSh ? `box-shadow:${artSh};` : ''}{artStroke ? artStroke.box : ''}"
   />
@@ -781,7 +651,7 @@
   </div>
 {/snippet}
 
-<div class="relative {CSS_SCOPE}">
+<div class="relative {CSS_SCOPE}" style:visibility={pending ? "hidden" : undefined}>
   {#if bgEl.animations?.length}
     <MotionStack
       id="background"

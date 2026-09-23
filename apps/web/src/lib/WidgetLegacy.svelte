@@ -8,12 +8,11 @@
   } from "./config";
   import {
     applyAccentBrightness,
-    extractDominantColor,
     generateDropShadowCSS,
     generateElementDropShadowCSS,
     getReadableTextOn,
   } from "./colors";
-  import { untrack } from "svelte";
+  import type { PresentedArt } from "./track-presenter.svelte";
 
   type TextEl = "title" | "artist" | "album" | "meta" | "duration";
 
@@ -27,10 +26,12 @@
     title?: string;
     artist?: string;
     album?: string;
-    /** Raw album-art URL; the widget proxies + color-extracts it. */
-    art?: string;
+    /** The cover as the presenter resolved it (image, CORS mode, and color). */
+    artwork: PresentedArt;
     /** Editor mode: never hide on transparent/paused. */
     preview?: boolean;
+    /** The first track isn't ready yet: lay out, but don't paint. */
+    pending?: boolean;
   }
 
   let {
@@ -43,122 +44,33 @@
     title = "—",
     artist = "—",
     album = "",
-    art = "",
+    artwork,
     preview = false,
+    pending = false,
   }: Props = $props();
 
-  const artSrc = $derived((art || "").trim());
-
   // ---- album art ----
-  // CDNs serve art directly to the browser (no server proxy needed for display);
-  // color extraction reads it directly too, with the proxy only as a fallback.
-  let imgUrl = $derived(artSrc);
+  // Loaded, decoded, and color-read by the TrackPresenter (via Widget.svelte).
+  // A cover that failed still hands over its URL so the art slot keeps its size.
+  const imgUrl = $derived(artwork.src);
+  const imgCors = $derived(artwork.cors ? "anonymous" : undefined);
 
   // ---- auto-from-art colors ----
-  let computedText = $state<Record<TextEl, string>>({
-    title: "#ffffff",
-    artist: "#ffffff",
-    album: "#ffffff",
-    meta: "#ffffff",
-    duration: "#ffffff",
+  const uniform = (c: string): Record<TextEl, string> => ({ title: c, artist: c, album: c, meta: c, duration: c });
+  const computedText = $derived.by((): Record<TextEl, string> => {
+    if (!cfg.theme.autoFromArt) return { ...cfg.theme.text } as Record<TextEl, string>;
+    if (!artwork.color) return uniform("#fff");
+    return uniform((cfg.theme.bgEnabled ?? true) ? getReadableTextOn(cfg.theme.bg) : "#ffffff");
   });
-  // Seed from the user's fallback/accent (not a hardcoded green) so a failed art
-  // fetch lands on the configured fallback instead of a green flash.
-  let rawAccent = $state(untrack(() => cfg.fallbackAccent || cfg.theme.accent || "#1db954"));
-  // True only while `rawAccent` came off the album art; art colors get re-lit to
-  // the theme's target brightness, hand-picked accents/fallbacks don't.
-  let accentFromArt = $state(false);
-  // Derived so the brightness slider re-lights the current art color live.
-  const computedAccent = $derived(accentFromArt ? applyAccentBrightness(rawAccent, cfg.theme) : rawAccent);
-  let lastExtractedColor: string | null = null;
-  let lastImageUrl = "";
-
-  $effect(() => {
-    const auto = cfg.theme.autoFromArt;
-    const bg = cfg.theme.bg;
-    const bgEnabled = cfg.theme.bgEnabled ?? true;
-    const fallbackAccent = cfg.fallbackAccent || cfg.theme.accent;
-    const source = imgUrl || artSrc;
-    let cancelled = false;
-
-    (async () => {
-      if (!auto) {
-        computedText = { ...cfg.theme.text };
-        rawAccent = cfg.theme.accent;
-        accentFromArt = false;
-        lastExtractedColor = null;
-        lastImageUrl = "";
-        return;
-      }
-      if (!source) {
-        computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
-        rawAccent = fallbackAccent;
-        accentFromArt = false;
-        lastExtractedColor = null;
-        lastImageUrl = "";
-        return;
-      }
-      if (source === lastImageUrl && lastExtractedColor) return;
-
-      const color = await extractDominantColor(source);
-      if (cancelled) return;
-
-      if (color) {
-        const textColor = bgEnabled ? getReadableTextOn(bg) : "#ffffff";
-        computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
-        rawAccent = color;
-        accentFromArt = true;
-        lastExtractedColor = color;
-        lastImageUrl = source;
-      } else {
-        // Extraction failed (art couldn't be fetched / read), so use the configured
-        // fallback color instead of leaving a stale or default-green accent.
-        computedText = { title: "#fff", artist: "#fff", album: "#fff", meta: "#fff", duration: "#fff" };
-        rawAccent = fallbackAccent;
-        accentFromArt = false;
-        lastExtractedColor = null;
-        lastImageUrl = source;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  });
-
-  // Re-extract straight off the rendered <img> for reliability.
-  function onArtLoad(e: Event) {
-    if (!cfg.theme.autoFromArt) return;
-    const el = e.currentTarget as HTMLImageElement;
-    try {
-      const size = 32;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(el, 0, 0, size, size);
-      const { data } = ctx.getImageData(0, 0, size, size);
-      const counts = new Map<string, number>();
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 200) continue;
-        const key = `${Math.round(data[i] / 16) * 16},${Math.round(data[i + 1] / 16) * 16},${Math.round(data[i + 2] / 16) * 16}`;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-      let max = 0;
-      let best = "255,255,255";
-      for (const [k, v] of counts) if (v > max) ((max = v), (best = k));
-      const [r, g, b] = best.split(",").map(Number);
-      const toHex = (n: number) => n.toString(16).padStart(2, "0");
-      const textColor = (cfg.theme.bgEnabled ?? true) ? getReadableTextOn(cfg.theme.bg) : "#ffffff";
-      computedText = { title: textColor, artist: textColor, album: textColor, meta: textColor, duration: textColor };
-      rawAccent = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      accentFromArt = true;
-    } catch {
-      // Couldn't read the pixels (e.g. tainted canvas), so fall back to the user color.
-      rawAccent = cfg.fallbackAccent || cfg.theme.accent;
-      accentFromArt = false;
-    }
-  }
+  // Art colors get re-lit to the theme's target brightness (derived, so the
+  // slider re-lights live); the configured accent and fallback pass through.
+  const computedAccent = $derived(
+    !cfg.theme.autoFromArt
+      ? cfg.theme.accent
+      : artwork.color
+        ? applyAccentBrightness(artwork.color, cfg.theme)
+        : cfg.fallbackAccent || cfg.theme.accent || "#1db954",
+  );
 
   // ---- layout ----
   const bgEnabled = $derived(cfg.theme.bgEnabled ?? true);
@@ -272,9 +184,10 @@
   {#if cfg.layout.showArt && imgUrl}
     <div data-el="art" style="position:relative;display:inline-block;justify-self:{justify}">
       <img
+        crossorigin={imgCors}
         src={imgUrl}
         alt=""
-        onload={onArtLoad}
+        decoding="sync"
         style="width:{cfg.layout.artSize}px;height:{cfg.layout.artSize}px;object-fit:cover;border-radius:{cfg.layout
           .artRadius ?? 12}px;{cfg.theme.dropShadow?.enabled && cfg.theme.dropShadow.targets?.albumArt
           ? `box-shadow:${boxShadow('#000000')}`
@@ -365,7 +278,7 @@
   {/if}
 {/snippet}
 
-<div class="relative">
+<div class="relative" style:visibility={pending ? "hidden" : undefined}>
   <div style={containerStyle} data-el="background">
     {#if artPos === "right"}
       {@render textCol()}

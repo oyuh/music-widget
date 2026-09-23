@@ -129,88 +129,39 @@ export function generateElementDropShadowCSS(
   return generateDropShadowCSS(effectiveConfig, baseColor);
 }
 
-function extractFrom(src: string, crossOrigin: boolean): Promise<string | null> {
-  return new Promise((resolve) => {
-    try {
-      const img = new Image();
-      if (crossOrigin) {
-        img.crossOrigin = 'anonymous';
-      }
-      img.onload = () => {
-        const size = 32; // downscale for speed
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(null);
-        try {
-          // Sample only the central region to avoid album borders/labels skewing the color
-          const nw = img.naturalWidth || img.width;
-          const nh = img.naturalHeight || img.height;
-          const cropW = Math.max(1, Math.round(nw * 0.7));
-          const cropH = Math.max(1, Math.round(nh * 0.7));
-          const sx = Math.max(0, Math.round((nw - cropW) / 2));
-          const sy = Math.max(0, Math.round((nh - cropH) / 2));
-          ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, size, size);
-          const { data } = ctx.getImageData(0, 0, size, size);
-          const counts = new Map<string, number>();
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const a = data[i + 3];
-            if (a < 200) continue; // skip transparent
-            // Ignore near-white and near-black pixels that often represent borders or backgrounds
-            if ((r > 245 && g > 245 && b > 245) || (r < 10 && g < 10 && b < 10)) continue;
-            // quantize to reduce unique colors (clamp so 248-255 doesn't round up to 256)
-            const q = (v: number) => Math.min(255, Math.round(v / 16) * 16);
-            const key = `${q(r)},${q(g)},${q(b)}`;
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-          }
-          let max = 0;
-          let best = '255,255,255';
-          for (const [k, v] of counts) {
-            if (v > max) { max = v; best = k; }
-          }
-          if (counts.size === 0) {
-            // Fallback: compute average color without filtering extremes
-            let rSum = 0, gSum = 0, bSum = 0, n = 0;
-            for (let i = 0; i < data.length; i += 4) {
-              const a = data[i + 3];
-              if (a < 200) continue;
-              rSum += data[i];
-              gSum += data[i + 1];
-              bSum += data[i + 2];
-              n++;
-            }
-            if (n > 0) {
-              const r = Math.round(rSum / n);
-              const g = Math.round(gSum / n);
-              const b = Math.round(bSum / n);
-              return resolve(rgbToHex(r, g, b));
-            }
-          }
-          const [r, g, b] = best.split(',').map(Number);
-          resolve(rgbToHex(r, g, b));
-        } catch {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-      img.src = src;
-    } catch {
-      resolve(null);
-    }
-  });
-}
-
-export async function extractDominantColor(imgUrl: string): Promise<string | null> {
-  if (/^blob:|^data:/i.test(imgUrl)) return extractFrom(imgUrl, false);
-  // Album-art CDNs are CORS-enabled, so read directly from the user's browser
-  // (no server load); fall back to our proxy only if the direct read fails.
-  const direct = await extractFrom(imgUrl, true);
-  if (direct) return direct;
-  return extractFrom(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`, true);
+/**
+ * The dominant color of an RGBA pixel buffer (a downscaled cover). Near-white
+ * and near-black pixels are skipped since they're usually borders or
+ * backgrounds; an image made only of those falls back to its plain average.
+ * Pure so every surface (widget, editor, tests) reads a cover identically.
+ */
+export function dominantColor(data: ArrayLike<number>): string | null {
+  const counts = new Map<number, number>();
+  // quantize to reduce unique colors (clamp so 248-255 doesn't round up to 256)
+  const q = (v: number) => Math.min(255, Math.round(v / 16) * 16);
+  let rSum = 0, gSum = 0, bSum = 0, n = 0;
+  for (let i = 0; i + 3 < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if (data[i + 3] < 200) continue; // skip transparent
+    rSum += r;
+    gSum += g;
+    bSum += b;
+    n++;
+    if ((r > 245 && g > 245 && b > 245) || (r < 10 && g < 10 && b < 10)) continue;
+    const key = (q(r) << 16) | (q(g) << 8) | q(b);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let max = 0;
+  let best = -1;
+  // Ties go to the first bucket seen, same as the original string-keyed scan.
+  for (const [k, v] of counts) {
+    if (v > max) { max = v; best = k; }
+  }
+  if (best >= 0) return rgbToHex((best >> 16) & 255, (best >> 8) & 255, best & 255);
+  if (n === 0) return null;
+  return rgbToHex(rSum / n, gSum / n, bSum / n);
 }
 
 // ---- perceptual brightness normalization ----
