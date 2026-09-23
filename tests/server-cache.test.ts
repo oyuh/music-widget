@@ -56,6 +56,27 @@ describe("withJsonCache", () => {
     expect(tags).toEqual(["COALESCED", "MISS"]);
     expect(calls).toBe(1);
   });
+
+  test("a failed fetch rejects the caller without leaving an unhandled rejection", async () => {
+    const key = freshKey();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const fetcher = async (): Promise<UpstreamJson> => {
+        throw new DOMException("The operation timed out.", "TimeoutError");
+      };
+      await expect(call(key, fetcher)).rejects.toThrow("timed out");
+      await new Promise((r) => setTimeout(r, 10));
+      expect(unhandled).toEqual([]);
+
+      // The failed flight is cleared, so the next call fetches again.
+      const r = await call(key, async () => ({ body: "{}", status: 200, cacheable: true }));
+      expect(r.headers.get("X-Cache")).toBe("MISS");
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
 });
 
 test("L1 holds a hard cap even when every entry is still live", async () => {

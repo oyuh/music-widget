@@ -24,7 +24,16 @@ export function dbEnabled() {
 
 function getDb(): BunSQLDatabase | null {
   if (!dbEnabled()) return null;
-  if (!db) db = drizzle(process.env.DATABASE_URL!);
+  // Callers fire-and-forget and call this outside their try, so a bad URL
+  // must not throw from here.
+  if (!db) {
+    try {
+      db = drizzle(process.env.DATABASE_URL!);
+    } catch (err) {
+      log("warn", "db.init_failed", { error: err instanceof Error ? err.message : String(err) });
+      return null;
+    }
+  }
   return db;
 }
 

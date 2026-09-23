@@ -297,6 +297,14 @@ app.get("*", async (c) => {
 
 const port = Number(process.env.PORT) || 8787;
 
+// Bun exits on an unhandled rejection, which restarts the container and drops
+// every open request. Log it instead so one stray promise can't take prod down.
+process.on("unhandledRejection", (reason) => {
+  log("error", "process.unhandledRejection", {
+    error: reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason),
+  });
+});
+
 // Begin the in-memory usage-count refresh loop (no-op without a database).
 startStatsRefresh();
 
