@@ -7,6 +7,7 @@
   import InfoTip from "$lib/ui/InfoTip.svelte";
   import { ICONS } from "$lib/ui/icons";
   import SidebarFooter from "$lib/editor/SidebarFooter.svelte";
+  import ClipboardText from "$lib/ui/ClipboardText.svelte";
 
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
@@ -23,23 +24,11 @@
   }
   let { editor }: Props = $props();
 
-  let copied = $state(false);
   let setupOpen = $state(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   // Recomputes whenever the config changes (exportHash reads it).
   const shareUrl = $derived(`${origin}/w#${editor.exportHash()}`);
-
-  async function copyShare() {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      copied = true;
-      setTimeout(() => (copied = false), 1500);
-    } catch {
-      /* ignore */
-    }
-    recordWidgetCopy(editor.config.lfmUser ?? "");
-  }
 
   function onUserInput() {
     editor.save();
@@ -188,9 +177,14 @@
 
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm *:shrink-0">
-  <div class="wordmark font-mono-ui self-center pt-1 text-xs font-medium tracking-[0.18em]">
-    <span class="sr-only">fast.jamlog.lol</span>
-    {#each WORDMARK as ch, i (i)}<span aria-hidden="true">{ch}</span>{/each}
+  <!-- Rules on either side stretch with the sidebar. -->
+  <div class="flex items-center gap-3 pt-1">
+    <div class="flex-1 border-t border-border" aria-hidden="true"></div>
+    <div class="wordmark font-mono-ui text-xs font-medium tracking-[0.06em]">
+      <span class="sr-only">fast.jamlog.lol</span>
+      {#each WORDMARK as ch, i (i)}<span aria-hidden="true">{ch}</span>{/each}
+    </div>
+    <div class="flex-1 border-t border-border" aria-hidden="true"></div>
   </div>
 
   <!-- Last.fm account -->
@@ -214,37 +208,21 @@
         aria-label="Last.fm access: {accountTip}"
         aria-haspopup="dialog"
         class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border transition-colors before:absolute before:-inset-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 {accountActive
-          ? 'border-blue-400/50 text-blue-400 hover:bg-blue-400/10'
+          ? 'border-border bg-zinc-800 text-green-400 hover:bg-muted'
           : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'}"
       >
         <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
           {@html ICONS.lock}
         </svg>
-        {#if accountActive}
-          <span class="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-400" aria-hidden="true"></span>
-        {/if}
       </button>
     </div>
   </section>
 
-  <!-- Share: one obvious thing to press. -->
+  <!-- Share: the link itself, click to select it all, or hit the copy button. -->
   <section class="flex flex-col gap-1.5">
-    <button
-      type="button"
-      onclick={copyShare}
-      class="relative flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium before:absolute before:inset-x-0 before:-inset-y-1 text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
-    >
-      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        {#if copied}
-          <path d="M20 6 9 17l-5-5" />
-        {:else}
-          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
-          {@html ICONS.copy}
-        {/if}
-      </svg>
-      <span aria-live="polite">{copied ? "Link copied" : "Copy widget link"}</span>
-    </button>
+    <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Widget link</div>
+    <ClipboardText text={shareUrl} label="widget link" oncopy={() => recordWidgetCopy(editor.config.lfmUser ?? "")} />
     <button
       type="button"
       onclick={() => (setupOpen = true)}
