@@ -8,6 +8,9 @@ import { log, levelEnabled, type JsonValue } from "./log";
 const RECENT_TTL_SECONDS = 1;
 const TRACK_INFO_TTL_SECONDS = 60 * 60 * 24;
 const LASTFM_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
+// Without a cap, a hung Last.fm call holds its request (and every caller
+// coalesced onto it) open for as long as the socket stays up.
+const UPSTREAM_TIMEOUT_MS = 8000;
 
 /** Human hints for the Last.fm error codes we actually see in the wild. */
 const LASTFM_ERROR_HINTS: Record<number, string> = {
@@ -135,7 +138,7 @@ export const handleRecent: Handler = async (c) => {
       const qs = new URLSearchParams(sk ? { ...params, api_sig, format: "json" } : { ...params, format: "json" });
 
       const upstreamT0 = Date.now();
-      const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`);
+      const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
       const body = await upstream.text();
 
       log("info", "api.lastfm.recent.upstream", {
@@ -233,7 +236,7 @@ export const handleTrackInfo: Handler = async (c) => {
       const qs = new URLSearchParams(sk ? { ...params, api_sig, format: "json" } : { ...params, format: "json" });
 
       const upstreamT0 = Date.now();
-      const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`);
+      const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
       const body = await upstream.text();
 
       log("info", "api.lastfm.trackInfo.upstream", {
@@ -280,7 +283,7 @@ export const handleSession: Handler = async (c) => {
   const qs = new URLSearchParams({ ...params, api_sig, format: "json" });
 
   const upstreamT0 = Date.now();
-  const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`);
+  const upstream = await fetch(`${LASTFM_ENDPOINT}?${qs.toString()}`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
   const data = (await upstream.json()) as LastfmErrorBody & {
     session?: { key?: string; name?: string };
   };
@@ -313,22 +316,38 @@ export const handleProxyImage: Handler = async (c) => {
   const reqId = c.get("reqId");
   const raw = c.req.query("url") || "";
 
-  if (!/^https?:\/\//i.test(raw)) {
+  let safe: URL;
+  try {
+    safe = new URL(raw);
+  } catch {
+    return json({ error: "Invalid url" }, { status: 400 });
+  }
+  if (!/^https?:$/.test(safe.protocol)) {
     return json({ error: "Invalid url" }, { status: 400 });
   }
 
-  const safe = new URL(raw);
-  if (!isAllowedImageHost(safe.hostname)) {
-    log("warn", "api.proxy-image.host_blocked", { requestId: reqId, host: safe.host });
-    return json({ error: "Image host not allowed" }, { status: 400 });
-  }
-
+  // Follow redirects by hand so every hop is re-checked against the allowlist;
+  // an automatic follow would let an allowed host bounce us to an internal one.
   const upstreamT0 = Date.now();
-  const upstream = await fetch(raw, {
-    headers: {
-      "User-Agent": "music-widget/1.0 (+https://github.com/oyuh/music-widget)",
-    },
-  });
+  let upstream: Response | null = null;
+  for (let hop = 0; hop < 4; hop++) {
+    if (!isAllowedImageHost(safe.hostname)) {
+      log("warn", "api.proxy-image.host_blocked", { requestId: reqId, host: safe.host });
+      return json({ error: "Image host not allowed" }, { status: 400 });
+    }
+    upstream = await fetch(safe, {
+      headers: {
+        "User-Agent": "music-widget/1.0 (+https://github.com/oyuh/music-widget)",
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    const location = upstream.status >= 300 && upstream.status < 400 ? upstream.headers.get("location") : null;
+    if (!location) break;
+    safe = new URL(location, safe);
+    upstream = null;
+  }
+  if (!upstream) return json({ error: "Too many redirects" }, { status: 502 });
 
   if (!upstream.ok) {
     log("warn", "api.proxy-image.upstream_not_ok", {
@@ -340,11 +359,20 @@ export const handleProxyImage: Handler = async (c) => {
     return new Response(null, { status: upstream.status });
   }
 
-  const contentType = upstream.headers.get("content-type") || "image/jpeg";
-  return new Response(await upstream.arrayBuffer(), {
+  // Some allowlisted CDNs host arbitrary user content, so only pass raster images
+  // through. HTML or SVG served from our origin would be stored XSS.
+  const contentType = (upstream.headers.get("content-type") || "image/jpeg").toLowerCase();
+  if (!contentType.startsWith("image/") || contentType.includes("svg")) {
+    void upstream.body?.cancel();
+    return json({ error: "Not an image" }, { status: 415 });
+  }
+
+  return new Response(upstream.body, {
     status: 200,
     headers: {
       "Content-Type": contentType,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": "public, max-age=86400, s-maxage=604800, immutable",
       "Access-Control-Allow-Origin": "*",
     },
