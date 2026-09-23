@@ -57,3 +57,11 @@ describe("withJsonCache", () => {
     expect(calls).toBe(1);
   });
 });
+
+test("L1 holds a hard cap even when every entry is still live", async () => {
+  const keys = Array.from({ length: 600 }, freshKey);
+  for (const key of keys) await call(key, async () => ({ body: "{}", status: 200, cacheable: true }));
+  // The oldest keys were evicted, so they miss again; the newest still hit.
+  expect((await call(keys[0]!, async () => ({ body: "{}", status: 200, cacheable: true }))).headers.get("X-Cache")).toBe("MISS");
+  expect((await call(keys[599]!, async () => ({ body: "{}", status: 200, cacheable: true }))).headers.get("X-Cache")).toBe("L1");
+});

@@ -38,6 +38,12 @@ function setL1(key: string, ttlSeconds: number, body: string) {
     for (const [cacheKey, value] of l1JsonCache.entries()) {
       if (value.expires <= now) l1JsonCache.delete(cacheKey);
     }
+    // Track info lives for a day, so the sweep above can leave thousands of
+    // live keys. Drop the oldest (Map keeps insertion order) to hold a hard cap.
+    for (const cacheKey of l1JsonCache.keys()) {
+      if (l1JsonCache.size <= 500) break;
+      l1JsonCache.delete(cacheKey);
+    }
   }
 }
 
