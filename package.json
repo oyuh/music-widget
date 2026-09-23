@@ -1,6 +1,6 @@
 {
   "name": "music-widget",
-  "version": "2.3.15",
+  "version": "2.4.0",
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2"
   }
 }
