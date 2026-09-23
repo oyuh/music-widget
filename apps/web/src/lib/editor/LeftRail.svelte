@@ -41,14 +41,6 @@
     recordWidgetCopy(editor.config.lfmUser ?? "");
   }
 
-  function connect() {
-    const key = import.meta.env.VITE_LFM_KEY;
-    const cb = import.meta.env.VITE_LFM_CALLBACK || `${origin}/callback`;
-    if (!key) return;
-    editor.save();
-    window.location.href = `https://www.last.fm/api/auth/?api_key=${key}&cb=${encodeURIComponent(cb)}`;
-  }
-
   function onUserInput() {
     editor.save();
   }
@@ -97,24 +89,21 @@
   // when the widget is set to hide entirely while paused (nothing to style there).
   const pauseInactive = $derived((editor.config.fields.pausedMode ?? "label") !== "label");
 
-  // ---- BYOK (bring your own Last.fm API key) ----
-  let byokOpen = $state(false);
-  let byokKey = $state("");
-  function openByok() {
-    byokKey = editor.config.apiKey ?? "";
-    byokOpen = true;
-  }
-  function saveByok() {
-    editor.config.apiKey = byokKey.trim() || null;
-    editor.save();
-    byokOpen = false;
-  }
-  function clearByok() {
-    editor.config.apiKey = null;
-    byokKey = "";
-    editor.save();
-    byokOpen = false;
-  }
+  // ---- Account (private profile sign-in + your own API key) ----
+  let accountOpen = $state(false);
+  const accountActive = $derived(!!editor.sessionName || !!editor.config.apiKey);
+  const accountTip = $derived(
+    editor.sessionName && editor.config.apiKey
+      ? `Signed in as ${editor.sessionName} · using your own API key`
+      : editor.sessionName
+        ? `Signed in as ${editor.sessionName}`
+        : editor.config.apiKey
+          ? "Using your own API key"
+          : "Private profile? Sign in, or use your own API key",
+  );
+
+  // The wordmark, split so each letter reacts to the pointer on its own.
+  const WORDMARK = [..."fast.jamlog.lol"];
 
   // ---- Experimental: custom CSS ----
   let experimentalOpen = $state(false);
@@ -199,72 +188,73 @@
 
 <!-- *:shrink-0 keeps sections at natural height so overflow scrolls instead of squishing them -->
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3 text-sm *:shrink-0">
-  <div>
-    <div class="text-base font-semibold tracking-tight">fast.Jamlog.lol</div>
-    <div class="text-xs text-muted-foreground">Last.fm now-playing overlay</div>
+  <div class="wordmark font-mono-ui self-center pt-1 text-xs font-medium tracking-[0.18em]">
+    <span class="sr-only">fast.jamlog.lol</span>
+    {#each WORDMARK as ch, i (i)}<span aria-hidden="true">{ch}</span>{/each}
   </div>
 
   <!-- Last.fm account -->
   <section class="flex flex-col gap-2">
-    <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Last.fm</div>
-    <input
-      type="text"
-      placeholder="username"
-      bind:value={editor.config.lfmUser}
-      oninput={onUserInput}
-      spellcheck="false"
-      class="w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5"
-    />
-    {#if editor.sessionName}
-      <div class="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs">
-        <span class="truncate text-green-400">✓ {editor.sessionName}</span>
-        <button type="button" onclick={() => editor.disconnect()} class="text-muted-foreground hover:text-foreground">
-          Disconnect
-        </button>
-      </div>
-    {:else}
+    <label for="lfm-user" class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Last.fm username</label>
+    <div class="flex gap-2">
+      <input
+        id="lfm-user"
+        type="text"
+        placeholder="username"
+        bind:value={editor.config.lfmUser}
+        oninput={onUserInput}
+        spellcheck="false"
+        autocomplete="off"
+        class="h-9 min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      />
       <button
         type="button"
-        onclick={connect}
-        class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
+        onclick={() => (accountOpen = true)}
+        use:tip={accountTip}
+        aria-label="Last.fm access: {accountTip}"
+        aria-haspopup="dialog"
+        class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border transition-colors before:absolute before:-inset-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 {accountActive
+          ? 'border-blue-400/50 text-blue-400 hover:bg-blue-400/10'
+          : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'}"
       >
-        Connect for private profile
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html ICONS.lock}
+        </svg>
+        {#if accountActive}
+          <span class="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-400" aria-hidden="true"></span>
+        {/if}
       </button>
-    {/if}
+    </div>
+  </section>
+
+  <!-- Share: one obvious thing to press. -->
+  <section class="flex flex-col gap-1.5">
     <button
       type="button"
-      onclick={openByok}
-      class="text-left text-[11px] {editor.config.apiKey
-        ? 'text-green-400'
-        : 'text-muted-foreground'} hover:text-foreground"
+      onclick={copyShare}
+      class="relative flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium before:absolute before:inset-x-0 before:-inset-y-1 text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
     >
-      {editor.config.apiKey ? "✓ Using your own API key · edit" : "Use your own Last.fm API key →"}
+      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        {#if copied}
+          <path d="M20 6 9 17l-5-5" />
+        {:else}
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          {@html ICONS.copy}
+        {/if}
+      </svg>
+      <span aria-live="polite">{copied ? "Link copied" : "Copy widget link"}</span>
+    </button>
+    <button
+      type="button"
+      onclick={() => (setupOpen = true)}
+      class="self-center rounded px-1 py-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+    >
+      How do I add it to OBS?
     </button>
   </section>
 
-  <!-- Share -->
-  <section class="flex flex-col gap-2">
-    <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Share</div>
-    <div class="flex gap-2">
-      <button
-        type="button"
-        onclick={copyShare}
-        class="flex-1 rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-      >
-        {copied ? "Copied!" : "Copy URL"}
-      </button>
-      <button
-        type="button"
-        onclick={() => (setupOpen = true)}
-        class="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted"
-      >
-        Add to stream →
-      </button>
-    </div>
-    <p class="text-[11px] leading-snug text-muted-foreground">
-      Use it as a browser source in OBS, Streamlabs, XSplit and more.
-    </p>
-  </section>
+  <div class="border-t border-border" role="separator"></div>
 
   <!-- Import -->
   <Collapsible title="Import" bind:open={importOpen}>
@@ -529,75 +519,10 @@
   </footer>
 </div>
 
-{#if byokOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-    onclick={() => (byokOpen = false)}
-    role="presentation"
-  >
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div
-      class="w-full max-w-md rounded-lg border border-border bg-card p-4 text-card-foreground"
-      onclick={(e) => e.stopPropagation()}
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-    >
-      <h2 class="text-base font-semibold tracking-tight">Use your own Last.fm API key</h2>
-      <p class="mt-1 text-xs text-muted-foreground">
-        Optional, and most people never need it. Last.fm counts requests against the key making them, so your own
-        key gives your widget its own budget instead of sharing the default one. Worth setting if you're seeing
-        rate-limit warnings.
-      </p>
-      <ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
-        <li>
-          Open
-          <a class="text-primary underline" href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer"
-            >last.fm/api/account/create</a
-          >
-          (while logged in).
-        </li>
-        <li>Give it any name/description (e.g. "my widget"). No callback URL needed.</li>
-        <li>Copy the <strong>API key</strong> it shows and paste it below.</li>
-      </ol>
-      <input
-        type="text"
-        bind:value={byokKey}
-        placeholder="paste your API key"
-        spellcheck="false"
-        class="mt-3 w-full rounded-md border border-border bg-zinc-800 px-2 py-1.5 font-mono text-xs"
-      />
-      <p class="mt-2 text-[11px] text-amber-500/80">
-        Heads up: your key is saved in the widget URL, so keep that URL private.
-      </p>
-      <div class="mt-3 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onclick={clearByok}
-          class="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-        >
-          Remove
-        </button>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            onclick={() => (byokOpen = false)}
-            class="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onclick={saveByok}
-            class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+{#if accountOpen}
+  {#await import("$lib/editor/AccountModal.svelte") then M}
+    <M.default bind:open={accountOpen} {editor} />
+  {/await}
 {/if}
 
 {#if isDev && devJsonOpen}
@@ -665,3 +590,24 @@
     />
   {/await}
 {/if}
+
+<style>
+  /* Reads as plain text. Each letter goes gray under the pointer and eases back
+     after it leaves, so sweeping across the name leaves a short fading trail. */
+  .wordmark {
+    cursor: default;
+  }
+  .wordmark span[aria-hidden] {
+    transition: color 600ms ease;
+  }
+  .wordmark span[aria-hidden]:hover {
+    color: oklch(55.2% 0.016 285.938); /* zinc-500 */
+    transition-duration: 80ms;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark span[aria-hidden],
+    .wordmark span[aria-hidden]:hover {
+      transition: none;
+    }
+  }
+</style>

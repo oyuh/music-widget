@@ -8,9 +8,9 @@ Last.fm has a "Hide recent listening" setting in your privacy options. With it o
 
 ## Connecting
 
-1. In the editor sidebar, click **Connect for private profile**.
+1. In the editor sidebar, click the lock button next to your username, then **Sign in with Last.fm**.
 2. Last.fm asks you to authorize the widget. Approve it.
-3. You come back to the editor with a green check and your Last.fm name beside it.
+3. You come back to the editor signed in. The lock button turns blue, and hovering it shows your Last.fm name.
 
 Your design is saved before you leave, so you do not lose anything on the round trip.
 
