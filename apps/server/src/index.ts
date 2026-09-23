@@ -71,7 +71,8 @@ app.use("/api/*", async (c, next) => {
       durationMs: Date.now() - t0,
       error: error instanceof Error ? error.message : String(error),
     });
-    c.res = json({ error: error instanceof Error ? error.message : "Internal error" }, { status: 500 });
+    // The message is in the log above; don't hand internals to the client.
+    c.res = json({ error: "Internal error", requestId: reqId }, { status: 500 });
   }
 });
 
