@@ -2,5 +2,6 @@
 export type AppEnv = {
   Variables: {
     reqId: string;
+    t0: number;
   };
 };
