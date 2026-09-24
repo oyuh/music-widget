@@ -61,19 +61,29 @@ app.use("/api/*", async (c, next) => {
     }
   }
 
-  const t0 = Date.now();
-  try {
-    await next();
-  } catch (error) {
-    log("error", "api.error", {
-      requestId: reqId,
-      path: new URL(c.req.url).pathname,
-      durationMs: Date.now() - t0,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    // The message is in the log above; don't hand internals to the client.
-    c.res = json({ error: "Internal error", requestId: reqId }, { status: 500 });
-  }
+  c.set("t0", Date.now());
+  await next();
+});
+
+// Hono catches handler throws itself and routes them here, so a try/catch around
+// next() never sees them. Without this, its default handler console.errors the
+// raw exception (a multi-line DOMException dump for an upstream timeout).
+app.onError((error, c) => {
+  if ("getResponse" in error && typeof error.getResponse === "function") return error.getResponse() as Response;
+
+  const reqId = c.get("reqId");
+  const t0 = c.get("t0");
+  const timedOut = error.name === "TimeoutError";
+  log(timedOut ? "warn" : "error", timedOut ? "api.upstream_timeout" : "api.error", {
+    requestId: reqId ?? null,
+    path: new URL(c.req.url).pathname,
+    durationMs: t0 ? Date.now() - t0 : null,
+    error: `${error.name}: ${error.message}`,
+  });
+  // The message is in the log above; don't hand internals to the client.
+  return timedOut
+    ? json({ error: "Upstream timed out", requestId: reqId }, { status: 504 })
+    : json({ error: "Internal error", requestId: reqId }, { status: 500 });
 });
 
 app.options("/api/*", () => new Response(null, { status: 204 }));
