@@ -170,7 +170,8 @@
         (target instanceof HTMLInputElement &&
           ["text", "search", "url", "email", "password", "number", "tel", "range"].includes(target.type)) ||
         target instanceof HTMLTextAreaElement ||
-        target.isContentEditable;
+        target.isContentEditable ||
+        target.getAttribute("role") === "slider";
       if (isTextField) return; // let inputs (incl. focused sliders) keep their native keys
 
       // Arrow keys nudge the selected element (Shift = bigger step). When an

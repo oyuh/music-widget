@@ -223,59 +223,101 @@ button {
   display: none;
 }
 
-/* ---- Vamped range slider (editor) ---- */
-.mw-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 8px;
-  border-radius: 9999px;
-  background: linear-gradient(
-    to right,
-    #22c55e 0%,
-    #22c55e var(--pct, 0%),
-    rgba(255, 255, 255, 0.14) var(--pct, 0%),
-    rgba(255, 255, 255, 0.14) 100%
-  );
+/* ---- Switch + slider (editor), after Kumo's switch ---- */
+/* Squircle where supported, plain 5px corners elsewhere. */
+.mw-switch,
+.mw-switch-thumb,
+.mw-slider,
+.mw-slider-fill,
+.mw-slider-thumb {
+  border-radius: 5px;
+}
+@supports (corner-shape: squircle) {
+  .mw-switch,
+  .mw-switch-thumb,
+  .mw-slider,
+  .mw-slider-fill,
+  .mw-slider-thumb {
+    border-radius: 10px;
+    corner-shape: squircle;
+  }
+}
+.mw-switch,
+.mw-slider {
+  position: relative;
+  display: inline-flex;
+  height: 18px;
+  background: var(--color-neutral-700);
+  box-shadow: 0 0 0 1px var(--color-neutral-600);
+  transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+.mw-switch {
+  width: 36px;
   cursor: pointer;
+}
+.mw-switch.on {
+  background: var(--color-blue-600);
+  box-shadow: 0 0 0 1px var(--color-blue-500);
+}
+.mw-switch-thumb,
+.mw-slider-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  box-shadow: 0 0 1px 0.5px oklch(1 0 0 / 10%), 0 1px 2px oklch(0 0 0 / 30%);
+}
+.mw-switch-thumb {
+  left: 0;
+  background: oklch(0.17 0 0);
+  transition: left 150ms ease-out, background-color 150ms ease-out;
+}
+.mw-switch.on .mw-switch-thumb {
+  left: 18px;
+  background: var(--color-blue-300);
+}
+.mw-switch-btn:focus-visible {
   outline: none;
 }
-.mw-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 18px;
-  width: 18px;
-  border-radius: 9999px;
-  background: #fff;
-  border: 3px solid #22c55e;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+.mw-switch-btn:focus-visible .mw-switch,
+.mw-slider:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-blue-400);
 }
-.mw-range:hover::-webkit-slider-thumb {
-  transform: scale(1.12);
+
+.mw-slider {
+  width: 100%;
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
 }
-.mw-range:active::-webkit-slider-thumb {
-  transform: scale(1.25);
-  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.18);
+/* 44px tall hit area without growing the layout. */
+.mw-slider::before {
+  content: "";
+  position: absolute;
+  inset: -13px 0;
 }
-.mw-range:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3);
+.mw-slider-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc((100% - 18px) * var(--f) + 18px);
+  background: var(--color-blue-600);
 }
-.mw-range::-moz-range-thumb {
-  height: 18px;
-  width: 18px;
-  border-radius: 9999px;
-  background: #fff;
-  border: 3px solid #22c55e;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+.mw-slider-thumb {
+  left: calc((100% - 18px) * var(--f));
+  background: var(--color-blue-300);
 }
-.mw-range::-moz-range-track {
-  height: 8px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.14);
+.mw-slider:not(.dragging) .mw-slider-fill,
+.mw-slider:not(.dragging) .mw-slider-thumb {
+  transition: left 150ms ease-out, width 150ms ease-out;
 }
-.mw-range::-moz-range-progress {
-  height: 8px;
-  border-radius: 9999px;
-  background: #22c55e;
+@media (prefers-reduced-motion: reduce) {
+  .mw-switch,
+  .mw-switch-thumb,
+  .mw-slider-fill,
+  .mw-slider-thumb {
+    transition: none !important;
+  }
 }
