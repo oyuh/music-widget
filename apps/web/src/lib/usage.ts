@@ -219,7 +219,8 @@ export async function fetchGithubStars(): Promise<number | null> {
 // expired (and cleared) once it's older than the window, so the entry never
 // lingers beyond 7 days.
 const FEEDBACK_SENT_KEY = "mw:feedbackSentAt";
-const FEEDBACK_HIDE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const FEEDBACK_HIDE_DAYS = 7;
+const FEEDBACK_HIDE_MS = FEEDBACK_HIDE_DAYS * 24 * 60 * 60 * 1000;
 
 /** Record that feedback was just sent, so the button hides for a week. */
 export function markFeedbackSent(): void {
@@ -247,6 +248,41 @@ export function feedbackRecentlySent(): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ---- Visit count ---------------------------------------------------------
+// Counts editor visits on this device (once per tab session, so reloads don't
+// count), letting the editor show first-timer hints for the first few visits.
+const VISITS_KEY = "mw:visits";
+
+/** Bump the visit count for this session and return the total. 0 if storage is off. */
+export function countVisit(): number {
+  try {
+    const n = Number(localStorage.getItem(VISITS_KEY)) || 0;
+    if (sessionStorage.getItem(VISITS_KEY)) return n;
+    sessionStorage.setItem(VISITS_KEY, "1");
+    localStorage.setItem(VISITS_KEY, String(n + 1));
+    return n + 1;
+  } catch {
+    return 0;
+  }
+}
+
+const USER_SINCE_KEY = "mw:lfmUserSince";
+
+/**
+ * How long (ms) this Last.fm username has been the one in the editor on this
+ * device. Starts the clock when the name changes. 0 if storage is off.
+ */
+export function usernameAge(user: string): number {
+  try {
+    const saved = JSON.parse(localStorage.getItem(USER_SINCE_KEY) ?? "null") as { u?: unknown; t?: unknown } | null;
+    if (saved?.u === user && typeof saved.t === "number") return Date.now() - saved.t;
+    localStorage.setItem(USER_SINCE_KEY, JSON.stringify({ u: user, t: Date.now() }));
+    return 0;
+  } catch {
+    return 0;
   }
 }
 

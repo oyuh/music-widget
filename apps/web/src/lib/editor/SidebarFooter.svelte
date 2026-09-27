@@ -2,7 +2,7 @@
   import { tip } from "$lib/ui/tooltip.svelte";
   import { onMount } from "svelte";
   import { serviceStatus } from "$lib/status.svelte";
-  import { feedbackRecentlySent, fetchSiteUserCount } from "$lib/usage";
+  import { FEEDBACK_HIDE_DAYS, feedbackRecentlySent, fetchSiteUserCount } from "$lib/usage";
 
   interface Props {
     lfmUser?: string;
@@ -22,6 +22,16 @@
   // Distinct-user count, fetched once on load (server keeps it warm in memory,
   // so there's nothing to poll). null until it arrives or on failure; hidden then.
   let userCount = $state<number | null>(null);
+  // Thanks toast after a submission. It has links, so it stays up long enough to click.
+  let thanksOpen = $state(false);
+  let thanksTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function onFeedbackSent() {
+    feedbackHidden = true;
+    thanksOpen = true;
+    clearTimeout(thanksTimer);
+    thanksTimer = setTimeout(() => (thanksOpen = false), 12000);
+  }
 
   onMount(() => {
     feedbackHidden = feedbackRecentlySent();
@@ -87,6 +97,29 @@
 
 {#if feedbackOpen}
   {#await import("$lib/editor/FeedbackModal.svelte") then M}
-    <M.default bind:open={feedbackOpen} {lfmUser} onSubmitted={() => (feedbackHidden = true)} />
+    <M.default bind:open={feedbackOpen} {lfmUser} onSubmitted={onFeedbackSent} />
   {/await}
+{/if}
+
+{#if thanksOpen}
+  <div
+    role="status"
+    class="fixed right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 rounded-lg border border-border bg-card p-3 text-xs text-card-foreground shadow-lg"
+  >
+    <p class="leading-relaxed">
+      <span class="font-medium text-foreground">Thanks for the feedback!</span>
+      The form comes back in {FEEDBACK_HIDE_DAYS} days. Got more to say or hit a bug?
+      <a href="{repo}/issues/new" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline-offset-4 hover:underline">Open an issue</a>
+      on
+      <a href={repo} target="_blank" rel="noopener noreferrer" class="text-blue-400 underline-offset-4 hover:underline">GitHub</a>.
+    </p>
+    <button
+      type="button"
+      onclick={() => (thanksOpen = false)}
+      aria-label="Dismiss"
+      class="-m-1 grid h-7 w-7 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+    >
+      ✕
+    </button>
+  </div>
 {/if}
