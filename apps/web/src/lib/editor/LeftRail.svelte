@@ -11,7 +11,8 @@
 
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
-  import { recordWidgetCopy } from "$lib/usage";
+  import { countVisit, recordWidgetCopy, usernameAge } from "$lib/usage";
+  import { onMount } from "svelte";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
   // Share, Elements and status sections always stay open).
@@ -21,8 +22,10 @@
 
   interface Props {
     editor: EditorState;
+    /** A real track is coming in for the current username. */
+    hasLive?: boolean;
   }
-  let { editor }: Props = $props();
+  let { editor, hasLive = false }: Props = $props();
 
   let setupOpen = $state(false);
 
@@ -90,6 +93,22 @@
           ? "Using your own API key"
           : "Private profile? Sign in, or use your own API key",
   );
+
+  // First few visits: point people at Last.fm signup and private-profile sign-in.
+  let newVisitor = $state(false);
+  onMount(() => {
+    const n = countVisit();
+    newVisitor = n > 0 && n <= 3;
+  });
+  // Also hide it once they're clearly set up: live data flowing for a username
+  // they've kept for 2+ hours. Rechecked when the name or live state changes.
+  const SETTLED_MS = 2 * 60 * 60 * 1000;
+  let settled = $state(false);
+  $effect(() => {
+    const user = (editor.config.lfmUser ?? "").trim();
+    // Empty on the first run, before the saved config loads; don't let that restart the clock.
+    settled = !!user && usernameAge(user) >= SETTLED_MS && hasLive;
+  });
 
   // The wordmark, split so each letter reacts to the pointer on its own.
   const WORDMARK = [..."fast.jamlog.lol"];
@@ -217,19 +236,24 @@
         </svg>
       </button>
     </div>
+    {#if newVisitor && !accountActive && !settled}
+      <p class="text-[11px] text-muted-foreground">
+        No account?
+        <a href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer" class="text-foreground underline-offset-4 hover:underline">Make one</a>.
+        Private profile?
+        <button type="button" onclick={() => (accountOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Sign in</button>.
+      </p>
+    {/if}
   </section>
 
   <!-- Share: the link itself, click to select it all, or hit the copy button. -->
   <section class="flex flex-col gap-1.5">
     <div class="font-mono-ui text-xs font-medium text-muted-foreground uppercase">Widget link</div>
     <ClipboardText text={shareUrl} label="widget link" oncopy={() => recordWidgetCopy(editor.config.lfmUser ?? "")} />
-    <button
-      type="button"
-      onclick={() => (setupOpen = true)}
-      class="self-center rounded px-1 py-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-    >
-      How do I add it to OBS?
-    </button>
+    <p class="text-[11px] text-muted-foreground">
+      Streaming?
+      <button type="button" onclick={() => (setupOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Add it to OBS</button>.
+    </p>
   </section>
 
   <div class="border-t border-border" role="separator"></div>

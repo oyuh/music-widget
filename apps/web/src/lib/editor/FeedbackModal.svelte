@@ -25,7 +25,7 @@
   let result = $state<FeedbackResult | null>(null);
 
   const resultMsg: Record<FeedbackResult, string> = {
-    ok: "Thanks! Got your feedback.",
+    ok: "",
     empty: "Add a note in one of the boxes first.",
     needEmail: "Enter a valid email to get alerts.",
     invalid: "Something looked off. Double-check your entries.",
@@ -55,16 +55,11 @@
     result = await submitFeedback({ name, email, handle, platform, good, bad, subscribe, lfmUser });
     sending = false;
     if (result === "ok") {
-      // Remember it so the button hides for a week, and tell the parent now.
+      // Remember it so the button hides for a while; the parent shows the thanks toast.
       markFeedbackSent();
       onSubmitted?.();
-      // Show the thanks briefly, then clear + close.
-      setTimeout(() => {
-        if (result === "ok") {
-          reset();
-          close();
-        }
-      }, 1400);
+      reset();
+      close();
     }
   }
 </script>

@@ -303,7 +303,7 @@
               <path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" />
             </svg>
           </button>
-          <LeftRail {editor} />
+          <LeftRail {editor} {hasLive} />
         </div>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
