@@ -9,6 +9,8 @@ import {
   getReadableTextOn,
   getContrastText,
   getOppositeColor,
+  contrastRatio,
+  primaryColor,
   generateDropShadowCSS,
   generateElementDropShadowCSS,
 } from "../apps/web/src/lib/colors";
@@ -106,5 +108,25 @@ describe("accent brightness normalization", () => {
     expect(at(applyAccentBrightness("#0b0b18", { accentNormalize: true, accentBrightness: 70 }))).toBeCloseTo(70, 0);
     // Missing brightness falls back to the default target rather than going black.
     expect(at(applyAccentBrightness("#0b0b18", { accentNormalize: true }))).toBeCloseTo(58, 0);
+  });
+});
+
+describe("selection outline colors", () => {
+  test("contrastRatio spans 1 to 21 and is symmetric", () => {
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#808080", "#808080")).toBe(1);
+    expect(contrastRatio("nope", "#ffffff")).toBe(1);
+  });
+
+  test("primaryColor counts whites, unlike dominantColor", () => {
+    const px = (r: number, g: number, b: number, n: number) => Array.from({ length: n }, () => [r, g, b, 255]).flat();
+    expect(primaryColor([...px(255, 255, 255, 30), ...px(200, 30, 60, 10)])).toBe("#ffffff");
+    expect(primaryColor([...px(250, 250, 250, 5), ...px(200, 30, 60, 10)])).toBe("#c81e3c");
+  });
+
+  test("primaryColor skips transparent pixels and returns null for an empty image", () => {
+    expect(primaryColor([0, 0, 0, 0, 0, 0, 0, 0])).toBeNull();
+    expect(primaryColor([255, 0, 0, 255, 0, 0, 0, 0])).toBe("#ff0000");
   });
 });

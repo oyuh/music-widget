@@ -54,6 +54,16 @@ export function getOppositeColor(hex: string): string {
   return rgbToHex(oppositeR, oppositeG, oppositeB);
 }
 
+/** WCAG contrast ratio (1-21) between two hex colors. Unparseable input counts as no contrast. */
+export function contrastRatio(a: string, b: string): number {
+  const x = hexToRgb(a);
+  const y = hexToRgb(b);
+  if (!x || !y) return 1;
+  const la = getLuminance(x.r, x.g, x.b);
+  const lb = getLuminance(y.r, y.g, y.b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 // Generate drop shadow CSS based on configuration
 // `spread` grows the shadow outward (box-shadow's 4th length) so a shadow can hug
 // an outlined silhouette instead of the bare shape underneath it. Omitted/0 keeps
@@ -162,6 +172,32 @@ export function dominantColor(data: ArrayLike<number>): string | null {
   if (best >= 0) return rgbToHex((best >> 16) & 255, (best >> 8) & 255, best & 255);
   if (n === 0) return null;
   return rgbToHex(rSum / n, gSum / n, bSum / n);
+}
+
+/**
+ * The color an RGBA pixel buffer is mostly made of. Unlike dominantColor, whites
+ * and blacks count, so a mostly white cover reads as white. Buckets are coarse
+ * (4 levels per channel) so gradients don't scatter across hundreds of keys, and
+ * the winner is the average of its own pixels rather than the bucket's corner.
+ */
+export function primaryColor(data: ArrayLike<number>): string | null {
+  const buckets = new Map<number, { r: number; g: number; b: number; n: number }>();
+  let best: { r: number; g: number; b: number; n: number } | null = null;
+  for (let i = 0; i + 3 < data.length; i += 4) {
+    if (data[i + 3] < 200) continue;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const key = ((r >> 6) << 4) | ((g >> 6) << 2) | (b >> 6);
+    const bucket = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0 };
+    bucket.r += r;
+    bucket.g += g;
+    bucket.b += b;
+    bucket.n++;
+    buckets.set(key, bucket);
+    if (!best || bucket.n > best.n) best = bucket;
+  }
+  return best ? rgbToHex(best.r / best.n, best.g / best.n, best.b / best.n) : null;
 }
 
 // ---- perceptual brightness normalization ----
