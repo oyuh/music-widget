@@ -8,6 +8,7 @@
   import { ANIMATION_TRIGGER_ICONS, ICONS } from "$lib/ui/icons";
   import { type EditorState, type ElementId } from "$lib/editor.svelte";
   import { kindOf, type V2AnimationTrigger, type V2Edge } from "$lib/config";
+  import { contrastRatio, getOppositeColor, getReadableTextOn, primaryColor, rgbToHex } from "$lib/colors";
   import { fetchGithubStars } from "$lib/usage";
 
   interface Props {
@@ -321,6 +322,21 @@
   const GRAB_OUT = $derived(7 / zoom);
   const GRAB_IN = $derived(3 / zoom);
   const GRAB = $derived(GRAB_OUT + GRAB_IN);
+
+  // The resize corner mark only shows while the pointer is within reach of the
+  // bottom-right corner, measured in screen px so zoom doesn't change the reach.
+  const CORNER_REACH = 24;
+  let nearCorner = $state(false);
+  function trackCorner(e: PointerEvent) {
+    if (!selRect || !wrapperEl) {
+      nearCorner = false;
+      return;
+    }
+    const wr = wrapperEl.getBoundingClientRect();
+    const cx = wr.left + (selRect.x + selRect.w) * zoom;
+    const cy = wr.top + (selRect.y + selRect.h) * zoom;
+    nearCorner = Math.hypot(e.clientX - cx, e.clientY - cy) <= CORNER_REACH;
+  }
   // [dir, cursor, css box] for each side and corner, in wrapper-local px.
   const handles = $derived(
     selRect
@@ -345,6 +361,122 @@
     canvasBg = `hsl(${Math.floor(Math.random() * 360)} 70% 50%)`;
   }
   const stop = (e: PointerEvent) => e.stopPropagation();
+
+  // ---- selection outline color ----
+  // The outline takes the inverse of whatever it selects (white art gets a black
+  // box), read off the rendered DOM so accents, art fills and per-element colors
+  // all count. When that inverse still blends into the element or the surface
+  // behind the outline, the gaps between its dashes fill with black or white.
+  let selInk = $state<string | null>(null);
+  let selStripe = $state<string | null>(null);
+  // Bumped when a cover finishes loading so its pixels can be read.
+  let paintTick = $state(0);
+
+  type Rgba = { r: number; g: number; b: number; a: number };
+  const CHECKER: Rgba = { r: 19, g: 19, b: 21, a: 1 }; // average of the .canvas-checker squares
+  const BLACK: Rgba = { r: 0, g: 0, b: 0, a: 1 };
+
+  let probe: CanvasRenderingContext2D | null = null;
+  /** Resolve any CSS color (hex, rgb(), hsl(), oklch(), var-resolved) to RGBA. */
+  function cssColor(value: string): Rgba | null {
+    probe ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    if (!probe || !value) return null;
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = "transparent";
+    probe.fillStyle = value;
+    probe.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: a / 255 };
+  }
+
+  const over = (top: Rgba, under: Rgba): Rgba => ({
+    r: top.r * top.a + under.r * (1 - top.a),
+    g: top.g * top.a + under.g * (1 - top.a),
+    b: top.b * top.a + under.b * (1 - top.a),
+    a: 1,
+  });
+  const hexOf = (c: Rgba) => rgbToHex(c.r, c.g, c.b);
+
+  // Keyed by src. A fresh canvas per cover, since a cross-origin draw taints the
+  // canvas for good and would break every later read on a shared one.
+  const imageColors = new Map<string, string | null>();
+  function imageColor(img: HTMLImageElement): string | null {
+    const src = img.currentSrc || img.src;
+    if (!src) return null;
+    if (!img.complete || !img.naturalWidth) {
+      img.addEventListener("load", () => paintTick++, { once: true });
+      return null;
+    }
+    if (imageColors.has(src)) return imageColors.get(src)!;
+    let out: string | null = null;
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    try {
+      ctx?.drawImage(img, 0, 0, 16, 16);
+      out = ctx ? primaryColor(ctx.getImageData(0, 0, 16, 16).data) : null;
+    } catch {
+      // Cover served without CORS: pixels unreadable, fall back to the brand color.
+    }
+    imageColors.set(src, out);
+    return out;
+  }
+
+  /**
+   * What an element mostly paints: its image, else its text color, else its most
+   * opaque fill. Nested elements and the frame's child layer are skipped, so the
+   * frame reads as its own fill and not as everything stacked on it.
+   */
+  function paintOf(node: Element): Rgba | null {
+    const els: Element[] = [node];
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (n) => ((n as Element).matches("[data-el], .v2-layer") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) els.push(n as Element);
+
+    const img = els.find((el): el is HTMLImageElement => el instanceof HTMLImageElement);
+    const fromImg = img && imageColor(img);
+    if (fromImg) return cssColor(fromImg);
+
+    const text = els.find((el) => [...el.childNodes].some((c) => c.nodeType === Node.TEXT_NODE && c.textContent?.trim()));
+    if (text) return cssColor(getComputedStyle(text).color);
+
+    let best: Rgba | null = null;
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      const c = cssColor(el instanceof SVGElement && cs.fill !== "none" ? cs.fill : cs.backgroundColor);
+      if (c && c.a > (best?.a ?? 0)) best = c;
+    }
+    return best;
+  }
+
+  $effect(() => {
+    const sel = editor.selected;
+    JSON.stringify(editor.config); // deep dependency on any config change
+    void art;
+    void paintTick;
+    const backdrop = canvasBg;
+    if (!sel || !wrapperEl) {
+      selInk = selStripe = null;
+      return;
+    }
+    const node = wrapperEl.querySelector(`[data-el="${sel}"]`);
+    if (!node) return;
+
+    // The outline sits just outside the element: on the widget frame, or on the
+    // canvas backdrop when the frame itself is selected.
+    let behind = backdrop === "checker" ? CHECKER : over(cssColor(backdrop) ?? BLACK, CHECKER);
+    const frame = sel === "background" ? null : wrapperEl.querySelector('[data-el="background"]');
+    const framePaint = frame && paintOf(frame);
+    if (framePaint) behind = over(framePaint, behind);
+
+    const paint = paintOf(node);
+    const fill = paint && paint.a > 0 ? hexOf(over(paint, behind)) : null;
+    const brand = cssColor(getComputedStyle(wrapperEl).getPropertyValue("--brand-500"));
+    const ink = fill ? getOppositeColor(fill) : brand ? hexOf(brand) : "#d2779c";
+    const weakest = Math.min(contrastRatio(ink, hexOf(behind)), fill ? contrastRatio(ink, fill) : 21);
+    selInk = ink;
+    selStripe = weakest < 3 ? getReadableTextOn(ink) : null;
+  });
+
   const bdBtn = "flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground";
   const bdActive = "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground";
 
@@ -656,7 +788,13 @@
     </div>
   </div>
 
-  <div bind:this={zoomAreaEl} class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
+  <div
+    bind:this={zoomAreaEl}
+    role="presentation"
+    class="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8"
+    onpointermove={trackCorner}
+    onpointerleave={() => (nearCorner = false)}
+  >
     <div bind:this={wrapperEl} class="relative" style="transform:scale({zoom});transform-origin:center">
       <!-- Widget set to hide while stopped: a red tag hangs off its top-right
            corner, outside the widget so it never covers the design. Sized by
@@ -713,26 +851,52 @@
            Widths are in SCREEN px (hence /zoom): the wrapper is scaled, so a flat
            2px outline turns into a 8px slab at 400% otherwise. -->
       {#if selRect}
-        <!-- A border thinner than 1px gets clamped by the browser, so both widths
-             would collapse to the same hairline when zoomed in and the corner
-             would stop reading as bolder. The floors keep them 2:1 at any zoom. -->
-        {@const line = Math.max(1, 1.5 / zoom)}
-        {@const bold = Math.max(2, 3 / zoom)}
-        {@const arm = Math.max(6, 11 / zoom)}
-        <div
-          class="pointer-events-none absolute z-10"
-          style="left:{selRect.x - line}px;top:{selRect.y - line}px;width:{selRect.w + line * 2}px;height:{selRect.h +
-            line * 2}px;border:{line}px solid var(--brand-500);border-radius:{3 / zoom}px"
-        ></div>
-
-        <!-- The bottom-right corner drawn heavier than the rest of the outline: the
-             only hint that the box is resizable, since the grab zones themselves
-             are invisible. Decoration only, the "se" zone under it does the work. -->
-        <div
-          class="pointer-events-none absolute z-20"
-          style="left:{selRect.x + selRect.w + line - arm}px;top:{selRect.y + selRect.h + line - arm}px;width:{arm}px;height:{arm}px;border-right:{bold}px solid var(--brand-500);border-bottom:{bold}px solid var(--brand-500);border-bottom-right-radius:{3 /
-            zoom}px"
-        ></div>
+        <!-- Marching ants in the inverse of the selected element. When that ink
+             blends in, its gaps fill with black or white so the line always reads.
+             Drawn in SVG since a CSS dashed border can't set dash length or color
+             its gaps. -->
+        {@const line = 1.5 / zoom}
+        {@const bold = 2.5 / zoom}
+        {@const dash = 4 / zoom}
+        {@const arm = 9 / zoom}
+        {@const ink = selInk ?? "var(--brand-500)"}
+        {@const ox = selRect.w + line - bold / 2}
+        {@const oy = selRect.h + line - bold / 2}
+        {@const corner = `M${ox} ${selRect.h + line - arm}V${oy}H${selRect.w + line - arm}`}
+        <svg
+          class="pointer-events-none absolute z-20 overflow-visible"
+          style="left:{selRect.x}px;top:{selRect.y}px"
+          width={selRect.w}
+          height={selRect.h}
+          aria-hidden="true"
+        >
+          {#if selStripe}
+            <rect x={-line / 2} y={-line / 2} width={selRect.w + line} height={selRect.h + line} rx={3 / zoom} fill="none" stroke={selStripe} stroke-width={line} />
+          {/if}
+          <rect
+            class="ants"
+            x={-line / 2}
+            y={-line / 2}
+            width={selRect.w + line}
+            height={selRect.h + line}
+            rx={3 / zoom}
+            fill="none"
+            stroke={ink}
+            stroke-width={line}
+            stroke-dasharray="{dash} {dash}"
+            style="--ants:{-dash * 2}"
+          />
+          <!-- A slightly heavier solid line on the bottom-right corner when the
+               pointer comes near it: the hint that the box resizes from there,
+               since the grab zones themselves are invisible. Decoration only, the
+               "se" zone under it does the work. -->
+          <g class="grip" class:shown={nearCorner}>
+            {#if selStripe}
+              <path d={corner} fill="none" stroke={selStripe} stroke-width={bold + 1.5 / zoom} />
+            {/if}
+            <path d={corner} fill="none" stroke={ink} stroke-width={bold} />
+          </g>
+        </svg>
 
         {#each handles as [dir, cursor, box] (dir)}
           <button
@@ -877,3 +1041,30 @@
     <M.default bind:open={experimentalOpen} {editor} />
   {/await}
 {/if}
+
+<style>
+  /* Marching ants: the dashes crawl one full period and loop. */
+  .ants {
+    animation: ants 600ms linear infinite;
+  }
+  @keyframes ants {
+    to {
+      stroke-dashoffset: var(--ants);
+    }
+  }
+  .grip {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  .grip.shown {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ants {
+      animation: none;
+    }
+    .grip {
+      transition: none;
+    }
+  }
+</style>
