@@ -6,6 +6,7 @@ import {
   cleanupWidgetVisitors,
   dbEnabled,
   insertFeedback,
+  LFM_USERNAME_PATTERN,
   recordWidgetVisit,
   upsertContact,
   type FeedbackInput,
@@ -43,6 +44,10 @@ function clip(value: unknown, max: number): string | null {
 // also blocks header injection (no CR/LF can reach a mail "To:" field).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Visits for a name Last.fm would never allow (emails, profile URLs, "Bad Bunny")
+// are typos or junk, not users, so they're dropped instead of padding the count.
+const LFM_USERNAME = new RegExp(LFM_USERNAME_PATTERN);
+
 // The feedback form only offers these platforms. This endpoint is public, so we
 // pin the stored value to the allowlist instead of trusting whatever is sent.
 const PLATFORMS = new Set(["twitch", "youtube", "kick", "other"]);
@@ -56,9 +61,10 @@ type Meta = { ip: string | null; userAgent: string | null; referer: string | nul
  */
 export function buildWidgetVisit(body: unknown, meta: Meta): WidgetVisit {
   const b = (body ?? {}) as Record<string, unknown>;
+  const lfmUser = clip(b.lfmUser, MAX_USER) ?? "";
 
   return {
-    lfmUser: clip(b.lfmUser, MAX_USER) ?? "",
+    lfmUser: LFM_USERNAME.test(lfmUser) ? lfmUser : "",
     fingerprint: clip(b.fp, MAX_FP),
     ip: clip(meta.ip, MAX_USER),
     userAgent: clip(meta.userAgent, MAX_TEXT),
@@ -93,7 +99,7 @@ export const handleWidgetLog = async (c: Context<AppEnv>) => {
     referer: c.req.header("referer") ?? null,
   });
 
-  // Only usernames are interesting, so skip anonymous pings.
+  // Only real usernames are interesting, so skip anonymous and invalid pings.
   if (visit.lfmUser) void recordWidgetVisit(visit);
 
   return noContent;
