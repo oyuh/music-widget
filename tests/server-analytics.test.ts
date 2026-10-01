@@ -17,10 +17,10 @@ describe("buildWidgetVisit", () => {
 
   test("ignores any track / event fields the client might still send", () => {
     const v = buildWidgetVisit(
-      { lfmUser: "x", fp: "fp", event: "copy", track: { name: "Song", artist: "A" }, isPlaying: true },
+      { lfmUser: "rj", fp: "fp", event: "copy", track: { name: "Song", artist: "A" }, isPlaying: true },
       meta,
     );
-    expect(v).toEqual({ lfmUser: "x", fingerprint: "fp", ip: "1.2.3.4", userAgent: "UA", referer: meta.referer });
+    expect(v).toEqual({ lfmUser: "rj", fingerprint: "fp", ip: "1.2.3.4", userAgent: "UA", referer: meta.referer });
     expect(v).not.toHaveProperty("trackName");
     expect(v).not.toHaveProperty("event");
   });
@@ -33,9 +33,17 @@ describe("buildWidgetVisit", () => {
   });
 
   test("caps overly long strings", () => {
-    const v = buildWidgetVisit({ lfmUser: "u".repeat(500), fp: "f".repeat(500) }, meta);
-    expect(v.lfmUser!.length).toBe(64);
+    const v = buildWidgetVisit({ lfmUser: "rj", fp: "f".repeat(500) }, meta);
     expect(v.fingerprint!.length).toBe(128);
+  });
+
+  test("drops usernames Last.fm would never allow", () => {
+    for (const bad of ["x", "u".repeat(16), "Bad Bunny", "last.fm/user/rj", "a@b.com", "1abc", "АВЫФВФЫВ"]) {
+      expect(buildWidgetVisit({ lfmUser: bad }, meta).lfmUser).toBe("");
+    }
+    for (const ok of ["rj", "RJ", "Last_fm-User99", "a".repeat(15)]) {
+      expect(buildWidgetVisit({ lfmUser: ok }, meta).lfmUser).toBe(ok);
+    }
   });
 
   test("tolerates a null / non-object body", () => {

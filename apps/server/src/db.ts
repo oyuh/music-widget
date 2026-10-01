@@ -299,12 +299,19 @@ export async function insertFeedback(f: FeedbackInput): Promise<boolean> {
   }
 }
 
+// Last.fm's signup rules: 2-15 characters, starting with a letter, then letters,
+// digits, "_" or "-". Kept as a string so the same pattern works as a Postgres
+// regex here and as a JS RegExp where visits come in (analytics.ts).
+export const LFM_USERNAME_PATTERN = "^[A-Za-z][A-Za-z0-9_-]{1,14}$";
+
 /**
  * Count how many distinct Last.fm users have ever used the site. Each row in
  * widget_events is already one unique (lfm_user, fingerprint) visitor, so we
  * count distinct lfm_user to collapse the same person across devices into one.
- * Read-only and best-effort: returns null on any failure (caller keeps its last
- * known value) and never throws.
+ * Last.fm usernames are case-insensitive, so "Bady" and "bady" count once, and
+ * names Last.fm would never allow (emails, profile URLs, "Bad Bunny") are typos
+ * or junk rather than users, so they're skipped. Read-only and best-effort:
+ * returns null on any failure (caller keeps its last known value) and never throws.
  */
 export async function countWidgetUsers(): Promise<number | null> {
   const d = getDb();
@@ -313,7 +320,12 @@ export async function countWidgetUsers(): Promise<number | null> {
   try {
     await ensureMigrated(d);
     const rows = (await withTimeout(
-      () => d.execute(sql`select count(distinct "lfm_user")::int as n from "widget_events"`),
+      () =>
+        d.execute(sql`
+          select count(distinct lower("lfm_user"))::int as n
+          from "widget_events"
+          where "lfm_user" ~ ${LFM_USERNAME_PATTERN}
+        `),
       "user count",
     )) as Array<{ n: number }>;
     return rows?.[0]?.n ?? 0;
