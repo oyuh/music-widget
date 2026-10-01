@@ -482,6 +482,7 @@
         label="Elements"
       />
     </div>
+    <p class="text-[11px] text-muted-foreground">Drag to reorder layers. The top row sits in front.</p>
     <div role="list" aria-label="Layers, front to back" class="flex flex-col gap-1">
       {#each [...layers, "background"] as id, i (id)}
         {@const kind = KIND[kindOf(id)]}

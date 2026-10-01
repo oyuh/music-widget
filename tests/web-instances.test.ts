@@ -324,3 +324,46 @@ describe("background tint", () => {
     expect(mergeConfig(cfg).v2!.elements.background.tint).toEqual({ color: "#000000", opacity: 40 });
   });
 });
+
+describe("layer order on old links", () => {
+  /** Front-to-back order, the way the renderer and the left list sort. */
+  const order = (cfg: WidgetConfig) => {
+    const els = cfg.v2!.elements;
+    return Object.keys(els)
+      .filter((id) => id !== "background")
+      .sort((a, b) => els[a].z - els[b].z)
+      .reverse();
+  };
+
+  test("a link with no z anywhere decodes to the default stacking", () => {
+    const cfg = base();
+    for (const el of Object.values(cfg.v2!.elements)) delete (el as Partial<V2Element>).z;
+    const merged = mergeConfig(cfg);
+    for (const id of V2_KINDS) expect(merged.v2!.elements[id].z).toBe(base().v2!.elements[id].z);
+    expect(order(merged)).toEqual(order(base()));
+  });
+
+  test("a copy with no z takes its kind's layer and stays a number", () => {
+    const cfg = base();
+    cfg.v2!.elements["title#2"] = { x: 40 } as V2Element;
+    expect(mergeConfig(cfg).v2!.elements["title#2"].z).toBe(base().v2!.elements.title.z);
+  });
+
+  test("a hand-edited z that isn't a number falls back instead of scrambling the order", () => {
+    const cfg = base();
+    (cfg.v2!.elements.title as unknown as { z: unknown }).z = "front";
+    (cfg.v2!.elements.artist as unknown as { z: unknown }).z = null;
+    const merged = mergeConfig(cfg);
+    expect(merged.v2!.elements.title.z).toBe(base().v2!.elements.title.z);
+    expect(merged.v2!.elements.artist.z).toBe(base().v2!.elements.artist.z);
+  });
+
+  test("layers above the old slider max of 20 survive a share link", () => {
+    const cfg = withElements({ "title#2": { z: 25 } });
+    cfg.v2!.elements.art.z = 9;
+    const back = mergeConfig(decodeConfig(encodeConfig(cfg)));
+    expect(back.v2!.elements["title#2"].z).toBe(25);
+    expect(back.v2!.elements.art.z).toBe(9);
+    expect(order(back)).toEqual(order(cfg));
+  });
+});

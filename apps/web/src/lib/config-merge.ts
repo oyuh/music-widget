@@ -123,6 +123,10 @@ function mergeV2(legacyMerged: WidgetConfig, pv: WidgetV2 | undefined): Pick<Wid
       snapX: e.snapX !== undefined ? e.snapX : b.snapX,
       snapY: e.snapY !== undefined ? e.snapY : b.snapY,
     };
+    // Layers sort numerically, so a hand-edited z that isn't a number would
+    // scramble every element's order. Links from before layer drag carry
+    // whatever the Layer slider set, or nothing, and both land here unchanged.
+    merged.z = typeof e.z === "number" && Number.isFinite(e.z) ? Math.round(e.z) : b.z;
     const animations = normalizeElementAnimations(e.animations);
     if (animations) merged.animations = animations;
     else delete merged.animations;
