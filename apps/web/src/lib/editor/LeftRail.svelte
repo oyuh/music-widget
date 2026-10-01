@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tip } from "$lib/ui/tooltip.svelte";
-  import { ELEMENTS, freshConfig, labelFor, type EditorState } from "$lib/editor.svelte";
+  import { ELEMENTS, freshConfig, labelFor, type EditorState, type ElementId } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
@@ -10,9 +10,9 @@
   import ClipboardText from "$lib/ui/ClipboardText.svelte";
 
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
-  import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, MAX_PER_KIND } from "$lib/config";
+  import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, kindOf, MAX_PER_KIND } from "$lib/config";
   import { countVisit, recordWidgetCopy, usernameAge } from "$lib/usage";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
   // Share, Elements and status sections always stay open).
@@ -80,6 +80,50 @@
   // The pause symbol only renders in "Show paused" mode, so dim + disable its row
   // when the widget is set to hide entirely while paused (nothing to style there).
   const pauseInactive = $derived((editor.config.fields.pausedMode ?? "label") !== "label");
+
+  // ---- layer order ----
+  // The list runs front to back. The frame is pinned under everything since it
+  // holds the rest, so only the rows above it drag.
+  const KIND = Object.fromEntries(ELEMENTS.map((k) => [k.id, k]));
+  const layers = $derived(editor.layerOrder);
+  let dragId = $state<ElementId | null>(null);
+  // Insert position in `layers`: i drops above row i, layers.length below the last.
+  let dropAt = $state<number | null>(null);
+
+  function onLayerDragStart(e: DragEvent, id: ElementId) {
+    dragId = id;
+    e.dataTransfer?.setData("text/plain", id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
+  function onLayerDragOver(e: DragEvent, i: number) {
+    if (!dragId) return;
+    e.preventDefault();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    dropAt = i >= layers.length || e.clientY >= r.top + r.height / 2 ? Math.min(i + 1, layers.length) : i;
+  }
+  function onLayerDrop(e: DragEvent) {
+    e.preventDefault();
+    if (dragId && dropAt !== null) {
+      const from = layers.indexOf(dragId);
+      editor.moveLayer(dragId, dropAt > from ? dropAt - 1 : dropAt);
+    }
+    endLayerDrag();
+  }
+  function endLayerDrag() {
+    dragId = null;
+    dropAt = null;
+  }
+
+  // Alt+Up/Down nudges the focused row one layer. Moving the row re-parents its
+  // node, which drops focus, so focus goes back once the list has re-rendered.
+  async function onLayerKey(e: KeyboardEvent, id: ElementId) {
+    const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    if (!e.altKey || !step || id === "background") return;
+    e.preventDefault();
+    editor.moveLayer(id, layers.indexOf(id) + step);
+    await tick();
+    document.querySelector<HTMLElement>(`[data-layer="${id}"] button`)?.focus();
+  }
 
   // ---- Account (private profile sign-in + your own API key) ----
   let accountOpen = $state(false);
@@ -426,22 +470,38 @@
     {/if}
   </Collapsible>
 
-  <!-- Element list. Each kind lists its instances; the "+" copies the one you're
-       looking at, up to MAX_PER_KIND. The first instance can't be deleted (hide
-       it instead), so a design always has a background, a title and so on. -->
+  <!-- Element list, front to back: drag a row (or Alt+Up/Down) to change what
+       sits in front. The "+" copies the one you're looking at, up to
+       MAX_PER_KIND. The first instance can't be deleted (hide it instead), so a
+       design always has a background, a title and so on. -->
   <section class="flex flex-col gap-1">
     <div class="flex items-center gap-1 font-mono-ui text-xs font-medium text-muted-foreground uppercase">
       Elements
       <InfoTip
-        text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
+        text="The list is your layer order: the top row sits in front. Drag a row to move it, or focus one and press Alt+Up or Alt+Down. Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
         label="Elements"
       />
     </div>
-    {#each ELEMENTS as kind (kind.id)}
-      {@const inactive = kind.id === "pause" && pauseInactive}
-      {@const ids = editor.idsOf(kind.id)}
-      {#each ids as id (id)}
-        <div class="flex items-center gap-1">
+    <div role="list" aria-label="Layers, front to back" class="flex flex-col gap-1">
+      {#each [...layers, "background"] as id, i (id)}
+        {@const kind = KIND[kindOf(id)]}
+        {@const inactive = kind.id === "pause" && pauseInactive}
+        {@const pinned = id === "background"}
+        <div
+          data-layer={id}
+          role="listitem"
+          draggable={!pinned}
+          ondragstart={(e) => onLayerDragStart(e, id)}
+          ondragover={(e) => onLayerDragOver(e, i)}
+          ondrop={onLayerDrop}
+          ondragend={endLayerDrag}
+          class="relative flex items-center gap-1 {pinned ? '' : 'cursor-grab active:cursor-grabbing'} {dragId === id
+            ? 'opacity-40'
+            : ''}"
+        >
+          {#if dropAt === i && dragId}
+            <span class="pointer-events-none absolute inset-x-1 -top-[3px] h-0.5 bg-brand-400"></span>
+          {/if}
           <button
             type="button"
             disabled={inactive}
@@ -449,6 +509,7 @@
               ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it."
               : ""}
             onclick={() => editor.select(id)}
+            onkeydown={(e) => onLayerKey(e, id)}
             class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
             id
               ? 'bg-primary text-primary-foreground'
@@ -490,8 +551,8 @@
             </ConfirmButton>
           {/if}
 
-          <!-- The + stays on the FIRST instance: it's the original, and the copies
-               hanging under it each carry their own delete instead. -->
+          <!-- The + stays on the FIRST instance: it's the original, and each copy
+               carries its own delete instead. -->
           {#if isBaseId(id)}
             <button
               type="button"
@@ -510,9 +571,9 @@
           {#if (kind.id === "progress" || kind.id === "duration" || kind.id === "pause") && isBaseId(id)}
             <InfoTip text={kind.id === "pause" ? LASTFM_PAUSE_HINT : LASTFM_TIMING_HINT} label={kind.label} />
           {/if}
-        </div>
+          </div>
       {/each}
-    {/each}
+    </div>
   </section>
 
   <!-- Sidebar footer -->

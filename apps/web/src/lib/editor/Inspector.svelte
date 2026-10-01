@@ -12,7 +12,7 @@
   import { tick } from "svelte";
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
-  import { checkArtUrl, kindOf } from "$lib/config";
+  import { checkArtUrl, kindOf, MAX_Z } from "$lib/config";
   import { ICONS } from "$lib/ui/icons";
   import { matchesInspectorSearch, nextSearchIndex } from "$lib/inspector-search";
   import CustomAnimations from "$lib/editor/CustomAnimations.svelte";
@@ -629,7 +629,7 @@
         {:else}
           <Slider bind:value={E.y} min={-200} max={700} label="Y" suffix="px" />
         {/if}
-        <Slider bind:value={E.z} min={0} max={20} label="Layer" hint="Stacking order: higher numbers sit in front of lower ones." diagram="z" />
+        <Slider bind:value={E.z} min={0} max={MAX_Z} label="Layer" hint="Stacking order: higher numbers sit in front of lower ones. You can also drag elements in the left list, where the top one sits in front." diagram="z" />
 
         <!-- Size, same section: it's the other half of "where does this sit".
              Full width rather than two columns, so the tracks are long enough to
