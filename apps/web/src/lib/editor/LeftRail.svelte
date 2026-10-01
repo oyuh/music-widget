@@ -218,7 +218,7 @@
         oninput={onUserInput}
         spellcheck="false"
         autocomplete="off"
-        class="h-9 min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        class="h-9 min-w-0 flex-1 rounded-md border border-border bg-zinc-800 px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
       />
       <button
         type="button"
@@ -226,7 +226,7 @@
         use:tip={accountTip}
         aria-label="Last.fm access: {accountTip}"
         aria-haspopup="dialog"
-        class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border transition-colors before:absolute before:-inset-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 {accountActive
+        class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border transition-colors before:absolute before:-inset-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {accountActive
           ? 'border-border bg-zinc-800 text-green-400 hover:bg-muted'
           : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'}"
       >
@@ -241,7 +241,7 @@
         No account?
         <a href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer" class="text-foreground underline-offset-4 hover:underline">Make one</a>.
         Private profile?
-        <button type="button" onclick={() => (accountOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Sign in</button>.
+        <button type="button" onclick={() => (accountOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">Sign in</button>.
       </p>
     {/if}
   </section>
@@ -252,7 +252,7 @@
     <ClipboardText text={shareUrl} label="widget link" oncopy={() => recordWidgetCopy(editor.config.lfmUser ?? "")} />
     <p class="text-[11px] text-muted-foreground">
       Streaming?
-      <button type="button" onclick={() => (setupOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Add it to OBS</button>.
+      <button type="button" onclick={() => (setupOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">Add it to OBS</button>.
     </p>
   </section>
 

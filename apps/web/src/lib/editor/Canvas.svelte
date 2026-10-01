@@ -722,7 +722,7 @@
         <div
           class="pointer-events-none absolute z-10"
           style="left:{selRect.x - line}px;top:{selRect.y - line}px;width:{selRect.w + line * 2}px;height:{selRect.h +
-            line * 2}px;border:{line}px solid #3b82f6;border-radius:{3 / zoom}px"
+            line * 2}px;border:{line}px solid var(--brand-500);border-radius:{3 / zoom}px"
         ></div>
 
         <!-- The bottom-right corner drawn heavier than the rest of the outline: the
@@ -730,7 +730,7 @@
              are invisible. Decoration only, the "se" zone under it does the work. -->
         <div
           class="pointer-events-none absolute z-20"
-          style="left:{selRect.x + selRect.w + line - arm}px;top:{selRect.y + selRect.h + line - arm}px;width:{arm}px;height:{arm}px;border-right:{bold}px solid #3b82f6;border-bottom:{bold}px solid #3b82f6;border-bottom-right-radius:{3 /
+          style="left:{selRect.x + selRect.w + line - arm}px;top:{selRect.y + selRect.h + line - arm}px;width:{arm}px;height:{arm}px;border-right:{bold}px solid var(--brand-500);border-bottom:{bold}px solid var(--brand-500);border-bottom-right-radius:{3 /
             zoom}px"
         ></div>
 
