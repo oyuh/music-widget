@@ -6,6 +6,7 @@ import {
   instanceLabel,
   isBaseId,
   kindOf,
+  MAX_Z,
   migrateToV2,
   nextInstanceId,
   resolveTextProps,
@@ -361,7 +362,7 @@ export class EditorState {
     else copy.x += NUDGE;
     if (copy.snapY) copy.snapY.offset += NUDGE;
     else copy.y += NUDGE;
-    copy.z = Math.min(20, Math.max(...Object.values(els).map((e) => e.z)) + 1);
+    copy.z = Math.min(MAX_Z, Math.max(...Object.values(els).map((e) => e.z)) + 1);
     copy.visible = true;
     // Only the primary art's fallback URL is read, and only its panel offers the
     // field, so a copy would carry up to 600 dead characters in every share link.
@@ -412,6 +413,31 @@ export class EditorState {
     if (this.selected === id) this.selected = kindOf(id);
     this.save();
     return true;
+  }
+
+  /**
+   * Everything the frame holds, front to back: the order the left list shows.
+   * Ties keep key order, matching the stable sort WidgetV2 paints with.
+   */
+  get layerOrder(): ElementId[] {
+    const els = this.config.v2!.elements;
+    return Object.keys(els)
+      .filter((id) => id !== "background")
+      .sort((a, b) => els[a].z - els[b].z)
+      .reverse();
+  }
+
+  /**
+   * Move one layer to `index` in the front-to-back order, then renumber every
+   * layer 1..n from the back so the result has no ties left to break.
+   */
+  moveLayer(id: ElementId, index: number) {
+    const order = this.layerOrder.filter((other) => other !== id);
+    if (order.length === this.layerOrder.length) return;
+    order.splice(Math.max(0, Math.min(order.length, index)), 0, id);
+    const els = this.config.v2!.elements;
+    order.forEach((other, i) => (els[other].z = Math.min(MAX_Z, order.length - i)));
+    this.save();
   }
 
   exportHash() {

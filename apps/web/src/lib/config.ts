@@ -28,6 +28,9 @@ export type V2TextId = (typeof V2_TEXT_IDS)[number];
 /** How many instances of one kind a design may carry (the base one included). */
 export const MAX_PER_KIND = 3;
 
+/** Highest layer number. Room for every instance of every kind on its own layer. */
+export const MAX_Z = 30;
+
 /** Instance id => the kind it is an instance of. */
 export function kindOf(id: V2ElementId): V2Kind {
   const i = id.indexOf("#");
