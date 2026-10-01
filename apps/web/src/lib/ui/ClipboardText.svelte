@@ -35,7 +35,7 @@
     type="button"
     onclick={copy}
     aria-label="Copy {label}"
-    class="relative h-full w-9 shrink-0 overflow-hidden border-l border-border transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset {copied
+    class="relative h-full w-9 shrink-0 overflow-hidden border-l border-border transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-inset {copied
       ? 'text-green-400'
       : 'text-muted-foreground'}"
   >

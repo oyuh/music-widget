@@ -90,7 +90,7 @@
           type="button"
           onclick={close}
           aria-label="Close"
-          class="-mt-1 -mr-1 grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          class="-mt-1 -mr-1 grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M18 6 6 18" /><path d="m6 6 12 12" />
@@ -112,7 +112,7 @@
           href={url}
           target="_blank"
           rel="noopener"
-          class="mt-1 inline-block rounded py-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          class="mt-1 inline-block rounded py-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           Open it in a new tab ↗
         </a>
