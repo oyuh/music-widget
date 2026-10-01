@@ -191,8 +191,14 @@
         else el.x = Math.round(x);
         if (editor.snapActive(id, "y")) el.snapY!.offset = Math.round(baseOffY + (y - base.y));
         else el.y = Math.round(y);
+        // From the box being placed, not the DOM, which is a frame behind. Starts
+        // on the first move so a plain click to select doesn't flash them.
+        updateGhosts(id, { x, y, w: base.w, h: base.h });
       },
-      () => commitSnaps(id, pendingX, pendingY),
+      () => {
+        ghosts = [];
+        commitSnaps(id, pendingX, pendingY);
+      },
     );
   }
 
@@ -231,13 +237,12 @@
   // compass letters in the handle name, so "nw" moves the top and left edges.
   type HandleDir = "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
 
-  // Grayed-out boxes of the widget frame and whatever the resized element is near,
-  // so you can see what you're lining up with while dragging an edge.
+  // Grayed-out boxes of the widget frame and whatever the moved or resized element
+  // is near, so you can see what you're lining up with while dragging.
   let ghosts = $state<Box[]>([]);
   const GHOST_PX = 24;
 
-  function updateGhosts(id: ElementId) {
-    const me = localBox(id);
+  function updateGhosts(id: ElementId, me: Box | null = localBox(id)) {
     if (!me) return;
     const out: Box[] = [];
     for (const aid of Object.keys(editor.v2.elements)) {
@@ -249,7 +254,7 @@
         b.x - GHOST_PX < me.x + me.w &&
         me.y - GHOST_PX < b.y + b.h &&
         b.y - GHOST_PX < me.y + me.h;
-      // The widget frame is always worth seeing while resizing.
+      // The widget frame is always worth seeing while dragging.
       if (near || aid === "background") out.push(b);
     }
     ghosts = out;
@@ -839,7 +844,7 @@
         <div class="pointer-events-none absolute right-0 left-0 z-30" style="top:{guideY}px;height:1px;background:#22d3ee"></div>
       {/if}
 
-      <!-- Ghosts: what the element being resized is lining up against -->
+      <!-- Ghosts: what the element being moved or resized is lining up against -->
       {#each ghosts as g, i (i)}
         <div
           class="pointer-events-none absolute z-10"
