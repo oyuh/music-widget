@@ -451,12 +451,21 @@
   <section class="flex flex-col gap-1">
     <div class="flex items-center gap-1 font-mono-ui text-xs font-medium text-muted-foreground uppercase">
       Elements
-      <InfoTip
-        text="The list is your layer order: the top row sits in front. Drag a row to move it, or focus one and press Alt+Up or Alt+Down. Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
-        label="Elements"
-      />
+      <!-- Caps sit above the line box's center, so centered icons read low next
+           to them. Lifting them 1px lines them up with the letters. -->
+      <span class="relative -top-px flex items-center gap-1">
+        <InfoTip
+          text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
+          label="Elements"
+        />
+        <InfoTip
+          icon="layers"
+          diagram="layer-reorder"
+          text="This list is your layer order: the top row sits in front. Drag a row to move it, or click one and use the keys. Every element's settings also have a Layers section at the bottom."
+          label="Layer order"
+        />
+      </span>
     </div>
-    <p class="text-[11px] text-muted-foreground">Drag to reorder layers. The top row sits in front.</p>
     <div role="list" aria-label="Layers, front to back" class="flex flex-col gap-1">
       {#each [...layers, "background"] as id, i (id)}
         {@const kind = KIND[kindOf(id)]}
