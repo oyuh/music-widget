@@ -618,3 +618,40 @@ export class EditorState {
 }
 
 export { defaultConfig };
+
+/**
+ * Drag state for a front-to-back layer list. The sidebar and the Layers section
+ * in the inspector both reorder the same `editor.layerOrder`, so they share this.
+ */
+export class LayerDrag {
+  dragId = $state<ElementId | null>(null);
+  /** Insert position in the order: i drops above row i, length drops below the last. */
+  dropAt = $state<number | null>(null);
+
+  start(e: DragEvent, id: ElementId) {
+    this.dragId = id;
+    e.dataTransfer?.setData("text/plain", id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
+
+  over(e: DragEvent, i: number, n: number) {
+    if (!this.dragId) return;
+    e.preventDefault();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this.dropAt = i >= n || e.clientY >= r.top + r.height / 2 ? Math.min(i + 1, n) : i;
+  }
+
+  drop(e: DragEvent, editor: EditorState) {
+    e.preventDefault();
+    if (this.dragId && this.dropAt !== null) {
+      const from = editor.layerOrder.indexOf(this.dragId);
+      editor.moveLayer(this.dragId, this.dropAt > from ? this.dropAt - 1 : this.dropAt);
+    }
+    this.end();
+  }
+
+  end() {
+    this.dragId = null;
+    this.dropAt = null;
+  }
+}

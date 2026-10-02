@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tip } from "$lib/ui/tooltip.svelte";
-  import { ELEMENTS, freshConfig, labelFor, type EditorState, type ElementId } from "$lib/editor.svelte";
+  import { ELEMENTS, freshConfig, labelFor, LayerDrag, type EditorState, type ElementId } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
@@ -86,33 +86,7 @@
   // holds the rest, so only the rows above it drag.
   const KIND = Object.fromEntries(ELEMENTS.map((k) => [k.id, k]));
   const layers = $derived(editor.layerOrder);
-  let dragId = $state<ElementId | null>(null);
-  // Insert position in `layers`: i drops above row i, layers.length below the last.
-  let dropAt = $state<number | null>(null);
-
-  function onLayerDragStart(e: DragEvent, id: ElementId) {
-    dragId = id;
-    e.dataTransfer?.setData("text/plain", id);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-  }
-  function onLayerDragOver(e: DragEvent, i: number) {
-    if (!dragId) return;
-    e.preventDefault();
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    dropAt = i >= layers.length || e.clientY >= r.top + r.height / 2 ? Math.min(i + 1, layers.length) : i;
-  }
-  function onLayerDrop(e: DragEvent) {
-    e.preventDefault();
-    if (dragId && dropAt !== null) {
-      const from = layers.indexOf(dragId);
-      editor.moveLayer(dragId, dropAt > from ? dropAt - 1 : dropAt);
-    }
-    endLayerDrag();
-  }
-  function endLayerDrag() {
-    dragId = null;
-    dropAt = null;
-  }
+  const drag = new LayerDrag();
 
   // Alt+Up/Down nudges the focused row one layer. Moving the row re-parents its
   // node, which drops focus, so focus goes back once the list has re-rendered.
@@ -492,15 +466,15 @@
           data-layer={id}
           role="listitem"
           draggable={!pinned}
-          ondragstart={(e) => onLayerDragStart(e, id)}
-          ondragover={(e) => onLayerDragOver(e, i)}
-          ondrop={onLayerDrop}
-          ondragend={endLayerDrag}
-          class="relative flex items-center gap-1 {pinned ? '' : 'cursor-grab active:cursor-grabbing'} {dragId === id
+          ondragstart={(e) => drag.start(e, id)}
+          ondragover={(e) => drag.over(e, i, layers.length)}
+          ondrop={(e) => drag.drop(e, editor)}
+          ondragend={() => drag.end()}
+          class="relative flex items-center gap-1 {pinned ? '' : 'cursor-grab active:cursor-grabbing'} {drag.dragId === id
             ? 'opacity-40'
             : ''}"
         >
-          {#if dropAt === i && dragId}
+          {#if drag.dropAt === i && drag.dragId}
             <span class="pointer-events-none absolute inset-x-1 -top-[3px] h-0.5 bg-brand-400"></span>
           {/if}
           <button

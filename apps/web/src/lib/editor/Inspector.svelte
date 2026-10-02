@@ -12,11 +12,12 @@
   import { tick } from "svelte";
   import { fly } from "svelte/transition";
   import { ELEMENTS, isTextElement, labelFor, TextStyleView, TintView, type EditorState } from "$lib/editor.svelte";
-  import { checkArtUrl, kindOf, MAX_Z } from "$lib/config";
+  import { checkArtUrl, kindOf } from "$lib/config";
   import { ICONS } from "$lib/ui/icons";
   import { matchesInspectorSearch, nextSearchIndex } from "$lib/inspector-search";
   import CustomAnimations from "$lib/editor/CustomAnimations.svelte";
   import ElementAnimations from "$lib/editor/ElementAnimations.svelte";
+  import LayerOrder from "$lib/editor/LayerOrder.svelte";
 
   interface Props {
     editor: EditorState;
@@ -142,6 +143,7 @@
     font: false,
     elementAnim: false,
     paused: false,
+    layers: false,
     ghosts: false,
   });
 
@@ -172,7 +174,7 @@
     { label: "Show or hide", section: "Element", terms: "visible visibility display", open: undefined },
     { label: "Horizontal position", section: "Position & size", terms: "x left right move location offset snap unsnap", open: "layout" },
     { label: "Vertical position", section: "Position & size", terms: "y top bottom move location offset snap unsnap", open: "layout" },
-    { label: "Layer order", section: "Position & size", terms: "z stacking front behind depth", open: "layout" },
+    { label: "Layer order", section: "Layers", terms: "z index stacking front behind depth reorder", open: "layers" },
     { label: "Width", section: "Position & size", terms: "size wide auto", open: "layout" },
     { label: "Height", section: "Position & size", terms: "size tall auto", open: "layout" },
     { label: "Outline", section: "Outline", terms: "stroke border thickness position opacity color", open: "outline" },
@@ -199,7 +201,7 @@
     const elementKind = kindOf(id);
     const common = id === "background"
       ? commonSpecs
-          .filter((item) => ["Width", "Height", "Animations", "Outline", "Drop shadow"].includes(item.label))
+          .filter((item) => ["Width", "Height", "Animations", "Outline", "Drop shadow", "Layer order"].includes(item.label))
           .map((item) => ({ ...item, section: item.open === "layout" ? "Widget size" : item.section }))
       : commonSpecs;
 
@@ -309,6 +311,12 @@
       closeSearch();
     }
   }
+
+  // "3 of 8", counting from the front. The frame isn't in layerOrder: it's always last.
+  const layerBadge = $derived.by(() => {
+    const total = editor.layerOrder.length + 1;
+    return sel ? `${sel === "background" ? total : editor.layerOrder.indexOf(sel) + 1} of ${total}` : undefined;
+  });
 
   function resultIcon(item: SearchItem): string {
     if (!item.target) return "outline";
@@ -629,8 +637,6 @@
         {:else}
           <Slider bind:value={E.y} min={-200} max={700} label="Y" suffix="px" />
         {/if}
-        <Slider bind:value={E.z} min={0} max={MAX_Z} label="Layer" hint="Stacking order: higher numbers sit in front of lower ones. You can also drag elements in the left list, where the top one sits in front." diagram="z" />
-
         <!-- Size, same section: it's the other half of "where does this sit".
              Full width rather than two columns, so the tracks are long enough to
              actually drag. -->
@@ -1011,6 +1017,18 @@
           />
         {/if}
       {/if}
+    </Collapsible>
+
+    <!-- ===== Layer order (every element) ===== -->
+    <Collapsible
+      title="Layers"
+      icon="layers"
+      bind:open={open.layers}
+      badge={layerBadge}
+      hint="Which elements sit in front of which. The top row is in front. It's the same order as the element list on the left, so a change here shows up there too."
+      diagram="z"
+    >
+      <LayerOrder {editor} current={sel} />
     </Collapsible>
 
     <!-- ===== Widget-wide (only on the primary background: there's one widget) ===== -->
