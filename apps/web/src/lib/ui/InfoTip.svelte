@@ -117,9 +117,10 @@
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
     <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS[glyph]}</svg>
   {:else}
-    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M9.1 8.4a3 3 0 0 1 5.8 1c0 2-3 2.7-3 4" />
-      <path d="M12 16.8h.01" />
+    <!-- Spans most of the 24 grid so it reads the same size as the icon tips. -->
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M8 8.2a4 4 0 0 1 8 .3c0 2.8-4 3.4-4 6" />
+      <path d="M12 19h.01" />
     </svg>
   {/if}
 </button>
