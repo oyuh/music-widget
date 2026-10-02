@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ICONS } from "./icons";
+
   interface Props {
     /** Explanatory text shown in the tooltip. */
     text: string;
@@ -8,8 +10,10 @@
     label?: string;
     /** Stretch the trigger to fill its parent, so the whole segment answers to hover. */
     fill?: boolean;
+    /** Icon key (see icons.ts) to draw instead of the "?", for a tip about one specific thing. */
+    icon?: string;
   }
-  let { text, diagram, label, fill = false }: Props = $props();
+  let { text, diagram, label, fill = false, icon: glyph }: Props = $props();
 
   let icon = $state<HTMLButtonElement | null>(null);
   let open = $state(false);
@@ -109,10 +113,15 @@
 >
   <!-- Drawn rather than typed: a "?" glyph never centers in a 16px box (font
        ascender/descender push it off), an SVG path always does. -->
-  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M9.1 8.4a3 3 0 0 1 5.8 1c0 2-3 2.7-3 4" />
-    <path d="M12 16.8h.01" />
-  </svg>
+  {#if glyph && ICONS[glyph]}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS[glyph]}</svg>
+  {:else}
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9.1 8.4a3 3 0 0 1 5.8 1c0 2-3 2.7-3 4" />
+      <path d="M12 16.8h.01" />
+    </svg>
+  {/if}
 </button>
 
 {#if open}
