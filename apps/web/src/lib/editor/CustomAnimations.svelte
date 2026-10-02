@@ -104,6 +104,7 @@
   bind:open
   badge={definitions.length ? `${definitions.length}/${MAX_CUSTOM_ANIMATIONS}` : undefined}
   hint="Build a reusable effect with visual controls, then pick it from any element's Animations panel. CSS and JavaScript remain available under custom code."
+  diagram="custom-anim"
 >
   <button
     type="button"
