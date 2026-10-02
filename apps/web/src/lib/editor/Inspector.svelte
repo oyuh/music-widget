@@ -353,8 +353,8 @@
     <hr class="flex-1 border-border" />
   </div>
 
-  <Collapsible title="Accent color" icon="palette" bind:open={open.accent} hint="The color any element set to 'auto' follows, and the accent background fill.">
-    <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." />
+  <Collapsible title="Accent color" icon="palette" bind:open={open.accent} hint="The color any element set to 'auto' follows, and the accent background fill." diagram="accent">
+    <ColorInput bind:value={cfg.theme.accent} label="Accent color" hint="Used by any element whose color is set to 'auto', and by the accent background fill." diagram="accent" />
     <Toggle bind:checked={cfg.theme.autoFromArt} label="Auto color from album art" hint="Pull the accent from the album art's dominant color, updating each song. When the art can't be read, each accent element uses its own 'Fallback color'." diagram="auto-color" />
     {#if cfg.theme.autoFromArt}
       <Toggle
@@ -377,11 +377,11 @@
     {/if}
   </Collapsible>
 
-  <Collapsible title="Global font" icon="type" bind:open={open.font} badge={cfg.theme.font} hint="The default font for all text. Each text element can override it under its own Font setting.">
+  <Collapsible title="Global font" icon="type" bind:open={open.font} badge={cfg.theme.font} hint="The default font for all text. Each text element can override it under its own Font setting." diagram="global-font">
     <Select bind:value={cfg.theme.font} options={fontOptions} ariaLabel="Global font" />
   </Collapsible>
 
-  <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint={LASTFM_PAUSE_HINT}>
+  <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint={LASTFM_PAUSE_HINT} diagram="paused-mode">
     <Segmented bind:value={cfg.fields.pausedMode!} options={PAUSED_OPTIONS} />
     {#if !pauseHidden}
       <p class="text-[11px] leading-snug text-muted-foreground">
@@ -579,6 +579,7 @@
       bind:open={open.ghosts}
       badge={ghostsOff ? `${ghostsOff} off` : undefined}
       hint="While you drag an edge or corner to resize, nearby elements draw a gray outline so you can see what you're lining up with. Turn one off here if it's more noise than help. This only changes the editor, never the widget itself."
+      diagram="ghosts"
     >
       {#each allIds as id (id)}
         <Toggle
@@ -657,7 +658,7 @@
             <div class="mb-1 flex items-center justify-between text-xs">
               <span class="flex items-center gap-1 text-muted-foreground">
                 Width
-                <InfoTip text="Auto fits the text. Turn off for a fixed width that clips long text (or scrolls it, if scrolling is on)." diagram="scroll" label="Width" />
+                <InfoTip text="Auto fits the text. Turn off for a fixed width that clips long text (or scrolls it, if scrolling is on)." diagram="auto-width" label="Width" />
               </span>
               <button
                 class="rounded border px-1.5 py-0.5 text-[11px] {E.w === null
@@ -688,7 +689,7 @@
       </Collapsible>
     {:else}
       <!-- The primary background IS the widget frame, so its size is the widget size. -->
-      <Collapsible title="Widget size" icon="layout" bind:open={open.layout} hint="The size of the whole widget. Everything else positions inside it.">
+      <Collapsible title="Widget size" icon="layout" bind:open={open.layout} hint="The size of the whole widget. Everything else positions inside it." diagram="widget-size">
         <Slider bind:value={E.w as number} min={120} max={900} label="Width" suffix="px" />
         <Slider bind:value={E.h as number} min={60} max={700} label="Height" suffix="px" />
       </Collapsible>
@@ -701,6 +702,7 @@
       bind:open={open.elementAnim}
       badge={animationCount ? `${animationCount} on` : undefined}
       hint="Choose how this element moves when the widget loads, the song changes, or playback starts and stops."
+      diagram="anim-triggers"
     >
       <ElementAnimations {editor} id={sel} />
     </Collapsible>
@@ -781,7 +783,7 @@
         <label class="block">
           <div class="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             Font
-            <InfoTip text="Use a different font for just this text. 'Default' keeps the widget's global font." label="Font" />
+            <InfoTip text="Use a different font for just this text. 'Default' keeps the widget's global font." diagram="global-font" label="Font" />
           </div>
           <Select bind:value={typo!.font} options={elementFontOptions} />
         </label>
@@ -801,6 +803,7 @@
             bind:value={E.scroll.direction}
             label="Direction"
             hint="Left/right loop continuously; bounce slides to the end and back."
+            diagram="scroll-direction"
             options={[
               { value: "left", label: "Left" },
               { value: "right", label: "Right" },
@@ -808,7 +811,7 @@
             ]}
           />
           <Slider bind:value={E.scroll.speedPxPerSec} min={0} max={120} label="Speed" suffix="px/s" />
-          <Slider bind:value={E.scroll.gapPx} min={0} max={120} label="Gap" suffix="px" hint="Space between the end and start of the looping text." />
+          <Slider bind:value={E.scroll.gapPx} min={0} max={120} label="Gap" suffix="px" hint="Space between the end and start of the looping text." diagram="scroll-gap" />
         {/if}
       </Collapsible>
 
@@ -825,8 +828,8 @@
         </Collapsible>
       {/if}
     {:else if isArt}
-      <Collapsible title="Album art" icon="image" bind:open={open.style} hint="How the cover itself looks, plus what shows when there isn't one.">
-        <Slider bind:value={E.radius} min={0} max={100} label="Corner radius" suffix="px" hint="Round the album art's corners. Max makes it a circle." />
+      <Collapsible title="Album art" icon="image" bind:open={open.style} hint="How the cover itself looks, plus what shows when there isn't one." diagram="fallback-art">
+        <Slider bind:value={E.radius} min={0} max={100} label="Corner radius" suffix="px" hint="Round the album art's corners. Max makes it a circle." diagram="radius" />
 
         <!-- One cover, one fallback: every art instance shows the same image, so the
              fallback URL stays on the first one instead of being asked for twice. -->
@@ -835,7 +838,7 @@
           {@render header(
             "Fallback image",
             "Your own image, shown whenever the real cover isn't available: a song with no artwork, a broken cover link, or nothing playing yet. Paste a direct link to an image file and it gets checked right here. Leave it empty and the art just disappears like before. Heads up: whatever you paste has to stay online, since the widget loads it fresh every time.",
-            "fallback",
+            "fallback-art",
           )}
           <input
             class={inputCls}
@@ -881,12 +884,12 @@
             diagram="fallback"
           />
         {/if}
-        <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" />
+        <Slider bind:value={E.radius} min={0} max={30} label="Corner radius" suffix="px" hint="Round the bar's ends. Max gives it fully rounded caps." diagram="radius" />
         <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" hint="Fades the whole bar, track and fill together." />
       </Collapsible>
     {:else if isPause}
       <Collapsible title="Pause symbol" icon="pause" bind:open={open.style} hint={LASTFM_PAUSE_HINT}>
-        <Segmented bind:value={cfg.fields.pausedMode!} options={PAUSED_OPTIONS} label="When paused" hint="The same switch as When paused in the widget settings." />
+        <Segmented bind:value={cfg.fields.pausedMode!} options={PAUSED_OPTIONS} label="When paused" hint="The same switch as When paused in the widget settings." diagram="paused-mode" />
         {#if pauseHidden}
           <p class="text-[11px] leading-snug text-muted-foreground">
             The whole widget hides while paused, so this symbol never shows. Pick <b>Show paused</b> to use it.
@@ -915,6 +918,7 @@
         icon="square"
         bind:open={open.style}
         hint="What fills this box: nothing, a solid color, the accent color, or a blurred album cover."
+        diagram="fill-modes"
       >
         <Segmented
           bind:value={E.fill}
@@ -939,7 +943,7 @@
         {:else if E.fill === "art"}
           <Slider bind:value={E.fillOpacity} min={0} max={100} label="Opacity" suffix="%" diagram="fill-art" hint="A blurred album cover, scaled to the widget width, fills the background. This fades it toward whatever is BEHIND the widget, so use Tint below to darken it instead." />
         {/if}
-        <Slider bind:value={E.radius} min={0} max={64} label="Corner radius" suffix="px" />
+        <Slider bind:value={E.radius} min={0} max={64} label="Corner radius" suffix="px" hint="Round the box's corners." diagram="radius" />
       </Collapsible>
 
       {#if E.fill !== "none"}
@@ -949,6 +953,7 @@
           bind:open={open.tint}
           badge={tint!.opacity ? `${tint!.opacity}%` : undefined}
           hint="A flat color laid over the background but under everything else. Use this to darken a blurred album cover until the text on top of it reads. The fill's own Opacity won't do that job, since it fades the cover toward whatever sits behind the widget, which on a stream is your game."
+          diagram="tint"
         >
           <Slider bind:value={tint!.opacity} min={0} max={100} label="Strength" suffix="%" />
           {#if E.tint}
@@ -966,6 +971,7 @@
         bind:open={open.outline}
         badge={E.stroke.enabled ? "on" : undefined}
         hint="A stroke around this element. Handy for keeping text readable on top of busy backgrounds like a game."
+        diagram="outline"
       >
         <Toggle bind:checked={E.stroke.enabled} label="Enable" />
         {#if E.stroke.enabled}
@@ -980,6 +986,7 @@
                 { value: "inside", label: "Inside" },
               ]}
               hint="Which side of the edge the outline sits on. Outside keeps the shape intact, inside eats into it."
+              diagram="stroke-align"
             />
           {/if}
           <Slider bind:value={E.stroke.opacity} min={0} max={100} label="Opacity" suffix="%" />
@@ -1005,11 +1012,11 @@
     >
       <Toggle bind:checked={E.shadow.enabled} label="Enable" />
       {#if E.shadow.enabled}
-        <Slider bind:value={E.shadow.blur} min={0} max={40} label="Blur" suffix="px" hint="How soft and spread-out the shadow is. 0 = a hard edge." />
+        <Slider bind:value={E.shadow.blur} min={0} max={40} label="Blur" suffix="px" hint="How soft and spread-out the shadow is. 0 = a hard edge." diagram="shadow-blur" />
         <Slider bind:value={E.shadow.intensity} min={0} max={100} label="Intensity" suffix="%" hint="Shadow opacity." />
         <Slider bind:value={E.shadow.offsetX} min={-20} max={20} label="Offset X" suffix="px" diagram="shadow-offset" hint="Nudge the shadow horizontally." />
-        <Slider bind:value={E.shadow.offsetY} min={-20} max={20} label="Offset Y" suffix="px" hint="Nudge the shadow vertically." />
-        <Toggle bind:checked={E.shadow.useOppositeColor} label="Auto contrast color" hint="Pick a shadow color opposite the element's color, for contrast." />
+        <Slider bind:value={E.shadow.offsetY} min={-20} max={20} label="Offset Y" suffix="px" diagram="shadow-offset" hint="Nudge the shadow vertically." />
+        <Toggle bind:checked={E.shadow.useOppositeColor} label="Auto contrast color" hint="Pick a shadow color opposite the element's color, for contrast." diagram="shadow-contrast" />
         {#if !E.shadow.useOppositeColor}
           <ColorInput bind:value={E.shadow.customColor!} label="Shadow color" />
         {/if}

@@ -456,6 +456,7 @@
       <span class="relative -top-px flex items-center gap-1">
         <InfoTip
           text="Need two of something? Hit + to copy an element. You get up to {MAX_PER_KIND} of each, and every copy has its own position, color, size and font. Handy for a second background you can set to black and fade, so a blurred cover stops washing out your text."
+          diagram="duplicate"
           label="Elements"
         />
         <InfoTip
