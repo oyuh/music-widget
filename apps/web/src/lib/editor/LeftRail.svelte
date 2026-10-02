@@ -24,8 +24,12 @@
     editor: EditorState;
     /** A real track is coming in for the current username. */
     hasLive?: boolean;
+    /** The right sidebar is showing the whole-widget settings right now. */
+    widgetSettingsOpen: boolean;
+    /** Show the whole-widget settings, opening the right sidebar if it's hidden. */
+    onwidgetsettings: () => void;
   }
-  let { editor, hasLive = false }: Props = $props();
+  let { editor, hasLive = false, widgetSettingsOpen, onwidgetsettings }: Props = $props();
 
   let setupOpen = $state(false);
 
@@ -568,9 +572,9 @@
     <!-- Nothing selected is where the whole-widget settings live. -->
     <button
       type="button"
-      onclick={() => editor.select(null)}
-      aria-pressed={editor.selected === null}
-      class="mt-1 flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {editor.selected === null
+      onclick={onwidgetsettings}
+      aria-pressed={widgetSettingsOpen}
+      class="mt-1 flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {widgetSettingsOpen
         ? 'border-primary bg-primary text-primary-foreground'
         : 'border-border hover:bg-muted'}"
     >
