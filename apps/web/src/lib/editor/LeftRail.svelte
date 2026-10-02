@@ -77,8 +77,8 @@
   const rowDel =
     "flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-red-400";
 
-  // The pause symbol only renders in "Show paused" mode, so dim + disable its row
-  // when the widget is set to hide entirely while paused (nothing to style there).
+  // The pause symbol only renders in "Show paused" mode. Its row stays clickable
+  // (its panel has the switch to turn that mode back on) but gets the hidden eye.
   const pauseInactive = $derived((editor.config.fields.pausedMode ?? "label") !== "label");
 
   // ---- layer order ----
@@ -479,21 +479,27 @@
           {/if}
           <button
             type="button"
-            disabled={inactive}
-            use:tip={inactive
-              ? "Hidden right now: the widget is set to hide entirely while paused. Switch to 'Show paused' in the Background settings at the bottom to use it."
-              : ""}
             onclick={() => editor.select(id)}
             onkeydown={(e) => onLayerKey(e, id)}
             class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors {editor.selected ===
             id
               ? 'bg-primary text-primary-foreground'
-              : 'hover:bg-muted'} {inactive ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : ''}"
+              : 'hover:bg-muted'}"
           >
             <span class="w-4 shrink-0 text-center opacity-70">{kind.icon}</span>
             <span class="truncate">{labelFor(id)}</span>
-            {#if !editor.el(id).visible && id !== "background"}
-              <span class="ml-auto shrink-0 text-[10px] opacity-60">hidden</span>
+            {#if inactive || (!editor.el(id).visible && id !== "background")}
+              <span
+                class="ml-auto shrink-0 opacity-60"
+                use:tip={inactive
+                  ? "Never shows right now: the whole widget hides while paused. Open it and pick Show paused to use it."
+                  : "Hidden. Turn Visible back on in its settings."}
+              >
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="hidden">
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+                  {@html ICONS.eyeOff}
+                </svg>
+              </span>
             {/if}
           </button>
 
@@ -531,7 +537,7 @@
           {#if isBaseId(id)}
             <button
               type="button"
-              disabled={inactive || !editor.canAdd(kind.id)}
+              disabled={!editor.canAdd(kind.id)}
               onclick={() => editor.duplicate(id)}
               use:tip={editor.canAdd(kind.id)
                 ? `Add another ${kind.label.toLowerCase()} (copies this one)`
