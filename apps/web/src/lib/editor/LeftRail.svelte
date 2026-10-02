@@ -555,6 +555,21 @@
           </div>
       {/each}
     </div>
+    <!-- Nothing selected is where the whole-widget settings live. -->
+    <button
+      type="button"
+      onclick={() => editor.select(null)}
+      aria-pressed={editor.selected === null}
+      class="mt-1 flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {editor.selected === null
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border hover:bg-muted'}"
+    >
+      <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+        {@html ICONS.sliders}
+      </svg>
+      Widget settings
+    </button>
   </section>
 
   <!-- Sidebar footer -->

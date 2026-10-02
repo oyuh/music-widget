@@ -57,6 +57,8 @@ export const ICONS: Record<string, string> = {
   layers: `<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>`,
   chevronUp: `<path d="m6 15 6-6 6 6"/>`,
   chevronDown: `<path d="m6 9 6 6 6-6"/>`,
+  // Widget settings.
+  sliders: `<path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/>`,
   code: `<path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/>`,
   // Wiki chrome.
   menu: `<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>`,
