@@ -312,6 +312,11 @@
     }
   }
 
+  const PAUSED_OPTIONS: { value: "label" | "transparent"; label: string; icon: string }[] = [
+    { value: "label", label: "Show paused", icon: "pause" },
+    { value: "transparent", label: "Hide widget", icon: "eyeOff" },
+  ];
+  const pauseHidden = $derived((cfg.fields.pausedMode ?? "label") !== "label");
   // "3 of 8", counting from the front. The frame isn't in layerOrder: it's always last.
   const layerBadge = $derived.by(() => {
     const total = editor.layerOrder.length + 1;
@@ -377,14 +382,8 @@
   </Collapsible>
 
   <Collapsible title="When paused" icon="pause" bind:open={open.paused} hint={LASTFM_PAUSE_HINT}>
-    <Segmented
-      bind:value={cfg.fields.pausedMode!}
-      options={[
-        { value: "label", label: "Show paused" },
-        { value: "transparent", label: "Hide widget" },
-      ]}
-    />
-    {#if (cfg.fields.pausedMode ?? "label") === "label"}
+    <Segmented bind:value={cfg.fields.pausedMode!} options={PAUSED_OPTIONS} />
+    {#if !pauseHidden}
       <p class="text-[11px] leading-snug text-muted-foreground">
         Select the <b>Pause symbol</b> element to change its color, size and position. The widget keeps
         showing the last song you actually played.
@@ -887,6 +886,12 @@
       </Collapsible>
     {:else if isPause}
       <Collapsible title="Pause symbol" icon="pause" bind:open={open.style} hint={LASTFM_PAUSE_HINT}>
+        <Segmented bind:value={cfg.fields.pausedMode!} options={PAUSED_OPTIONS} label="When paused" hint="The same switch as When paused in the widget settings." />
+        {#if pauseHidden}
+          <p class="text-[11px] leading-snug text-muted-foreground">
+            The whole widget hides while paused, so this symbol never shows. Pick <b>Show paused</b> to use it.
+          </p>
+        {/if}
         <ColorInput bind:value={E.color} label="Color" allowAccent hint="The pause bars' color. 'auto' follows the accent / album-art color." diagram="auto-color" />
         {#if E.color === "accent"}
           <ColorInput

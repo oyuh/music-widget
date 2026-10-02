@@ -1,8 +1,10 @@
 <script lang="ts" generics="T extends string">
   import InfoTip from "./InfoTip.svelte";
+  import { ICONS } from "./icons";
   interface Props {
     value?: T;
-    options: { value: T; label: string }[];
+    /** `icon` is an optional key into icons.ts, drawn before the label. */
+    options: { value: T; label: string; icon?: string }[];
     label?: string;
     hint?: string;
     diagram?: string;
@@ -22,10 +24,14 @@
       <button
         type="button"
         onclick={() => (value = o.value)}
-        class="flex-1 px-2 py-1 text-xs transition-colors {value === o.value
+        class="flex flex-1 items-center justify-center gap-1.5 px-2 py-1 text-xs transition-colors {o.icon ? 'min-h-9' : ''} {value === o.value
           ? 'bg-primary text-primary-foreground'
           : 'hover:bg-muted'}"
       >
+        {#if o.icon && ICONS[o.icon]}
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- static, authored markup -->
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS[o.icon]}</svg>
+        {/if}
         {o.label}
       </button>
     {/each}
