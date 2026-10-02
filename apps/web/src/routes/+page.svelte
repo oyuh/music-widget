@@ -303,7 +303,15 @@
               <path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" />
             </svg>
           </button>
-          <LeftRail {editor} {hasLive} />
+          <LeftRail
+            {editor}
+            {hasLive}
+            widgetSettingsOpen={rightOpen && !editor.selected}
+            onwidgetsettings={() => {
+              editor.select(null);
+              setPanelOpen("right", true);
+            }}
+          />
         </div>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
