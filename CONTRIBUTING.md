@@ -8,11 +8,11 @@ For anything larger than a bug fix or a small tweak, open an issue first so we c
 
 ## Setup
 
-You need [Bun](https://bun.sh) 1.3.x or newer. Docker is optional (local Redis + Postgres); both services fail open, so the app runs fine without them.
+You need [Bun](https://bun.sh) 1.3.x or newer. Docker is optional (local Postgres); it fails open, so the app runs fine without it.
 
 ```bash
 bun install
-bun run services:up   # Redis + Postgres in Docker (optional)
+bun run services:up   # Postgres in Docker (optional)
 bun run dev           # Vite UI on :5173, Hono API on :8787
 ```
 

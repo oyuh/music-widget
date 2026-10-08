@@ -8,7 +8,7 @@
 
 A Last.fm now-playing overlay for OBS, Streamlabs, and XSplit. You lay it out in a drag-and-drop editor, the editor hands you a URL, you paste that URL into a browser source. The whole design lives in the URL, so there are no accounts and nothing is stored server-side.
 
-Under the hood: a Bun workspace holding a SvelteKit editor and widget SPA, a Hono API, and a Redis + Postgres dev stack.
+Under the hood: a Bun workspace holding a SvelteKit editor and widget SPA, a Hono API, and a Postgres dev stack.
 
 - Live app: [fast.jamlog.lol](https://fast.jamlog.lol)
 - User docs: [the wiki](https://fast.jamlog.lol/wiki), source in [`wiki/`](wiki/)
@@ -160,11 +160,11 @@ Private profiles need a signed call, and signing needs the shared secret, which 
 .
 ├── apps/
 │   ├── web/                # SvelteKit SPA: editor (/), widget (/w), callback, legal pages
-│   └── server/             # Bun + Hono API; serves the built SPA, talks to Redis + Postgres
+│   └── server/             # Bun + Hono API; serves the built SPA, talks to Postgres
 ├── scripts/                # cron cleanup, preset generation
 ├── tests/                  # unit tests
 ├── wiki/                   # source for the on-site wiki
-├── docker-compose.dev.yml  # local Redis + Postgres
+├── docker-compose.dev.yml  # local Postgres
 ├── Dockerfile              # production image: builds the SPA, starts Hono
 ├── railway.json            # Railway deployment config
 ├── drizzle.config.ts       # Drizzle Kit migration config
@@ -173,7 +173,7 @@ Private profiles need a signed call, and signing needs the shared secret, which 
 
 ## Architecture
 
-One container serves both halves. Redis and Postgres are optional and fail open.
+One container serves both halves. Postgres is optional and fails open.
 
 ```mermaid
 flowchart LR
@@ -181,7 +181,6 @@ flowchart LR
     H["Hono on Bun<br/>serves /api and the SPA"]
   end
   B["Browser"] --> H
-  H -.->|"cache and rate limit"| R[("Redis")]
   H -.->|"visitors, contacts, feedback"| P[("Postgres")]
   H -.->|"fallback path only"| L["Last.fm API"]
 ```
@@ -202,7 +201,7 @@ A SvelteKit SPA on `adapter-static` (client-side rendering only), Svelte 5 runes
 
 ### Server app: `apps/server`
 
-A Hono service on Bun. In production it serves the static build and the API on one port; in dev, Vite serves the UI and proxies `/api` to it. Redis (`Bun.redis`) caches the proxied Last.fm paths and backs rate limiting. Postgres (Drizzle on `drizzle-orm/bun-sql`) stores the visitor log, contacts, and feedback.
+A Hono service on Bun. In production it serves the static build and the API on one port; in dev, Vite serves the UI and proxies `/api` to it. The proxy cache and rate-limit counters live in process memory. Postgres (Drizzle on `drizzle-orm/bun-sql`) stores the visitor log, contacts, and feedback.
 
 | File | Does |
 |------|------|
@@ -217,11 +216,11 @@ Both background counters hold their value in memory and keep the last good numbe
 
 ## Local development
 
-You need Bun 1.3 or newer. Docker is optional; without it you lose caching, rate limiting, and logging, and nothing else changes.
+You need Bun 1.3 or newer. Docker is optional; without it you lose the visitor log, contacts, and feedback, and nothing else changes.
 
 ```bash
 bun install
-bun run services:up   # Redis + Postgres in Docker, optional
+bun run services:up   # Postgres in Docker, optional
 bun run dev           # Vite UI on :5173, Hono API on :8787
 ```
 
@@ -234,7 +233,6 @@ Vite reads the repo root as its env directory, so both files live there.
 | Variable | Side | Purpose |
 |----------|------|---------|
 | `LFM_API_KEY` / `LFM_SHARED_SECRET` | server | Last.fm credentials; the secret signs private and proxied calls |
-| `REDIS_URL` | server | Cache and rate-limit store. Unset means neither runs |
 | `DATABASE_URL` | server | Postgres for visitors, contacts, feedback. Unset means off |
 | `CRON_SECRET` | server | Bearer token guarding `POST /api/cron/cleanup`. Unset means the route 503s |
 | `PORT` / `LOG_LEVEL` | server | Bind port, log verbosity |
@@ -253,7 +251,7 @@ Run these from the repository root.
 | `bun run build` | Build the SvelteKit SPA |
 | `bun run typecheck` | Typecheck both workspaces |
 | `bun test` | Unit tests |
-| `bun run services:up` / `services:down` | Local Redis + Postgres |
+| `bun run services:up` / `services:down` | Local Postgres |
 | `bun run db:generate` | Generate Drizzle migrations from the schema |
 | `bun run db:migrate` | Apply migrations |
 | `bun run cron:cleanup` | Run visitor-log housekeeping by hand |
@@ -267,7 +265,7 @@ Everything lives under `/api`. The Last.fm proxy routes exist as the fallback; t
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/ping` | Liveness. Always 200 while the process is up |
-| `GET /api/health` | Redis status, plus informational Postgres status. 503 if Redis is configured but down |
+| `GET /api/health` | Informational Postgres status. Always 200 while the process is up |
 | `GET /api/usage` | The caller's own rate-limit counter. Reads without incrementing, exempt from the limiter |
 | `GET /api/lastfm/recent`, `/trackInfo` | Signed and cached proxy, used when a direct call fails |
 | `GET /api/lastfm/sign-recent` | Signs a private-profile recent-tracks URL once |
@@ -285,8 +283,8 @@ Everything lives under `/api`. The Last.fm proxy routes exist as the fallback; t
 
 The `Dockerfile` builds the SPA and starts Hono, which serves both.
 
-1. Point Railway at the repo and add the Redis and Postgres plugins.
-2. Set `LFM_API_KEY`, `LFM_SHARED_SECRET`, `REDIS_URL=${{Redis.REDIS_URL}}`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, plus build-time `VITE_LFM_KEY` and `VITE_LFM_CALLBACK=https://your-domain/callback`.
+1. Point Railway at the repo and add the Postgres plugin.
+2. Set `LFM_API_KEY`, `LFM_SHARED_SECRET`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, plus build-time `VITE_LFM_KEY` and `VITE_LFM_CALLBACK=https://your-domain/callback`.
 3. Deploy. Migrations run on the server's first write, so there is no manual step.
 
 After editing [`schema.ts`](apps/server/src/schema.ts), run `bun run db:generate` and commit the file under `apps/server/drizzle/`. To apply by hand, point `DATABASE_URL` at the target and run `bun run db:migrate`.
@@ -296,9 +294,8 @@ After editing [`schema.ts`](apps/server/src/schema.ts), run `bun run db:generate
 | Concern | Behavior |
 |---------|----------|
 | Proxy cache | Recent tracks 1s, track info 24h |
-| Rate limit | 60 requests per 10s per IP. Normal polling goes to Last.fm, not here, so only abusive bursts trip it. Fails open when Redis is down |
+| Rate limit | 60 requests per 10s per IP. Normal polling goes to Last.fm, not here, so only abusive bursts trip it. Counters are per process and reset on restart |
 | Image proxy | Allowlisted to Last.fm, Spotify, Apple, YouTube, Instagram, and Pinterest CDNs, so it cannot become an SSRF proxy |
-| Redis down | No cache, no rate limiting, widget keeps serving |
 | Postgres down | No visitor log, contacts, or feedback; the user count hides itself |
 
 ## Known constraints

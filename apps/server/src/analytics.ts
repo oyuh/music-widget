@@ -84,7 +84,7 @@ export const handleWidgetLog = async (c: Context<AppEnv>) => {
 
   // Dedicated, tighter limit for this endpoint (on top of the global /api one).
   // Silently drop when exceeded; the client never sees an error.
-  if (!(await rateLimit("log", clientIp(c), 30, 60))) return noContent;
+  if (!rateLimit("log", clientIp(c), 30, 60)) return noContent;
 
   let body: unknown;
   try {
@@ -147,7 +147,7 @@ export const handleCronCleanup = async (c: Context<AppEnv>) => {
 export const handleContact = async (c: Context<AppEnv>) => {
   if (!dbEnabled()) return json({ ok: false, error: "Contact storage is not configured." }, { status: 503 });
 
-  if (!(await rateLimit("contact", clientIp(c), 5, 600))) {
+  if (!rateLimit("contact", clientIp(c), 5, 600)) {
     return json({ ok: false, error: "Too many submissions. Try again later." }, { status: 429 });
   }
 
@@ -208,7 +208,7 @@ export function buildFeedback(body: unknown, meta: Meta): FeedbackInput {
 export const handleFeedback = async (c: Context<AppEnv>) => {
   if (!dbEnabled()) return json({ ok: false, error: "Feedback storage is not configured." }, { status: 503 });
 
-  if (!(await rateLimit("feedback", clientIp(c), 5, 600))) {
+  if (!rateLimit("feedback", clientIp(c), 5, 600)) {
     return json({ ok: false, error: "Too many submissions. Try again later." }, { status: 429 });
   }
 

@@ -1,6 +1,4 @@
-import { redisGet, redisSetEx } from "./redis";
 import { jsonText } from "./util";
-import { log } from "./log";
 
 export type UpstreamJson = {
   body: string;
@@ -47,51 +45,17 @@ function setL1(key: string, ttlSeconds: number, body: string) {
   }
 }
 
-async function getCachedJson(cacheKey: string, ttlSeconds: number, reqId: string) {
-  const l1 = getL1(cacheKey);
-  if (l1) return { body: l1, cache: "L1" as const };
-
-  try {
-    const body = await redisGet(cacheKey);
-    if (!body) return null;
-    setL1(cacheKey, ttlSeconds, body);
-    return { body, cache: "REDIS" as const };
-  } catch (error) {
-    log("warn", "cache.redis_get_failed", {
-      requestId: reqId,
-      cacheKey,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
-}
-
-function cacheJson(cacheKey: string, ttlSeconds: number, body: string, reqId: string) {
-  setL1(cacheKey, ttlSeconds, body);
-
-  // Fire-and-forget the Redis write so it never adds latency to the response,
-  // mirroring the Worker's ctx.waitUntil behavior.
-  void redisSetEx(cacheKey, ttlSeconds, body).catch((error) => {
-    log("warn", "cache.redis_set_failed", {
-      requestId: reqId,
-      cacheKey,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-}
-
 export async function withJsonCache(args: {
-  requestId: string;
   cacheKey: string;
   ttlSeconds: number;
   cacheControl: string;
   fetcher: () => Promise<UpstreamJson>;
 }): Promise<Response> {
-  const cached = await getCachedJson(args.cacheKey, args.ttlSeconds, args.requestId);
+  const cached = getL1(args.cacheKey);
   if (cached) {
-    return jsonText(cached.body, 200, {
+    return jsonText(cached, 200, {
       "Cache-Control": args.cacheControl,
-      "X-Cache": cached.cache,
+      "X-Cache": "L1",
     });
   }
 
@@ -108,7 +72,7 @@ export async function withJsonCache(args: {
   const result = await promise;
 
   if (result.cacheable) {
-    cacheJson(args.cacheKey, args.ttlSeconds, result.body, args.requestId);
+    setL1(args.cacheKey, args.ttlSeconds, result.body);
   }
 
   return jsonText(result.body, result.status, {

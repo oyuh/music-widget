@@ -6,7 +6,7 @@ import { contacts, feedback, widgetVisitors } from "./schema";
 import { log } from "./log";
 
 // Postgres via Drizzle ORM (on Bun's native SQL client). Backs the optional
-// widget usage log + contact emails. Modeled on redis.ts: FAILS OPEN; a missing
+// widget usage log + contact emails. FAILS OPEN; a missing
 // or unreachable database is logged and ignored, never blocking a request.
 
 const DB_TIMEOUT_MS = 4000;

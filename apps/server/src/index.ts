@@ -7,7 +7,6 @@ import { handleProxyImage, handleRecent, handleSession, handleSignRecent, handle
 import { handleContact, handleCronCleanup, handleFeedback, handleWidgetLog } from "./analytics";
 import { handleSiteStats, startStatsRefresh } from "./stats";
 import { handleGithubStars, startGithubStarsRefresh } from "./github";
-import { redisEnabled, redisPing } from "./redis";
 import { dbEnabled, dbPing } from "./db";
 import { clientIp, rateLimitOk, rateLimitUsage } from "./security";
 import { json, xmlEscape } from "./util";
@@ -51,7 +50,7 @@ app.use("/api/*", async (c, next) => {
   const exempt =
     c.req.method === "OPTIONS" || path === "/api/ping" || path === "/api/health" || path === "/api/usage";
   if (!exempt) {
-    const limit = await rateLimitOk(clientIp(c), reqId);
+    const limit = rateLimitOk(clientIp(c), reqId);
     if (!limit.ok) {
       c.res = json(
         { error: "Too many requests, slow down for a moment." },
@@ -89,7 +88,7 @@ app.onError((error, c) => {
 app.options("/api/*", () => new Response(null, { status: 204 }));
 
 // Liveness probe: always 200 while the process is up (used by Railway's
-// healthcheck). /api/health additionally reports Redis status and may 503.
+// healthcheck). /api/health additionally reports Postgres status.
 app.get("/api/ping", () => json({ ok: true }));
 
 app.get("/api/health", async () => {
@@ -103,29 +102,13 @@ app.get("/api/health", async () => {
       db = "error";
     }
   }
-
-  if (!redisEnabled()) return json({ ok: true, redis: "disabled", db });
-
-  try {
-    const ok = await redisPing();
-    return json({ ok: true, redis: ok ? "connected" : "unhealthy", db }, { status: ok ? 200 : 503 });
-  } catch (error) {
-    return json(
-      {
-        ok: false,
-        redis: "error",
-        db,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 503 },
-    );
-  }
+  return json({ ok: true, db });
 });
 
 // The caller's own rate-limit usage (reads the counter, never increments it,
 // and is exempt from the limiter so checking usage can't consume usage).
-app.get("/api/usage", async (c) =>
-  json(await rateLimitUsage(clientIp(c)), { headers: { "Cache-Control": "no-store" } }),
+app.get("/api/usage", (c) =>
+  json(rateLimitUsage(clientIp(c)), { headers: { "Cache-Control": "no-store" } }),
 );
 
 app.get("/api/lastfm/recent", handleRecent);
@@ -323,7 +306,6 @@ startGithubStarsRefresh();
 
 log("info", "server.start", {
   port,
-  redis: redisEnabled() ? "configured" : "disabled",
   db: dbEnabled() ? "configured" : "disabled",
   webDir: WEB_DIR,
 });

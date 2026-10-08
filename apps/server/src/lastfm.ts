@@ -121,7 +121,6 @@ export const handleRecent: Handler = async (c) => {
   const cacheKey = `recent:${encodeURIComponent(user)}:${encodeURIComponent(limit)}:${authKey}`;
 
   return withJsonCache({
-    requestId: reqId,
     cacheKey,
     ttlSeconds: RECENT_TTL_SECONDS,
     cacheControl: "public, max-age=1, s-maxage=1, stale-while-revalidate=30",
@@ -219,7 +218,6 @@ export const handleTrackInfo: Handler = async (c) => {
   const cacheKey = `info:${sha256(`${artist}\0${track}`).slice(0, 40)}`;
 
   return withJsonCache({
-    requestId: reqId,
     cacheKey,
     ttlSeconds: TRACK_INFO_TTL_SECONDS,
     cacheControl: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",

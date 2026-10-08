@@ -1,13 +1,11 @@
 import { test, expect, describe } from "bun:test";
 import { withJsonCache, type UpstreamJson } from "../apps/server/src/cache";
 
-// No REDIS_URL in the test env, so these exercise the L1 + coalescing paths
-// (Redis is skipped / fails open).
 function freshKey() {
   return "test:" + Math.random().toString(36).slice(2);
 }
 function call(cacheKey: string, fetcher: () => Promise<UpstreamJson>) {
-  return withJsonCache({ requestId: "t", cacheKey, ttlSeconds: 60, cacheControl: "no-store", fetcher });
+  return withJsonCache({ cacheKey, ttlSeconds: 60, cacheControl: "no-store", fetcher });
 }
 
 describe("withJsonCache", () => {
