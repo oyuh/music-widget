@@ -12,6 +12,8 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
         "bg": "#000000CC",
         "accent": "#1db954",
         "autoFromArt": true,
+        "accentNormalize": true,
+        "accentBrightness": 58,
         "autoTargets": {
           "title": false,
           "artist": true,
@@ -197,11 +199,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": null,
             "snapY": null
@@ -229,11 +239,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": null,
             "snapY": null
@@ -260,11 +278,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "art",
@@ -297,11 +323,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "title",
@@ -339,11 +373,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": null,
             "snapY": null,
@@ -371,11 +413,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "radius": 4,
             "snapX": null,
@@ -403,11 +453,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": null,
             "snapY": null,
@@ -436,11 +494,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": {
               "to": "art",
@@ -476,6 +542,8 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
         "bg": "#797777",
         "accent": "#ffffff",
         "autoFromArt": true,
+        "accentNormalize": true,
+        "accentBrightness": 58,
         "autoTargets": {
           "title": false,
           "artist": true,
@@ -491,7 +559,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
           "duration": "accent"
         },
         "textSize": {
-          "title": 47,
+          "title": 36,
           "artist": 22,
           "album": 17,
           "meta": 12,
@@ -582,7 +650,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
         "bgEnabled": true
       },
       "layout": {
-        "w": 310,
+        "w": 518,
         "h": 130,
         "showArt": true,
         "align": "left",
@@ -650,7 +718,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "color": "#797777",
             "fallbackColor": "#1db954",
             "fill": "art",
-            "fillOpacity": 22,
+            "fillOpacity": 100,
             "anchor": "left",
             "radius": 25,
             "shadow": {
@@ -663,14 +731,26 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": true,
+              "width": 1,
+              "align": "inside",
+              "opacity": 12,
+              "color": "#ffffff"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": null,
-            "snapY": null
+            "snapY": null,
+            "tint": {
+              "color": "#000000",
+              "opacity": 50
+            }
           },
           "art": {
             "visible": true,
@@ -686,20 +766,28 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "radius": 18,
             "shadow": {
-              "enabled": false,
-              "blur": 4,
-              "intensity": 50,
-              "offsetX": 2,
-              "offsetY": 2,
-              "useOppositeColor": true,
+              "enabled": true,
+              "blur": 16,
+              "intensity": 40,
+              "offsetX": 0,
+              "offsetY": 4,
+              "useOppositeColor": false,
               "customColor": "#000000",
               "escape": false
+            },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
             },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": null,
             "snapY": null
@@ -709,7 +797,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "x": 122,
             "y": 0,
             "w": 372,
-            "h": 60,
+            "h": 46,
             "z": 2,
             "color": "#ffffff",
             "fallbackColor": "#1db954",
@@ -718,19 +806,27 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "shadow": {
               "enabled": true,
-              "blur": 4,
-              "intensity": 50,
-              "offsetX": 2,
-              "offsetY": 2,
-              "useOppositeColor": true,
+              "blur": 8,
+              "intensity": 35,
+              "offsetX": 0,
+              "offsetY": 1,
+              "useOppositeColor": false,
               "customColor": "#000000",
               "escape": false
+            },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
             },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "art",
@@ -760,19 +856,27 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "shadow": {
               "enabled": true,
-              "blur": 4,
-              "intensity": 50,
-              "offsetX": 2,
-              "offsetY": 2,
-              "useOppositeColor": true,
+              "blur": 8,
+              "intensity": 35,
+              "offsetX": 0,
+              "offsetY": 1,
+              "useOppositeColor": false,
               "customColor": "#000000",
               "escape": false
+            },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
             },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "title",
@@ -787,7 +891,7 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "visible": true,
             "x": 132,
             "y": 94,
-            "w": 382,
+            "w": 330,
             "h": 23,
             "z": 4,
             "color": "#cfcfcf",
@@ -797,19 +901,27 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "shadow": {
               "enabled": true,
-              "blur": 4,
-              "intensity": 50,
-              "offsetX": 2,
-              "offsetY": 2,
-              "useOppositeColor": true,
+              "blur": 8,
+              "intensity": 35,
+              "offsetX": 0,
+              "offsetY": 1,
+              "useOppositeColor": false,
               "customColor": "#000000",
               "escape": false
+            },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
             },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "title",
@@ -827,10 +939,10 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "w": 517,
             "h": 129,
             "z": 0,
-            "color": "#000000",
+            "color": "accent",
             "fallbackColor": "#1db954",
             "fill": "color",
-            "fillOpacity": 20,
+            "fillOpacity": 30,
             "anchor": "left",
             "shadow": {
               "enabled": false,
@@ -842,11 +954,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "radius": 21,
             "snapX": null,
@@ -866,19 +986,27 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
             "anchor": "left",
             "shadow": {
               "enabled": true,
-              "blur": 4,
-              "intensity": 50,
-              "offsetX": 2,
-              "offsetY": 2,
-              "useOppositeColor": true,
+              "blur": 8,
+              "intensity": 35,
+              "offsetX": 0,
+              "offsetY": 1,
+              "useOppositeColor": false,
               "customColor": "#000000",
               "escape": false
+            },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
             },
             "scroll": {
               "enabled": true,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 16
             },
             "snapX": {
               "to": "progress",
@@ -917,11 +1045,19 @@ export const PRESET_DATA: { name: string; config: WidgetConfig }[] = [
               "customColor": "#000000",
               "escape": false
             },
+            "stroke": {
+              "enabled": false,
+              "width": 2,
+              "align": "outside",
+              "opacity": 100,
+              "color": "#000000"
+            },
             "scroll": {
               "enabled": false,
               "direction": "left",
               "speedPxPerSec": 24,
-              "gapPx": 32
+              "gapPx": 32,
+              "fadePx": 0
             },
             "snapX": {
               "to": "duration",

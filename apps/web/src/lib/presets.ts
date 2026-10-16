@@ -49,6 +49,15 @@ export function applyStarterDefaults(config: WidgetConfig, look: string): Widget
   // a starter look should read the same on every track.
   config.theme.accentNormalize = true;
 
+  // Default has no exported design of its own (it's `defaultConfig` migrated),
+  // so its starter settings live here instead of in preset-data.ts.
+  const elements = config.v2?.elements;
+  if (look === "Default" && elements) {
+    config.theme.autoFromArt = true;
+    elements.background.stroke = { enabled: true, width: 1, align: "inside", opacity: 10, color: "#ffffff" };
+    for (const el of Object.values(elements)) if (el.scroll.enabled) el.scroll.fadePx = 16;
+  }
+
   for (const [id, trigger, effect, overrides] of MOTION[look] ?? []) {
     const element = config.v2?.elements[id];
     if (!element) continue;
