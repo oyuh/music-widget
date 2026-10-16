@@ -55,7 +55,7 @@ The background element can also use the album art itself as a blurred fill, with
 
 Title, artist, album, and duration share one set of text controls: font, size, case, color, outline, and shadow. **Global font** changes every text element at once, and any element can override it.
 
-**Scroll when it overflows** turns long text into a marquee instead of clipping it. Left and right loop continuously; bounce runs to the end and comes back. Speed is yours to set.
+**Scroll when it overflows** turns long text into a marquee instead of clipping it. Left and right loop continuously; bounce runs to the end and comes back. Speed is yours to set. **Edge fade** softens the box edges so the text fades in and out instead of getting chopped off.
 
 ## Animation
 

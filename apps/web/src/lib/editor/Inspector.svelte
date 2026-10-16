@@ -812,6 +812,7 @@
           />
           <Slider bind:value={E.scroll.speedPxPerSec} min={0} max={120} label="Speed" suffix="px/s" />
           <Slider bind:value={E.scroll.gapPx} min={0} max={120} label="Gap" suffix="px" hint="Space between the end and start of the looping text." diagram="scroll-gap" />
+          <Slider bind:value={E.scroll.fadePx} min={0} max={64} label="Edge fade" suffix="px" hint="Fade the text out at the edges of its box instead of cutting it off. 0 is a hard cut." />
         {/if}
       </Collapsible>
 

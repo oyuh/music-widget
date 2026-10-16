@@ -503,6 +503,7 @@
       direction={el.scroll.direction}
       speedPxPerSec={el.scroll.speedPxPerSec}
       gapPx={el.scroll.gapPx}
+      fadePx={el.scroll.fadePx}
       forceClip={escape}
     />
   {:else}

@@ -8,6 +8,8 @@
     speedPxPerSec?: number;
     minWidthToScroll?: number;
     gapPx?: number;
+    /** Width in px of the soft fade at each edge while scrolling. 0 = hard cut. */
+    fadePx?: number;
     /**
      * Scroll direction. "auto" (default) derives left/right from the parent's
      * text-align (legacy behavior). v2 passes an explicit "left"/"right"/"bounce".
@@ -33,6 +35,7 @@
     speedPxPerSec = 24,
     minWidthToScroll,
     gapPx = 32,
+    fadePx = 0,
     direction = "auto",
     dataEl,
     forceClip = false,
@@ -110,6 +113,12 @@
   // text fits and we're not forcing a clip, leaving it unclipped lets a normal
   // text-shadow render fully instead of being cut off at the box edge.
   const clipScroll = $derived(animate || forceClip);
+  // Prefixed too: OBS browser sources run an older CEF that only knows -webkit-mask-image.
+  const fadeStyle = $derived.by(() => {
+    if (!animate || fadePx <= 0) return "";
+    const mask = `linear-gradient(to right,transparent,#000 ${fadePx}px,#000 calc(100% - ${fadePx}px),transparent)`;
+    return `-webkit-mask-image:${mask};mask-image:${mask};`;
+  });
   const wrapperStyle = $derived(
     [
       "display:inline-flex",
@@ -137,7 +146,7 @@
   bind:this={outer}
   data-el={dataEl}
   class="marquee {animate ? 'marquee--animate' : ''} {className}"
-  style="min-width:0;position:relative;overflow:{clipScroll ? 'hidden' : 'visible'};{style}"
+  style="min-width:0;position:relative;overflow:{clipScroll ? 'hidden' : 'visible'};{fadeStyle}{style}"
 >
   <div class="marquee__wrapper" style={wrapperStyle}>
     <span bind:this={item} class="marquee__item" style="color:{color};white-space:nowrap;display:inline-block">

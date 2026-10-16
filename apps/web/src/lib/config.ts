@@ -121,6 +121,7 @@ export type V2Scroll = {
   direction: "left" | "right" | "bounce";
   speedPxPerSec: number;
   gapPx: number;
+  fadePx?: number; // soft fade at the box edges while scrolling, 0 = hard cut
 };
 
 /** Background fill mode (background element only). */
@@ -848,7 +849,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
 
   const baseSpeed = cfg.marquee?.speedPxPerSec ?? 24;
   const baseGap = cfg.marquee?.gapPx ?? 32;
-  const noScroll = (): V2Scroll => ({ enabled: false, direction: "left", speedPxPerSec: baseSpeed, gapPx: baseGap });
+  const noScroll = (): V2Scroll => ({ enabled: false, direction: "left", speedPxPerSec: baseSpeed, gapPx: baseGap, fadePx: 0 });
   const defaultShadow = (): V2Shadow => ({
     enabled: false,
     blur: ds?.blur ?? 4,
@@ -874,6 +875,7 @@ export function migrateToV2(cfg: WidgetConfig): WidgetConfig {
     direction: L.align === "right" ? "right" : "left",
     speedPxPerSec: cfg.marquee?.perText?.[id as "title" | "artist" | "album"]?.speedPxPerSec ?? baseSpeed,
     gapPx: cfg.marquee?.perText?.[id as "title" | "artist" | "album"]?.gapPx ?? baseGap,
+    fadePx: 0,
   });
 
   const makeText = (id: V2TextId, x: number, y: number, visible: boolean, z: number): V2Element => ({
