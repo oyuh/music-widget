@@ -12,6 +12,7 @@
   import { LASTFM_TIMING_HINT, LASTFM_PAUSE_HINT } from "$lib/lastfm-hints";
   import { CSS_DOCS, CSS_MAX, CSS_SCOPE, isBaseId, kindOf, MAX_PER_KIND } from "$lib/config";
   import { countVisit, recordWidgetCopy, usernameAge } from "$lib/usage";
+  import { resolveLayout } from "$lib/v2-layout";
   import { onMount, tick } from "svelte";
 
   // Collapsible sections (collapsed by default to declutter; the Last.fm,
@@ -180,6 +181,24 @@
       "   so add !important to any rule you want to keep winning. */\n\n";
     setCss(header + rules.join("\n\n"));
   }
+
+  // OBS crops the browser source from the top-left, so it has to reach the far
+  // edge of every visible element, not just the legacy layout.w/h (which the v2
+  // editor never updates). ponytail: auto-width text counts as zero width since
+  // it changes per song; fixed-size elements and backgrounds set the size.
+  const obsSize = $derived.by(() => {
+    const v2 = editor.config.v2;
+    if (!v2) return { w: editor.config.layout.w, h: editor.config.layout.h };
+    const boxes = resolveLayout(v2, {});
+    let w = 0;
+    let h = 0;
+    for (const [id, b] of Object.entries(boxes)) {
+      if (!v2.elements[id].visible) continue;
+      w = Math.max(w, b.x + b.w);
+      h = Math.max(h, b.y + b.h);
+    }
+    return { w: Math.ceil(w), h: Math.ceil(h) };
+  });
 
   // ---- Dev tools (local dev server only; stripped from production builds) ----
   const isDev = import.meta.env.DEV;
@@ -657,8 +676,8 @@
     <M.default
       bind:open={setupOpen}
       url={shareUrl}
-      width={editor.config.layout.w}
-      height={editor.config.layout.h}
+      width={obsSize.w}
+      height={obsSize.h}
       lfmUser={editor.config.lfmUser}
     />
   {/await}
