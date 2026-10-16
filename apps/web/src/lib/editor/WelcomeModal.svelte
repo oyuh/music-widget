@@ -156,7 +156,7 @@
             bind:value={name}
             oninput={() => (needName = false)}
             onkeydown={(e) => e.key === "Enter" && finish()}
-            placeholder="username"
+            placeholder="Your Last.fm username"
             spellcheck="false"
             autofocus
             aria-invalid={needName}
