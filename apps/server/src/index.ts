@@ -188,7 +188,7 @@ function safeJoin(root: string, requestPath: string) {
 }
 
 // The build emits .br/.gz siblings for every asset (precompress in
-// svelte.config.js). Serve the smallest variant the client accepts; the
+// apps/web/vite.config.ts). Serve the smallest variant the client accepts; the
 // caller sets Content-Type from the original file since the variant's
 // extension would lie.
 const PRECOMPRESSED = [

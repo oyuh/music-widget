@@ -2,6 +2,8 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { sveltekit } from "@sveltejs/kit/vite";
+import adapter from "@sveltejs/adapter-static";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
@@ -34,7 +36,29 @@ function appVersion(): string {
 }
 
 export default defineConfig({
-  plugins: [tailwindcss(), sveltekit()],
+  plugins: [
+    tailwindcss(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+      prerender: {
+        handleMissingId: ({ path, id, message }) => {
+          // Playground links carry editable CSS in the fragment, not a heading id.
+          if (path === "/wiki/playground" && id.startsWith("css=")) return;
+          throw new Error(message);
+        },
+      },
+      // Pure SPA: Hono serves this shell for routes without prerendered HTML.
+      adapter: adapter({
+        fallback: "index.html",
+        // Hono serves the smallest encoding the client accepts.
+        precompress: true,
+        strict: false,
+      }),
+      alias: {
+        $lib: "src/lib",
+      },
+    }),
+  ],
   define: {
     __APP_COMMIT__: JSON.stringify(commitSha()),
     __APP_VERSION__: JSON.stringify(appVersion()),
