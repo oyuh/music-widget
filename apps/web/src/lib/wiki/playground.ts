@@ -1,4 +1,4 @@
-import { defaultConfig, migrateToV2, type WidgetConfig } from "$lib/config";
+import { defaultConfig, migrateToV2, type WidgetConfig } from "../config";
 
 export const recipes = [
   {
