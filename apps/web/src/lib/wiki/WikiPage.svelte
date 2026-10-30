@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import Icon from "$lib/ui/Icon.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
 
   // The chrome every wiki page shares: head tags, the title block, the
   // previous/next pair and the footer links. Markdown articles and the two
@@ -69,7 +70,7 @@
     <footer class="wiki-page-footer">
       <a class="wiki-external" href="https://github.com/oyuh/music-widget/issues/new" target="_blank" rel="noopener noreferrer">
         <Icon name="alert" class="wiki-icon" />Report a problem
-        <span aria-hidden="true">↗</span><span class="wiki-visually-hidden"> (opens in a new tab)</span>
+        <ExternalLinkMark />
       </a>
     </footer>
   </article>

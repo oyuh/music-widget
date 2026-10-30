@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { tip } from "./tooltip.svelte";
+  import ExternalLinkMark from "./ExternalLinkMark.svelte";
 
   interface Props {
     /** The definition, shown on hover. */
@@ -16,7 +17,7 @@
 </script>
 
 {#if href}
-  <a {href} target="_blank" rel="noopener noreferrer" use:tip={def} class={cls}>{@render children()}</a>
+  <a {href} target="_blank" rel="noopener noreferrer" use:tip={def} class={cls}>{@render children()}<ExternalLinkMark /></a>
 {:else}
   <span use:tip={def} class={cls}>{@render children()}</span>
 {/if}

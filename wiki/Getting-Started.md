@@ -2,6 +2,8 @@
 
 From a Last.fm username to a live overlay. The editor is desktop only, since laying out a design needs a mouse and a wide screen.
 
+Links marked ↗ open another site in a new tab.
+
 ## 1. Enter your username
 
 Open [the editor](/) and type your Last.fm username. Play a track and check that Last.fm shows it on your profile. Visible widgets wait one second between requests, plus response time. Your music app can take longer to report a track. Progress and pause detection depend on Last.fm; see [playback limits](/wiki/troubleshooting#the-progress-bar-drifts-or-looks-wrong).

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { slide } from "svelte/transition";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
   import { PRESETS } from "$lib/presets";
   import { getUsedFonts } from "$lib/config";
   import { googleFontsHrefFor } from "$lib/fonts";
@@ -183,7 +184,7 @@
                   rel="noopener noreferrer"
                   class="flex-1 rounded-md bg-primary px-2 py-1.5 text-center text-xs font-medium text-primary-foreground hover:opacity-90"
                 >
-                  Sign up for Last.fm
+                  Sign up for Last.fm<ExternalLinkMark />
                 </a>
                 <a
                   href="https://www.last.fm/about/trackmymusic"
@@ -191,7 +192,7 @@
                   rel="noopener noreferrer"
                   class="flex-1 rounded-md border border-border px-2 py-1.5 text-center text-xs hover:bg-muted"
                 >
-                  How to set up scrobbling →
+                  How to set up scrobbling<ExternalLinkMark />
                 </a>
               </div>
             </div>

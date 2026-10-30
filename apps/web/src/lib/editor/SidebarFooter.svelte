@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tip } from "$lib/ui/tooltip.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
   import { onMount } from "svelte";
   import { serviceStatus } from "$lib/status.svelte";
   import { FEEDBACK_HIDE_DAYS, feedbackRecentlySent, fetchSiteUserCount } from "$lib/usage";
@@ -91,7 +92,7 @@
     class="hover:text-foreground"
     use:tip={"View this build on GitHub"}
   >
-    v{version} · build {commit}
+    v{version} · build {commit}<ExternalLinkMark />
   </a>
 </div>
 
@@ -109,9 +110,9 @@
     <p class="leading-relaxed">
       <span class="font-medium text-foreground">Thanks for the feedback!</span>
       The form comes back in {FEEDBACK_HIDE_DAYS} days. Got more to say or hit a bug?
-      <a href="{repo}/issues/new" target="_blank" rel="noopener noreferrer" class="text-brand-400 underline-offset-4 hover:underline">Open an issue</a>
+      <a href="{repo}/issues/new" target="_blank" rel="noopener noreferrer" class="text-brand-400 underline-offset-4 hover:underline">Open an issue<ExternalLinkMark /></a>
       on
-      <a href={repo} target="_blank" rel="noopener noreferrer" class="text-brand-400 underline-offset-4 hover:underline">GitHub</a>.
+      <a href={repo} target="_blank" rel="noopener noreferrer" class="text-brand-400 underline-offset-4 hover:underline">GitHub<ExternalLinkMark /></a>.
     </p>
     <button
       type="button"

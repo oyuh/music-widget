@@ -1,6 +1,7 @@
 <script lang="ts">
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import Term from "$lib/ui/Term.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
   import WikiPage from "$lib/wiki/WikiPage.svelte";
 
   // Written against what the code does, not boilerplate: the visitor table in
@@ -153,8 +154,8 @@
           it get deleted.
         </p>
         <div class="wiki-actions">
-          <a class="wiki-button" href="https://discordapp.com/users/527167786200465418" target="_blank" rel="noopener noreferrer">Ask on Discord</a>
-          <a class="wiki-button" href="https://github.com/oyuh/music-widget/issues" target="_blank" rel="noopener noreferrer">Open a GitHub issue</a>
+          <a class="wiki-button" href="https://discordapp.com/users/527167786200465418" target="_blank" rel="noopener noreferrer">Ask on Discord<ExternalLinkMark /></a>
+          <a class="wiki-button" href="https://github.com/oyuh/music-widget/issues" target="_blank" rel="noopener noreferrer">Open a GitHub issue<ExternalLinkMark /></a>
         </div>
       </Collapsible>
     </div>

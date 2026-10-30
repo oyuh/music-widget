@@ -1,5 +1,6 @@
 <script lang="ts">
   import { submitContact, isValidEmail, type ContactResult } from "$lib/usage";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
 
   const year = new Date().getFullYear();
   const source = "https://github.com/oyuh/music-widget";
@@ -84,7 +85,7 @@
           class="group inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 font-mono-ui text-sm text-foreground transition-colors hover:bg-accent"
         >
           learn about the creator!
-          <span class="transition-transform group-hover:translate-x-0.5">→</span>
+          <ExternalLinkMark />
         </a>
       </div>
     </div>

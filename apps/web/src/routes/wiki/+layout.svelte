@@ -3,6 +3,7 @@
   import { page } from "$app/state";
   import { afterNavigate } from "$app/navigation";
   import Icon from "$lib/ui/Icon.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
   import { tip } from "$lib/ui/tooltip.svelte";
   import "./wiki.css";
 
@@ -136,7 +137,7 @@
 
     <nav class="wiki-header-nav" aria-label="Site navigation">
       <a class="wiki-button" href="https://github.com/oyuh/music-widget" target="_blank" rel="noopener noreferrer">
-        <Icon name="code" class="wiki-icon" />GitHub
+        <Icon name="code" class="wiki-icon" />GitHub<ExternalLinkMark />
       </a>
       <a class="wiki-button wiki-button-primary" href="/">
         <Icon name="layout" class="wiki-icon" />Open editor
@@ -171,7 +172,7 @@
         <nav aria-label="Support the project">
           {#each SUPPORT as link}
             <a href={link.href} target="_blank" rel="noopener noreferrer" use:tip={railCollapsed ? link.label : ""}>
-              <Icon name={link.icon} class="wiki-icon" /><span>{link.label}</span>
+              <Icon name={link.icon} class="wiki-icon" /><span>{link.label}<ExternalLinkMark /></span>
             </a>
           {/each}
         </nav>

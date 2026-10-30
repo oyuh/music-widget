@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tip } from "$lib/ui/tooltip.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
   import { ELEMENTS, freshConfig, labelFor, LayerDrag, type EditorState, type ElementId } from "$lib/editor.svelte";
   import { PRESETS } from "$lib/presets";
   import ConfirmButton from "$lib/ui/ConfirmButton.svelte";
@@ -280,7 +281,7 @@
     {#if newVisitor && !accountActive && !settled}
       <p class="text-[11px] text-muted-foreground">
         No account?
-        <a href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer" class="text-foreground underline-offset-4 hover:underline">Make one</a>.
+        <a href="https://www.last.fm/join" target="_blank" rel="noopener noreferrer" class="text-foreground underline-offset-4 hover:underline">Make one<ExternalLinkMark /></a>.
         Private profile?
         <button type="button" onclick={() => (accountOpen = true)} class="text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">Sign in</button>.
       </p>

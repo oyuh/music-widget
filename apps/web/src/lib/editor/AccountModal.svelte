@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import type { EditorState } from "$lib/editor.svelte";
   import Collapsible from "$lib/ui/Collapsible.svelte";
+  import ExternalLinkMark from "$lib/ui/ExternalLinkMark.svelte";
 
   // Everything account-ish behind the lock button: signing in so a private
   // profile's scrobbles are readable, and bringing your own Last.fm API key.
@@ -124,7 +125,7 @@
                 class="text-brand-400 underline-offset-4 hover:underline"
                 href="https://www.last.fm/api/account/create"
                 target="_blank"
-                rel="noopener noreferrer">last.fm/api/account/create</a
+                rel="noopener noreferrer">last.fm/api/account/create<ExternalLinkMark /></a
               >
               while logged in.
             </li>
